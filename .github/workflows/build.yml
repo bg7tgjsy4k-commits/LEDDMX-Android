@@ -85,8 +85,8 @@ jobs:
                   versionName "1.0"
               }
               compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_1_7
-                  targetCompatibility JavaVersion.VERSION_1_7
+                  sourceCompatibility JavaVersion.VERSION_1_8
+                  targetCompatibility JavaVersion.VERSION_1_8
               }
           }
           EOF
@@ -214,9 +214,7 @@ jobs:
                   TextView title = text("LEDDMX AI PRO", 22);
                   top.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
                   Button connect = button("SCAN");
-                  connect.setOnClickListener(new View.OnClickListener() {
-                      public void onClick(View v) { scan(); }
-                  });
+                  connect.setOnClickListener(v -> scan());
                   top.addView(connect);
                   root.addView(top);
 
@@ -236,14 +234,12 @@ jobs:
                       final String name = names[i];
                       Button b = button(name);
                       b.setTextSize(11);
-                      b.setOnClickListener(new View.OnClickListener() {
-                          public void onClick(View v) {
-                              if (name.equals("HOME")) showHome();
-                              else if (name.equals("MODES")) showModes();
-                              else if (name.equals("CUSTOM")) showCustom();
-                              else if (name.equals("AI")) showAI();
-                              else if (name.equals("SETTINGS")) showSettings();
-                          }
+                      b.setOnClickListener(v -> {
+                          if (name.equals("HOME")) showHome();
+                          else if (name.equals("MODES")) showModes();
+                          else if (name.equals("CUSTOM")) showCustom();
+                          else if (name.equals("AI")) showAI();
+                          else if (name.equals("SETTINGS")) showSettings();
                       });
                       nav.addView(b, new LinearLayout.LayoutParams(0, 60, 1));
                   }
@@ -263,27 +259,19 @@ jobs:
                   content.addView(currentMode);
 
                   Button on = button("POWER ON");
-                  on.setOnClickListener(new View.OnClickListener() {
-                      public void onClick(View v) { sendMode(currentModeNumber); }
-                  });
+                  on.setOnClickListener(v -> sendMode(currentModeNumber));
                   content.addView(on);
 
                   Button off = button("POWER OFF");
-                  off.setOnClickListener(new View.OnClickListener() {
-                      public void onClick(View v) { sendOff(); }
-                  });
+                  off.setOnClickListener(v -> sendOff());
                   content.addView(off);
 
                   Button custom = button("OPEN CUSTOM / DIY STUDIO");
-                  custom.setOnClickListener(new View.OnClickListener() {
-                      public void onClick(View v) { showCustom(); }
-                  });
+                  custom.setOnClickListener(v -> showCustom());
                   content.addView(custom);
 
                   Button ai = button("AI ANIMATION");
-                  ai.setOnClickListener(new View.OnClickListener() {
-                      public void onClick(View v) { showAI(); }
-                  });
+                  ai.setOnClickListener(v -> showAI());
                   content.addView(ai);
               }
 
@@ -296,9 +284,7 @@ jobs:
                       final int mode = i;
                       Button b = button(String.format(Locale.US, "%03d", mode));
                       b.setTextSize(12);
-                      b.setOnClickListener(new View.OnClickListener() {
-                          public void onClick(View v) { sendMode(mode); }
-                      });
+                      b.setOnClickListener(v -> sendMode(mode));
                       GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
                       lp.width = 0; lp.height = 58;
                       lp.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f);
@@ -336,20 +322,16 @@ jobs:
               private void rebuildEditor(final LinearLayout editor) {
                   editor.removeAllViews();
                   Button add = button("ADD FRAME");
-                  add.setOnClickListener(new View.OnClickListener() {
-                      public void onClick(View v) {
-                          frames.add(new Frame(255,0,0, 255,0,0, 400));
-                          rebuildEditor(editor);
-                      }
+                  add.setOnClickListener(v -> {
+                      frames.add(new Frame(255,0,0, 255,0,0, 400));
+                      rebuildEditor(editor);
                   });
                   editor.addView(add);
 
                   Button clear = button("CLEAR TIMELINE");
-                  clear.setOnClickListener(new View.OnClickListener() {
-                      public void onClick(View v) {
-                          frames.clear();
-                          rebuildEditor(editor);
-                      }
+                  clear.setOnClickListener(v -> {
+                      frames.clear();
+                      rebuildEditor(editor);
                   });
                   editor.addView(clear);
 
@@ -361,26 +343,20 @@ jobs:
                       row.addView(text("FRAME " + (i+1), 16));
                       
                       Button del = button("DELETE");
-                      del.setOnClickListener(new View.OnClickListener() {
-                          public void onClick(View v) {
-                              frames.remove(index);
-                              rebuildEditor(editor);
-                          }
+                      del.setOnClickListener(v -> {
+                          frames.remove(index);
+                          rebuildEditor(editor);
                       });
                       row.addView(del);
                       editor.addView(row);
                   }
 
                   Button save = button("SAVE SLOT");
-                  save.setOnClickListener(new View.OnClickListener() {
-                      public void onClick(View v) { saveSlot(); }
-                  });
+                  save.setOnClickListener(v -> saveSlot());
                   editor.addView(save);
 
                   Button send = button("TEST / SEND");
-                  send.setOnClickListener(new View.OnClickListener() {
-                      public void onClick(View v) { testFrames(); }
-                  });
+                  send.setOnClickListener(v -> testFrames());
                   editor.addView(send);
               }
 
@@ -390,11 +366,9 @@ jobs:
                   final EditText cmd = edit("");
                   content.addView(cmd);
                   Button gen = button("GENERATE");
-                  gen.setOnClickListener(new View.OnClickListener() {
-                      public void onClick(View v) {
-                          generateAI(cmd.getText().toString());
-                          showCustom();
-                      }
+                  gen.setOnClickListener(v -> {
+                      generateAI(cmd.getText().toString());
+                      showCustom();
                   });
                   content.addView(gen);
               }
@@ -487,10 +461,8 @@ jobs:
                   status.setText("SCANNING...");
                   try {
                       scanner.startScan(scanCallback);
-                      handler.postDelayed(new Runnable() {
-                          public void run() {
-                              try { if (scanner != null) scanner.stopScan(scanCallback); } catch (Exception ignored) {}
-                          }
+                      handler.postDelayed(() -> {
+                          try { if (scanner != null) scanner.stopScan(scanCallback); } catch (Exception ignored) {}
                       }, 10000);
                   } catch (Exception ignored) {}
               }
@@ -510,25 +482,23 @@ jobs:
               private void connect(BluetoothDevice device) {
                   status.setText("CONNECTING...");
                   try {
-                      gatt = device.connectGatt(this, false, gattCallback);
+                      gatt = device.connectGatt(MainActivity.this, false, gattCallback);
                   } catch (Exception ignored) {}
               }
 
               private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
-                  public void onConnectionStateChange(BluetoothGatt g, int statusVal, int newState) {
-                      runOnUiThread(new Runnable() {
-                          public void run() {
-                              if (newState == BluetoothGatt.STATE_CONNECTED) {
-                                  status.setText("CONNECTED");
-                                  BluetoothService.getInstance().gatt = g;
-                                  BluetoothService.getInstance().isConnected = true;
-                                  g.discoverServices();
-                              } else {
-                                  status.setText("DISCONNECTED");
-                                  BluetoothService.getInstance().isConnected = false;
-                                  BluetoothService.getInstance().gatt = null;
-                                  BluetoothService.getInstance().writeChar = null;
-                              }
+                  public void onConnectionStateChange(final BluetoothGatt g, int statusVal, final int newState) {
+                      runOnUiThread(() -> {
+                          if (newState == BluetoothGatt.STATE_CONNECTED) {
+                              status.setText("CONNECTED");
+                              BluetoothService.getInstance().gatt = g;
+                              BluetoothService.getInstance().isConnected = true;
+                              g.discoverServices();
+                          } else {
+                              status.setText("DISCONNECTED");
+                              BluetoothService.getInstance().isConnected = false;
+                              BluetoothService.getInstance().gatt = null;
+                              BluetoothService.getInstance().writeChar = null;
                           }
                       });
                   }
@@ -538,9 +508,7 @@ jobs:
                       BluetoothGattCharacteristic write = service.getCharacteristic(java.util.UUID.fromString("0000FFE1-0000-1000-8000-00805F9B34FB"));
                       if (write != null) {
                           BluetoothService.getInstance().writeChar = write;
-                          runOnUiThread(new Runnable() {
-                              public void run() { status.setText("CONNECTED / READY"); }
-                          });
+                          runOnUiThread(() -> status.setText("CONNECTED / READY"));
                       }
                   }
               };
