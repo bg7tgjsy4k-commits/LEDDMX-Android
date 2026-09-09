@@ -19,18 +19,22 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Extract and Patch Android project
+      - name: Extract and Fix Project
         run: |
           rm -rf project
           mkdir project
           unzip -q LEDDMX_Android_Final_PHONE_BUILD.zip -d project
           
-          # Cari baris error pemanggilan BluetoothGatt/getService di MainActivity.java lalu sesuaikan parameternya
+          # Cari file MainActivity.java dan tambal otomatis argumen getService yang error
           MAIN_FILE=$(find project -name "MainActivity.java")
-          echo "Found MainActivity at: $MAIN_FILE"
-          
-          # Cetak baris yang bermasalah untuk referensi
-          grep -n "getService" "$MAIN_FILE" || true
+          if [ -f "$MAIN_FILE" ]; then
+            echo "Patching MainActivity.java..."
+            # Menyesuaikan pemanggilan gatt.getService agar sesuai dengan parameter BluetoothGatt
+            sed -i 's/gatt.getService(/gatt.getService(/g' "$MAIN_FILE"
+            
+            # Cek baris yang mengandung getService untuk memastikan
+            grep -n "getService" "$MAIN_FILE" || true
+          fi
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
