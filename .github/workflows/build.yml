@@ -66,7 +66,7 @@ jobs:
                   minSdk 23
                   targetSdk 35
                   versionCode 1
-                  versionName '1.0'
+                  versionName '2.0'
               }
           }
           EOF
@@ -88,19 +88,21 @@ jobs:
 
               <application
                   android:allowBackup="false"
-                  android:label="LEDDMX Pro Controller"
+                  android:label="LEDDMX Pro"
                   android:theme="@style/AppTheme">
 
                   <activity
                       android:name=".MainActivity"
                       android:exported="true">
-
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
-
                   </activity>
+
+                  <activity
+                      android:name=".EditorActivity"
+                      android:exported="false" />
               </application>
 
           </manifest>
@@ -109,14 +111,150 @@ jobs:
           cat > project/app/src/main/res/values/styles.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
-
               <style name="AppTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
                   <item name="android:fontFamily">sans</item>
                   <item name="android:windowLightStatusBar">true</item>
                   <item name="android:colorAccent">#008577</item>
               </style>
-
           </resources>
+          EOF
+
+          cat > project/app/src/main/java/com/leddmx/finalapp/BluetoothService.java <<'EOF'
+          package com.leddmx.finalapp;
+
+          import android.bluetooth.BluetoothAdapter;
+          import android.bluetooth.BluetoothDevice;
+          import android.bluetooth.BluetoothGatt;
+          import android.bluetooth.BluetoothGattCallback;
+          import android.bluetooth.BluetoothGattCharacteristic;
+          import android.bluetooth.BluetoothGattDescriptor;
+          import android.bluetooth.BluetoothGattService;
+          import android.bluetooth.le.BluetoothLeScanner;
+          import android.bluetooth.le.ScanCallback;
+          import android.bluetooth.le.ScanResult;
+          import java.util.UUID;
+
+          public class BluetoothService {
+              private static BluetoothService instance;
+              public static synchronized BluetoothService getInstance() {
+                  if (instance == null) instance = new BluetoothService();
+                  return instance;
+              }
+
+              public BluetoothGatt gatt;
+              public BluetoothGattCharacteristic writeChar;
+              public BluetoothGattCharacteristic notifyChar;
+              public boolean isConnected = false;
+
+              public static final UUID SERVICE_FFE0 = UUID.fromString("0000FFE0-0000-1000-8000-00805F9B34FB");
+              public static final UUID CHAR_FFE1 = UUID.fromString("0000FFE1-0000-1000-8000-00805F9B34FB");
+              public static final UUID CHAR_FFF4 = UUID.fromString("0000FFF4-0000-1000-8000-00805F9B34FB");
+
+              public void sendPacket(byte[] data) {
+                  if (gatt == null || writeChar == null) return;
+                  try {
+                      writeChar.setValue(data);
+                      gatt.writeCharacteristic(writeChar);
+                  } catch (SecurityException ignored) {}
+              }
+          }
+          EOF
+
+          cat > project/app/src/main/java/com/leddmx/finalapp/EditorActivity.java <<'EOF'
+          package com.leddmx.finalapp;
+
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.view.Gravity;
+          import android.widget.Button;
+          import android.widget.EditText;
+          import android.widget.LinearLayout;
+          import android.widget.ScrollView;
+          import android.widget.TextView;
+          import java.util.Locale;
+
+          public class EditorActivity extends Activity {
+
+              private EditText frameInput;
+              private String selectedChannel = "ALL";
+
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+
+                  ScrollView scroll = new ScrollView(this);
+                  LinearLayout root = new LinearLayout(this);
+                  root.setOrientation(LinearLayout.VERTICAL);
+                  root.setPadding(30, 30, 30, 30);
+
+                  TextView title = new TextView(this);
+                  title.setText("Custom Animation Editor");
+                  title.setTextSize(22);
+                  title.setGravity(Gravity.CENTER);
+                  root.addView(title);
+
+                  TextView chanLabel = new TextView(this);
+                  chanLabel.setText("\nPilih Channel / Sisi Lampu:");
+                  chanLabel.setTextSize(16);
+                  root.addView(chanLabel);
+
+                  LinearLayout chanLayout = new LinearLayout(this);
+                  chanLayout.setOrientation(LinearLayout.HORIZONTAL);
+
+                  Button btnLeft = new Button(this);
+                  btnLeft.setText("Kiri");
+                  btnLeft.setOnClickListener(v -> { selectedChannel = "LEFT"; });
+                  chanLayout.addView(btnLeft, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+
+                  Button btnAll = new Button(this);
+                  btnAll.setText("Semua");
+                  btnAll.setOnClickListener(v -> { selectedChannel = "ALL"; });
+                  chanLayout.addView(btnAll, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+
+                  Button btnRight = new Button(this);
+                  btnRight.setText("Kanan");
+                  btnRight.setOnClickListener(v -> { selectedChannel = "RIGHT"; });
+                  chanLayout.addView(btnRight, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+
+                  root.addView(chanLayout);
+
+                  TextView editLabel = new TextView(this);
+                  editLabel.setText("\nMasukkan Konfigurasi HEX Frame:");
+                  editLabel.setTextSize(16);
+                  root.addView(editLabel);
+
+                  frameInput = new EditText(this);
+                  frameInput.setText("7B FF 03 AB FF FF FF FF BF");
+                  root.addView(frameInput);
+
+                  Button sendAnim = new Button(this);
+                  sendAnim.setText("Terapkan & Kirim Animasi");
+                  sendAnim.setOnClickListener(v -> applyAnimation());
+                  root.addView(sendAnim);
+
+                  Button backBtn = new Button(this);
+                  backBtn.setText("Kembali ke Menu Utama");
+                  backBtn.setOnClickListener(v -> finish());
+                  root.addView(backBtn);
+
+                  scroll.addView(root);
+                  setContentView(scroll);
+              }
+
+              private void applyAnimation() {
+                  String text = frameInput.getText().toString().trim();
+                  if (text.isEmpty()) return;
+                  try {
+                      String[] parts = text.replace(",", " ").split("\\s+");
+                      byte[] data = new byte[parts.length];
+                      for (int i = 0; i < parts.length; i++) {
+                          data[i] = (byte) Integer.parseInt(parts[i], 16);
+                      }
+                      // Modifikasi byte channel jika diperlukan atau kirim langsung
+                      BluetoothService.getInstance().sendPacket(data);
+                  } catch (Exception ignored) {}
+              }
+          }
           EOF
 
           cat > project/app/src/main/java/com/leddmx/finalapp/MainActivity.java <<'EOF'
@@ -136,6 +274,7 @@ jobs:
           import android.bluetooth.le.ScanCallback;
           import android.bluetooth.le.ScanResult;
           import android.content.Context;
+          import android.content.Intent;
           import android.content.pm.PackageManager;
           import android.os.Bundle;
           import android.os.Handler;
@@ -154,47 +293,26 @@ jobs:
 
           public class MainActivity extends Activity {
 
-              private static final UUID SERVICE_FFE0 =
-                      UUID.fromString("0000FFE0-0000-1000-8000-00805F9B34FB");
-
-              private static final UUID CHAR_FFE1 =
-                      UUID.fromString("0000FFE1-0000-1000-8000-00805F9B34FB");
-
-              private static final UUID CHAR_FFF4 =
-                      UUID.fromString("0000FFF4-0000-1000-8000-00805F9B34FB");
-
               private BluetoothAdapter adapter;
               private BluetoothLeScanner scanner;
-              private BluetoothGatt gatt;
-              private BluetoothGattCharacteristic writeChar;
-              private BluetoothGattCharacteristic notifyChar;
-
               private final ArrayList<BluetoothDevice> devices = new ArrayList<>();
               private LinearLayout deviceList;
               private LinearLayout connectionPanel;
               private TextView status;
-              private TextView log;
-              private EditText hexInput;
-              private EditText customFrameInput;
               private TextView speedLabel;
               private TextView brightLabel;
 
-              private boolean isConnected = false;
               private boolean powerState = true;
-              private String selectedChannel = "ALL"; // Pilihan channel: ALL, LEFT, RIGHT
-
               private final Handler handler = new Handler(Looper.getMainLooper());
+              private BluetoothService ble = BluetoothService.getInstance();
 
               private final ScanCallback scanCallback = new ScanCallback() {
                   @Override
                   public void onScanResult(int callbackType, ScanResult result) {
                       BluetoothDevice device = result.getDevice();
                       if (device == null) return;
-
                       String name = device.getName();
-                      if (name == null || name.isEmpty()) {
-                          name = "Unknown Device";
-                      }
+                      if (name == null || name.isEmpty()) name = "Unknown Device";
 
                       boolean exists = false;
                       for (BluetoothDevice d : devices) {
@@ -203,7 +321,6 @@ jobs:
                               break;
                           }
                       }
-
                       if (!exists) {
                           devices.add(device);
                           addDeviceButton(device, name);
@@ -211,68 +328,52 @@ jobs:
                   }
               };
 
-              private final BluetoothGattCallback gattCallback =
-                      new BluetoothGattCallback() {
+              private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
+                  @Override
+                  public void onConnectionStateChange(BluetoothGatt g, int statusCode, int newState) {
+                      if (newState == BluetoothGatt.STATE_CONNECTED) {
+                          ble.gatt = g;
+                          ble.isConnected = true;
+                          handler.post(() -> status.setText("Terhubung - Menyiapkan layanan..."));
+                          g.discoverServices();
+                      } else if (newState == BluetoothGatt.STATE_DISCONNECTED) {
+                          ble.gatt = null;
+                          ble.isConnected = false;
+                          handler.post(() -> status.setText("Terputus"));
+                          ble.writeChar = null;
+                          ble.notifyChar = null;
+                      }
+                  }
 
-                          @Override
-                          public void onConnectionStateChange(BluetoothGatt g, int statusCode, int newState) {
-                              if (newState == BluetoothGatt.STATE_CONNECTED) {
-                                  gatt = g;
-                                  isConnected = true;
-                                  appendLog("CONNECTED");
-                                  status.setText("Connected - discovering services");
-                                  g.discoverServices();
-                              } else if (newState == BluetoothGatt.STATE_DISCONNECTED) {
-                                  gatt = null;
-                                  isConnected = false;
-                                  appendLog("DISCONNECTED");
-                                  status.setText("Disconnected");
-                                  writeChar = null;
-                                  notifyChar = null;
+                  @Override
+                  public void onServicesDiscovered(BluetoothGatt g, int statusCode) {
+                      if (statusCode != BluetoothGatt.GATT_SUCCESS) return;
+                      BluetoothGattService service = g.getService(BluetoothService.SERVICE_FFE0);
+                      if (service == null) return;
+
+                      ble.writeChar = service.getCharacteristic(BluetoothService.CHAR_FFE1);
+                      ble.notifyChar = service.getCharacteristic(BluetoothService.CHAR_FFF4);
+
+                      if (ble.notifyChar != null) {
+                          try {
+                              g.setCharacteristicNotification(ble.notifyChar, true);
+                              BluetoothGattDescriptor desc = ble.notifyChar.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805F9B34FB"));
+                              if (desc != null) {
+                                  desc.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+                                  g.writeDescriptor(desc);
                               }
-                          }
+                          } catch (SecurityException ignored) {}
+                      }
 
-                          @Override
-                          public void onServicesDiscovered(BluetoothGatt g, int statusCode) {
-                              if (statusCode != BluetoothGatt.GATT_SUCCESS) {
-                                  appendLog("Service discovery failed: " + statusCode);
-                                  return;
-                              }
-
-                              BluetoothGattService service = g.getService(SERVICE_FFE0);
-                              if (service == null) {
-                                  appendLog("FFE0 service NOT found");
-                                  return;
-                              }
-
-                              writeChar = service.getCharacteristic(CHAR_FFE1);
-                              notifyChar = service.getCharacteristic(CHAR_FFF4);
-
-                              if (notifyChar != null) {
-                                  enableNotifications(g, notifyChar);
-                              }
-
-                              if (writeChar != null) {
-                                  status.setText("READY - FFE1");
-                                  appendLog("FFE1 WRITE READY");
-                              } else {
-                                  appendLog("FFE1 NOT FOUND");
-                              }
-                          }
-
-                          @Override
-                          public void onCharacteristicChanged(BluetoothGatt g, BluetoothGattCharacteristic characteristic) {
-                              byte[] data = characteristic.getValue();
-                              if (data != null) {
-                                  appendLog("RX " + bytesToHex(data));
-                              }
-                          }
-                      };
+                      if (ble.writeChar != null) {
+                          handler.post(() -> status.setText("READY - Siap Dikontrol"));
+                      }
+                  }
+              };
 
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-
                   BluetoothManager manager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
                   adapter = manager.getAdapter();
 
@@ -282,12 +383,11 @@ jobs:
 
               private void buildUi() {
                   ScrollView scroll = new ScrollView(this);
-
                   LinearLayout root = new LinearLayout(this);
                   root.setOrientation(LinearLayout.VERTICAL);
                   root.setPadding(20, 20, 20, 20);
 
-                  // TOP BAR DENGAN MENU HAMBURGER (GARIS 3) & JUDUL
+                  // TOP BAR (MENU ☰)
                   LinearLayout topBar = new LinearLayout(this);
                   topBar.setOrientation(LinearLayout.HORIZONTAL);
                   topBar.setGravity(Gravity.CENTER_VERTICAL);
@@ -299,26 +399,26 @@ jobs:
                   topBar.addView(menuBtn, new LinearLayout.LayoutParams(120, LinearLayout.LayoutParams.WRAP_CONTENT));
 
                   TextView title = new TextView(this);
-                  title.setText("LEDDMX Pro Controller");
+                  title.setText("LEDDMX Controller");
                   title.setTextSize(20);
                   title.setGravity(Gravity.CENTER);
                   topBar.addView(title, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
 
                   root.addView(topBar);
 
-                  // PANEL KONEKSI (BISA DITUTUP/DIBUKA DENGAN MENU ☰)
+                  // PANEL KONEKSI (MINIMIZE / DROPDOWN)
                   connectionPanel = new LinearLayout(this);
                   connectionPanel.setOrientation(LinearLayout.VERTICAL);
-                  connectionPanel.setVisibility(View.GONE); // Default Minimize/Hidden agar bersih
+                  connectionPanel.setVisibility(View.GONE);
                   connectionPanel.setPadding(0, 10, 0, 10);
 
                   status = new TextView(this);
-                  status.setText("Status: Disconnected");
+                  status.setText("Status: Belum Terhubung");
                   status.setTextSize(14);
                   connectionPanel.addView(status);
 
                   Button scan = new Button(this);
-                  scan.setText("SCAN ALL BLE DEVICES");
+                  scan.setText("SCAN PERANGKAT BLE");
                   scan.setOnClickListener(v -> startScan());
                   connectionPanel.addView(scan);
 
@@ -328,102 +428,74 @@ jobs:
 
                   root.addView(connectionPanel);
 
-                  // TOMBOL POWER ON / OFF UTAMA
-                  Button btnPower = new Button(this);
-                  btnPower.setText("POWER ON / OFF");
-                  btnPower.setOnClickListener(v -> togglePower());
-                  root.addView(btnPower);
+                  // TOMBOL UTAMA (POWER & EDITOR PAGE)
+                  LinearLayout actionRow = new LinearLayout(this);
+                  actionRow.setOrientation(LinearLayout.HORIZONTAL);
 
-                  // SLIDER SPEED (0 - 100%)
+                  Button btnPower = new Button(this);
+                  btnPower.setText("POWER ON/OFF");
+                  btnPower.setOnClickListener(v -> togglePower());
+                  actionRow.addView(btnPower, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+
+                  Button btnOpenEditor = new Button(this);
+                  btnOpenEditor.setText("Custom Editor ↗");
+                  btnOpenEditor.setOnClickListener(v -> {
+                      startActivity(new Intent(MainActivity.this, EditorActivity.class));
+                  });
+                  actionRow.addView(btnOpenEditor, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+
+                  root.addView(actionRow);
+
+                  // SLIDER SPEED
                   speedLabel = new TextView(this);
-                  speedLabel.setText("Animation Speed: 50%");
+                  speedLabel.setText("Kecepatan Animasi: 50%");
                   speedLabel.setTextSize(15);
                   root.addView(speedLabel);
 
-                  SeekBar speedSeekBar = new SeekBar(this);
-                  speedSeekBar.setMax(100);
-                  speedSeekBar.setProgress(50);
-                  speedSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                  SeekBar speedBar = new SeekBar(this);
+                  speedBar.setMax(100);
+                  speedBar.setProgress(50);
+                  speedBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
                       @Override
                       public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                          speedLabel.setText("Animation Speed: " + progress + "%");
+                          speedLabel.setText("Kecepatan Animasi: " + progress + "%");
                           if (fromUser) {
-                              int hexVal = (progress * 255) / 100;
-                              sendCustomPacket(new byte[]{0x7B, (byte)0xFF, 0x02, (byte)hexVal, (byte)0xFF, 0x00, (byte)0xFF, (byte)0xFF, (byte)0xBF});
+                              int val = (progress * 255) / 100;
+                              ble.sendPacket(new byte[]{0x7B, (byte)0xFF, 0x02, (byte)val, (byte)0xFF, 0x00, (byte)0xFF, (byte)0xFF, (byte)0xBF});
                           }
                       }
                       @Override public void onStartTrackingTouch(SeekBar seekBar) {}
                       @Override public void onStopTrackingTouch(SeekBar seekBar) {}
                   });
-                  root.addView(speedSeekBar);
+                  root.addView(speedBar);
 
-                  // SLIDER BRIGHTNESS (0 - 100%)
+                  // SLIDER BRIGHTNESS (FIXED RANGE)
                   brightLabel = new TextView(this);
-                  brightLabel.setText("Brightness Level: 100%");
+                  brightLabel.setText("Kecerahan LED: 100%");
                   brightLabel.setTextSize(15);
                   root.addView(brightLabel);
 
-                  SeekBar brightSeekBar = new SeekBar(this);
-                  brightSeekBar.setMax(100);
-                  brightSeekBar.setProgress(100);
-                  brightSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                  SeekBar brightBar = new SeekBar(this);
+                  brightBar.setMax(100);
+                  brightBar.setProgress(100);
+                  brightBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
                       @Override
                       public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                          brightLabel.setText("Brightness Level: " + progress + "%");
+                          brightLabel.setText("Kecerahan LED: " + progress + "%");
                           if (fromUser) {
-                              int hexVal = (progress * 2) / 100;
-                              sendCustomPacket(new byte[]{0x7B, (byte)0xFF, 0x07, 0x00, 0x00, (byte)hexVal, (byte)0xBF});
+                              // Rentang nilai aman untuk brightness agar tidak mati total
+                              int val = Math.max(1, (progress * 100) / 100);
+                              ble.sendPacket(new byte[]{0x7B, (byte)0xFF, 0x07, 0x00, 0x00, (byte)val, (byte)0xBF});
                           }
                       }
                       @Override public void onStartTrackingTouch(SeekBar seekBar) {}
                       @Override public void onStopTrackingTouch(SeekBar seekBar) {}
                   });
-                  root.addView(brightSeekBar);
+                  root.addView(brightBar);
 
-                  // MENU PEMILIHAN CHANNEL LAMPU (KIRI / KANAN / ALL)
-                  TextView channelTitle = new TextView(this);
-                  channelTitle.setText("ACTIVE LED CHANNEL / ZONE");
-                  channelTitle.setTextSize(16);
-                  root.addView(channelTitle);
-
-                  LinearLayout channelLayout = new LinearLayout(this);
-                  channelLayout.setOrientation(LinearLayout.HORIZONTAL);
-
-                  Button btnLeft = new Button(this);
-                  btnLeft.setText("Left Side");
-                  btnLeft.setOnClickListener(v -> { selectedChannel = "LEFT"; appendLog("Channel selected: LEFT"); });
-                  channelLayout.addView(btnLeft, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
-
-                  Button btnAll = new Button(this);
-                  btnAll.setText("All / Both");
-                  btnAll.setOnClickListener(v -> { selectedChannel = "ALL"; appendLog("Channel selected: ALL"); });
-                  channelLayout.addView(btnAll, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
-
-                  Button btnRight = new Button(this);
-                  btnRight.setText("Right Side");
-                  btnRight.setOnClickListener(v -> { selectedChannel = "RIGHT"; appendLog("Channel selected: RIGHT"); });
-                  channelLayout.addView(btnRight, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
-
-                  root.addView(channelLayout);
-
-                  // CUSTOM ANIMATION EDITOR
-                  TextView editorTitle = new TextView(this);
-                  editorTitle.setText("CUSTOM ANIMATION EDITOR");
-                  editorTitle.setTextSize(16);
-                  root.addView(editorTitle);
-
-                  customFrameInput = new EditText(this);
-                  customFrameInput.setHint("Frame HEX (misal: 7B FF 03 AA ...)");
-                  root.addView(customFrameInput);
-
-                  Button sendCustom = new Button(this);
-                  sendCustom.setText("APPLY CUSTOM FRAME TO CHOSEN CHANNEL");
-                  sendCustom.setOnClickListener(v -> sendCustomAnimationSequence());
-                  root.addView(sendCustom);
-
-                  // SEMUA MODUS 1 SAMPAI 210
+                  // DAFTAR MODE 1 SAMPAI 210
                   TextView modeTitle = new TextView(this);
-                  modeTitle.setText("ALL MODES (1 - 210)");
+                  modeTitle.setText("\nPILIHAN MODE (1 - 210)");
                   modeTitle.setTextSize(16);
                   root.addView(modeTitle);
 
@@ -443,29 +515,6 @@ jobs:
                   }
                   root.addView(modes);
 
-                  TextView rawTitle = new TextView(this);
-                  rawTitle.setText("RAW HEX");
-                  rawTitle.setTextSize(16);
-                  root.addView(rawTitle);
-
-                  hexInput = new EditText(this);
-                  hexInput.setHint("7B FF 03 AB FF FF FF FF BF");
-                  root.addView(hexInput);
-
-                  Button sendHex = new Button(this);
-                  sendHex.setText("SEND RAW HEX");
-                  sendHex.setOnClickListener(v -> sendRaw());
-                  root.addView(sendHex);
-
-                  Button clear = new Button(this);
-                  clear.setText("CLEAR LOG");
-                  clear.setOnClickListener(v -> log.setText(""));
-                  root.addView(clear);
-
-                  log = new TextView(this);
-                  log.setTextSize(12);
-                  root.addView(log);
-
                   scroll.addView(root);
                   setContentView(scroll);
               }
@@ -481,13 +530,9 @@ jobs:
               private void togglePower() {
                   powerState = !powerState;
                   if (powerState) {
-                      // Nyalakan kembali pakai command 0x07 normal
-                      sendCustomPacket(new byte[]{0x7B, (byte)0xFF, 0x07, 0x00, 0x00, 0x02, (byte)0xBF});
-                      appendLog("Power ON");
+                      ble.sendPacket(new byte[]{0x7B, (byte)0xFF, 0x07, 0x00, 0x00, 0x64, (byte)0xBF});
                   } else {
-                      // Matikan pakai command 0x07 (00 00 00)
-                      sendCustomPacket(new byte[]{0x7B, (byte)0xFF, 0x07, 0x00, 0x00, 0x00, (byte)0xBF});
-                      appendLog("Power OFF");
+                      ble.sendPacket(new byte[]{0x7B, (byte)0xFF, 0x07, 0x00, 0x00, 0x00, (byte)0xBF});
                   }
               }
 
@@ -508,68 +553,36 @@ jobs:
               }
 
               private void startScan() {
-                  if (adapter == null) {
-                      status.setText("Bluetooth unavailable");
-                      return;
-                  }
-
+                  if (adapter == null) return;
                   scanner = adapter.getBluetoothLeScanner();
-                  if (scanner == null) {
-                      status.setText("BLE scanner unavailable");
-                      return;
-                  }
+                  if (scanner == null) return;
 
                   devices.clear();
                   deviceList.removeAllViews();
-                  status.setText("Scanning all BLE...");
+                  status.setText("Memindai perangkat...");
 
                   try {
                       scanner.startScan(scanCallback);
                       handler.postDelayed(() -> {
                           try {
                               scanner.stopScan(scanCallback);
-                          } catch (Exception ignored) {
-                          }
-                          status.setText("Scan finished. Found: " + devices.size());
+                          } catch (Exception ignored) {}
+                          status.setText("Pemindaian selesai. Ditemukan: " + devices.size());
                       }, 10000);
-                  } catch (SecurityException e) {
-                      appendLog("Bluetooth permission denied");
-                  }
+                  } catch (SecurityException ignored) {}
               }
 
               private void addDeviceButton(BluetoothDevice device, String name) {
                   Button b = new Button(this);
                   b.setText(name + "\n" + device.getAddress());
-                  b.setOnClickListener(v -> connect(device));
+                  b.setOnClickListener(v -> {
+                      try {
+                          if (ble.gatt != null) ble.gatt.close();
+                          status.setText("Menghubungkan...");
+                          device.connectGatt(this, false, gattCallback, BluetoothDevice.TRANSPORT_LE);
+                      } catch (SecurityException ignored) {}
+                  });
                   deviceList.addView(b);
-              }
-
-              private void connect(BluetoothDevice device) {
-                  try {
-                      if (gatt != null) {
-                          gatt.close();
-                          gatt = null;
-                      }
-                      status.setText("Connecting to " + device.getAddress() + "...");
-                      gatt = device.connectGatt(this, false, gattCallback, BluetoothDevice.TRANSPORT_LE);
-                  } catch (SecurityException e) {
-                      appendLog("Bluetooth permission denied");
-                  }
-              }
-
-              private void enableNotifications(BluetoothGatt g, BluetoothGattCharacteristic characteristic) {
-                  try {
-                      g.setCharacteristicNotification(characteristic, true);
-                      BluetoothGattDescriptor descriptor = characteristic.getDescriptor(
-                              UUID.fromString("00002902-0000-1000-8000-00805F9B34FB")
-                      );
-                      if (descriptor != null) {
-                          descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
-                          g.writeDescriptor(descriptor);
-                      }
-                  } catch (SecurityException e) {
-                      appendLog("Notification permission denied");
-                  }
               }
 
               private void sendMode(int mode) {
@@ -577,92 +590,7 @@ jobs:
                           0x7B, (byte) 0xFF, 0x03, (byte) mode,
                           (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xBF
                   };
-                  send(packet);
-              }
-
-              private void sendCustomPacket(byte[] packet) {
-                  send(packet);
-              }
-
-              private void sendCustomAnimationSequence() {
-                  String text = customFrameInput.getText().toString().trim();
-                  if (text.isEmpty()) {
-                      appendLog("Custom frame empty");
-                      return;
-                  }
-                  try {
-                      String[] parts = text.replace(",", " ").split("\\s+");
-                      byte[] data = new byte[parts.length];
-                      for (int i = 0; i < parts.length; i++) {
-                          data[i] = (byte) Integer.parseInt(parts[i], 16);
-                      }
-                      send(data);
-                      appendLog("Custom Animation Applied to [" + selectedChannel + "]!");
-                  } catch (Exception e) {
-                      appendLog("Invalid Custom Frame HEX");
-                  }
-              }
-
-              private void sendRaw() {
-                  String text = hexInput.getText().toString().trim();
-                  if (text.isEmpty()) {
-                      return;
-                  }
-                  try {
-                      String[] parts = text.replace(",", " ").split("\\s+");
-                      byte[] data = new byte[parts.length];
-                      for (int i = 0; i < parts.length; i++) {
-                          data[i] = (byte) Integer.parseInt(parts[i], 16);
-                      }
-                      send(data);
-                  } catch (Exception e) {
-                      appendLog("Invalid HEX");
-                  }
-              }
-
-              private void send(byte[] data) {
-                  if (gatt == null || writeChar == null) {
-                      appendLog("Not connected / FFE1 unavailable");
-                      return;
-                  }
-                  try {
-                      writeChar.setValue(data);
-                      boolean result = gatt.writeCharacteristic(writeChar);
-                      appendLog("TX " + bytesToHex(data) + " [" + result + "]");
-                  } catch (SecurityException e) {
-                      appendLog("Bluetooth permission denied");
-                  }
-              }
-
-              private void appendLog(String text) {
-                  if (log == null) return;
-                  log.append(text + "\n");
-              }
-
-              private String bytesToHex(byte[] data) {
-                  StringBuilder sb = new StringBuilder();
-                  for (byte b : data) {
-                      sb.append(String.format(Locale.US, "%02X ", b & 0xFF));
-                  }
-                  return sb.toString().trim();
-              }
-
-              @Override
-              protected void onDestroy() {
-                  try {
-                      if (scanner != null) {
-                          scanner.stopScan(scanCallback);
-                      }
-                  } catch (Exception ignored) {
-                  }
-                  if (gatt != null) {
-                      try {
-                          gatt.close();
-                      } catch (Exception ignored) {
-                      }
-                      gatt = null;
-                  }
-                  super.onDestroy();
+                  ble.sendPacket(packet);
               }
           }
           EOF
