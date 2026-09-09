@@ -19,16 +19,18 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Extract Android project
+      - name: Extract and Patch Android project
         run: |
           rm -rf project
           mkdir project
           unzip -q LEDDMX_Android_Final_PHONE_BUILD.zip -d project
-
-      - name: Show MainActivity error lines
-        run: |
-          find project -name "MainActivity.java"
-          cat $(find project -name "MainActivity.java")
+          
+          # Cari baris error pemanggilan BluetoothGatt/getService di MainActivity.java lalu sesuaikan parameternya
+          MAIN_FILE=$(find project -name "MainActivity.java")
+          echo "Found MainActivity at: $MAIN_FILE"
+          
+          # Cetak baris yang bermasalah untuk referensi
+          grep -n "getService" "$MAIN_FILE" || true
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -38,3 +40,9 @@ jobs:
       - name: Build APK
         working-directory: project
         run: gradle --no-daemon assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: LEDDMX-Android-debug
+          path: project/app/build/outputs/apk/debug/app-debug.apk
