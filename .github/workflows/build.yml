@@ -1,4 +1,4 @@
-name: LEDDMX AI PRO FINAL
+name: Build LEDDMX AI Pro FINAL
 
 on:
   workflow_dispatch:
@@ -7,27 +7,13 @@ on:
       - main
       - master
 
-permissions:
-  contents: read
-
 jobs:
   build:
-    name: Build LEDDMX AI PRO
     runs-on: ubuntu-latest
 
     steps:
-
-      # ============================================================
-      # 1. CHECKOUT
-      # ============================================================
-
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
-
-
-      # ============================================================
-      # 2. JAVA 17
-      # ============================================================
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
@@ -35,39 +21,14 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-
-      # ============================================================
-      # 3. INSTALL GRADLE
-      # ============================================================
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.10.2'
-
-
-      # ============================================================
-      # 4. CREATE PROJECT
-      # ============================================================
-
-      - name: Create Android project
+      - name: Create Android project and Gradle Wrapper
         shell: bash
         run: |
-
           set -e
 
-          rm -rf app
-          rm -f build.gradle
-          rm -f settings.gradle
-          rm -f gradle.properties
-
+          rm -rf app build.gradle settings.gradle gradle.properties gradlew gradlew.bat gradle
           mkdir -p app/src/main/java/com/leddmx/pro
           mkdir -p app/src/main/res/values
-
-
-      # ============================================================
-      # 5. SETTINGS.GRADLE
-      # ============================================================
 
           cat > settings.gradle <<'EOF'
           pluginManagement {
@@ -80,44 +41,26 @@ jobs:
 
           dependencyResolutionManagement {
               repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-
               repositories {
                   google()
                   mavenCentral()
               }
           }
 
-          rootProject.name = "LEDDMX-AI-PRO"
-
+          rootProject.name = "LEDDMX-AI-Pro"
           include(":app")
           EOF
 
-
-      # ============================================================
-      # 6. ROOT BUILD.GRADLE
-      # ============================================================
-
           cat > build.gradle <<'EOF'
           plugins {
-              id 'com.android.application' version '8.6.1' apply false
+              id 'com.android.application' version '8.5.0' apply false
           }
           EOF
-
-
-      # ============================================================
-      # 7. GRADLE PROPERTIES
-      # ============================================================
 
           cat > gradle.properties <<'EOF'
           org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
           android.useAndroidX=true
-          android.nonTransitiveRClass=true
           EOF
-
-
-      # ============================================================
-      # 8. APP BUILD.GRADLE
-      # ============================================================
 
           cat > app/build.gradle <<'EOF'
           plugins {
@@ -125,121 +68,66 @@ jobs:
           }
 
           android {
-
               namespace 'com.leddmx.pro'
-
-              compileSdk 35
+              compileSdk 34
 
               defaultConfig {
-
                   applicationId 'com.leddmx.pro'
-
                   minSdk 23
-
-                  targetSdk 35
-
+                  targetSdk 34
                   versionCode 1
-
-                  versionName '1.0'
-              }
-
-              compileOptions {
-
-                  sourceCompatibility JavaVersion.VERSION_17
-
-                  targetCompatibility JavaVersion.VERSION_17
+                  versionName "1.0"
               }
           }
           EOF
 
-
-      # ============================================================
-      # 9. COLORS
-      # ============================================================
-
           cat > app/src/main/res/values/colors.xml <<'EOF'
           <resources>
-
               <color name="black">#000000</color>
-
               <color name="white">#FFFFFF</color>
-
+              <color name="dark">#101114</color>
+              <color name="panel">#191B20</color>
+              <color name="accent">#00E5FF</color>
           </resources>
           EOF
 
-
-      # ============================================================
-      # 10. THEME
-      # ============================================================
-
-          cat > app/src/main/res/values/themes.xml <<'EOF'
+          cat > app/src/main/res/values/strings.xml <<'EOF'
           <resources>
-
-              <style
-                  name="AppTheme"
-                  parent="android:style/Theme.Material.NoActionBar">
-
-                  <item name="android:fontFamily">sans</item>
-
-                  <item name="android:windowActionModeOverlay">true</item>
-
-                  <item name="android:colorAccent">#FFFFFF</item>
-
-                  <item name="android:navigationBarColor">#000000</item>
-
-                  <item name="android:statusBarColor">#000000</item>
-
-                  <item name="android:windowLightStatusBar">false</item>
-
-              </style>
-
+              <string name="app_name">LEDDMX AI Pro</string>
           </resources>
           EOF
-
-
-      # ============================================================
-      # 11. MANIFEST
-      # ============================================================
 
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+              <uses-permission android:name="android.permission.BLUETOOTH" />
+              <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
               <uses-permission
-                  android:name="android.permission.BLUETOOTH" />
-
-              <uses-permission
-                  android:name="android.permission.BLUETOOTH_ADMIN" />
-
+                  android:name="android.permission.BLUETOOTH_CONNECT"
+                  android:maxSdkVersion="34" />
               <uses-permission
                   android:name="android.permission.BLUETOOTH_SCAN"
-                  android:usesPermissionFlags="neverForLocation" />
-
-              <uses-permission
-                  android:name="android.permission.BLUETOOTH_CONNECT" />
+                  android:usesPermissionFlags="neverForLocation"
+                  android:maxSdkVersion="34" />
 
               <uses-feature
                   android:name="android.hardware.bluetooth_le"
                   android:required="false" />
 
               <application
-                  android:allowBackup="false"
-                  android:label="LEDDMX AI PRO"
-                  android:supportsRtl="true"
-                  android:theme="@style/AppTheme">
+                  android:allowBackup="true"
+                  android:label="@string/app_name"
+                  android:theme="@style/AppTheme"
+                  android:supportsRtl="true">
 
                   <activity
                       android:name=".MainActivity"
-                      android:exported="true"
-                      android:screenOrientation="portrait">
+                      android:screenOrientation="portrait"
+                      android:exported="true">
 
                       <intent-filter>
-
-                          <action
-                              android:name="android.intent.action.MAIN" />
-
-                          <category
-                              android:name="android.intent.category.LAUNCHER" />
-
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
 
                   </activity>
@@ -249,106 +137,78 @@ jobs:
           </manifest>
           EOF
 
+          cat > app/src/main/res/values/styles.xml <<'EOF'
+          <resources>
 
-      # ============================================================
-      # 12. BLUETOOTH SERVICE
-      # ============================================================
+              <style name="AppTheme"
+                  parent="android:style/Theme.Material.NoActionBar">
 
+                  <item name="android:fontFamily">sans</item>
+                  <item name="android:windowLightStatusBar">false</item>
+                  <item name="android:statusBarColor">#101114</item>
+                  <item name="android:navigationBarColor">#101114</item>
+                  <item name="android:colorAccent">#00E5FF</item>
+
+              </style>
+
+          </resources>
+          EOF
+
+      - name: Write BluetoothService.java
+        shell: bash
+        run: |
           cat > app/src/main/java/com/leddmx/pro/BluetoothService.java <<'EOF'
           package com.leddmx.pro;
 
           import android.bluetooth.BluetoothGatt;
           import android.bluetooth.BluetoothGattCharacteristic;
 
-          import java.util.UUID;
-
           public class BluetoothService {
-
-              public static final UUID SERVICE_FFE0 =
-                      UUID.fromString(
-                              "0000FFE0-0000-1000-8000-00805F9B34FB"
-                      );
-
-              public static final UUID CHAR_FFE1 =
-                      UUID.fromString(
-                              "0000FFE1-0000-1000-8000-00805F9B34FB"
-                      );
 
               private static BluetoothService instance;
 
-              public BluetoothGatt gatt;
-
-              public BluetoothGattCharacteristic writeChar;
-
-              public boolean connected = false;
-
-              private BluetoothService() {
-              }
-
               public static synchronized BluetoothService getInstance() {
-
                   if (instance == null) {
                       instance = new BluetoothService();
                   }
-
                   return instance;
               }
 
-              public synchronized void send(byte[] packet) {
+              public static final String SERVICE_FFE0 =
+                      "0000FFE0-0000-1000-8000-00805F9B34FB";
 
-                  if (
-                          gatt == null ||
-                          writeChar == null ||
-                          !connected
-                  ) {
+              public static final String CHAR_FFE1 =
+                      "0000FFE1-0000-1000-8000-00805F9B34FB";
+
+              public static final String CHAR_FFF4 =
+                      "0000FFF4-0000-1000-8000-00805F9B34FB";
+
+              public BluetoothGatt gatt;
+              public BluetoothGattCharacteristic writeChar;
+
+              public boolean isConnected = false;
+
+              public int lastUsedMode = 171;
+
+              public void sendPacket(byte[] data) {
+
+                  if (gatt == null || writeChar == null) {
                       return;
                   }
 
                   try {
-
-                      writeChar.setValue(packet);
-
-                      writeChar.setWriteType(
-                              BluetoothGattCharacteristic
-                                      .WRITE_TYPE_NO_RESPONSE
-                      );
-
-                      gatt.writeCharacteristic(
-                              writeChar
-                      );
-
+                      writeChar.setValue(data);
+                      gatt.writeCharacteristic(writeChar);
+                  } catch (SecurityException ignored) {
                   } catch (Exception ignored) {
                   }
-              }
-
-              public void disconnect() {
-
-                  try {
-
-                      if (gatt != null) {
-
-                          gatt.disconnect();
-
-                          gatt.close();
-                      }
-
-                  } catch (Exception ignored) {
-                  }
-
-                  gatt = null;
-
-                  writeChar = null;
-
-                  connected = false;
               }
           }
           EOF
 
-
-      # ============================================================
-      # 13. MAIN ACTIVITY
-      # ============================================================
-
+      - name: Write MainActivity.java
+        shell: bash
+        run: |
           cat > app/src/main/java/com/leddmx/pro/MainActivity.java <<'EOF'
           package com.leddmx.pro;
 
@@ -360,7 +220,6 @@ jobs:
           import android.bluetooth.BluetoothGattCallback;
           import android.bluetooth.BluetoothGattCharacteristic;
           import android.bluetooth.BluetoothGattService;
-          import android.bluetooth.BluetoothManager;
           import android.bluetooth.le.BluetoothLeScanner;
           import android.bluetooth.le.ScanCallback;
           import android.bluetooth.le.ScanResult;
@@ -368,10 +227,10 @@ jobs:
           import android.content.SharedPreferences;
           import android.content.pm.PackageManager;
           import android.graphics.Color;
+          import android.graphics.drawable.GradientDrawable;
           import android.os.Build;
           import android.os.Bundle;
           import android.os.Handler;
-          import android.os.Looper;
           import android.view.Gravity;
           import android.view.View;
           import android.view.ViewGroup;
@@ -380,147 +239,101 @@ jobs:
           import android.widget.GridLayout;
           import android.widget.LinearLayout;
           import android.widget.SeekBar;
+          import android.widget.Spinner;
           import android.widget.TextView;
           import android.widget.Toast;
 
           import java.util.ArrayList;
+          import java.util.List;
           import java.util.Locale;
 
           public class MainActivity extends Activity {
 
-              private final BluetoothService ble =
-                      BluetoothService.getInstance();
+              private final Handler handler = new Handler();
 
-              private BluetoothAdapter adapter;
-
+              private BluetoothAdapter bluetoothAdapter;
               private BluetoothLeScanner scanner;
+              private BluetoothGatt gatt;
 
-              private final Handler handler =
-                      new Handler(Looper.getMainLooper());
+              private TextView status;
+              private TextView currentMode;
 
               private LinearLayout content;
 
-              private TextView connectionStatus;
+              private SharedPreferences prefs;
 
-              private TextView modeStatus;
+              private int currentModeNumber = 171;
 
-              private int selectedMode = 171;
+              private final ArrayList<Frame> frames = new ArrayList<>();
 
-              private int brightness = 255;
+              private int selectedSlot = 171;
 
-              private final ArrayList<Frame> frames =
-                      new ArrayList<>();
+              private boolean playing = false;
 
-              private int previewIndex = 0;
+              private final Runnable previewRunnable = new Runnable() {
+                  private int index = 0;
 
-              private boolean previewPlaying = false;
+                  @Override
+                  public void run() {
 
-              private final Runnable previewRunnable =
-                      new Runnable() {
+                      if (!playing || frames.isEmpty()) {
+                          return;
+                      }
 
-                          @Override
-                          public void run() {
+                      if (index >= frames.size()) {
+                          index = 0;
+                      }
 
-                              if (
-                                      !previewPlaying ||
-                                      frames.isEmpty()
-                              ) {
-                                  return;
-                              }
+                      Frame f = frames.get(index);
 
-                              showPreviewFrame(
-                                      frames.get(previewIndex)
-                              );
+                      applyPreviewColor(
+                              (f.lr + f.rr) / 2,
+                              (f.lg + f.rg) / 2,
+                              (f.lb + f.rb) / 2
+                      );
 
-                              int delay =
-                                      Math.max(
-                                              30,
-                                              frames
-                                                      .get(previewIndex)
-                                                      .duration
-                                      );
+                      index++;
 
-                              previewIndex++;
-
-                              if (
-                                      previewIndex >=
-                                      frames.size()
-                              ) {
-                                  previewIndex = 0;
-                              }
-
-                              handler.postDelayed(
-                                      this,
-                                      delay
-                              );
-                          }
-                      };
-
-
-              // ======================================================
-              // ACTIVITY
-              // ======================================================
+                      handler.postDelayed(
+                              this,
+                              Math.max(50, f.duration)
+                      );
+                  }
+              };
 
               @Override
-              protected void onCreate(
-                      Bundle savedInstanceState
-              ) {
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
 
-                  super.onCreate(
-                          savedInstanceState
+                  prefs = getSharedPreferences(
+                          "leddmx_slots",
+                          MODE_PRIVATE
                   );
 
-                  BluetoothManager manager =
-                          (BluetoothManager)
-                                  getSystemService(
-                                          Context.BLUETOOTH_SERVICE
-                                  );
+                  bluetoothAdapter =
+                          android.bluetooth.BluetoothManager.class
+                                  .cast(getSystemService(
+                                          Context.BLUETOOTH_SERVICE))
+                                  .getAdapter();
 
-                  if (manager != null) {
-                      adapter =
-                              manager.getAdapter();
-                  }
-
-                  createDefaultAnimation();
-
-                  buildHome();
+                  buildRoot();
+                  showHome();
 
                   requestBluetoothPermission();
               }
-
-
-              // ======================================================
-              // PERMISSION
-              // ======================================================
 
               private void requestBluetoothPermission() {
 
                   if (Build.VERSION.SDK_INT >= 31) {
 
-                      boolean scan =
-                              checkSelfPermission(
-                                      Manifest.permission
-                                              .BLUETOOTH_SCAN
-                              ) ==
-                                      PackageManager
-                                              .PERMISSION_GRANTED;
-
-                      boolean connect =
-                              checkSelfPermission(
-                                      Manifest.permission
-                                              .BLUETOOTH_CONNECT
-                              ) ==
-                                      PackageManager
-                                              .PERMISSION_GRANTED;
-
-                      if (!scan || !connect) {
+                      if (checkSelfPermission(
+                              Manifest.permission.BLUETOOTH_SCAN)
+                              != PackageManager.PERMISSION_GRANTED) {
 
                           requestPermissions(
                                   new String[]{
-                                          Manifest.permission
-                                                  .BLUETOOTH_SCAN,
-                                          Manifest.permission
-                                                  .BLUETOOTH_CONNECT
+                                          Manifest.permission.BLUETOOTH_SCAN,
+                                          Manifest.permission.BLUETOOTH_CONNECT
                                   },
                                   100
                           );
@@ -528,12 +341,7 @@ jobs:
                   }
               }
 
-
-              // ======================================================
-              // BASE UI
-              // ======================================================
-
-              private void createBase() {
+              private void buildRoot() {
 
                   LinearLayout root =
                           new LinearLayout(this);
@@ -542,35 +350,20 @@ jobs:
                           LinearLayout.VERTICAL
                   );
 
-                  root.setPadding(
-                          14,
-                          14,
-                          14,
-                          8
-                  );
-
                   root.setBackgroundColor(
-                          Color.BLACK
+                          Color.rgb(16,17,20)
                   );
 
-
-                  LinearLayout header =
+                  LinearLayout top =
                           new LinearLayout(this);
 
-                  header.setGravity(
-                          Gravity.CENTER_VERTICAL
-                  );
-
+                  top.setGravity(Gravity.CENTER_VERTICAL);
+                  top.setPadding(24,18,24,18);
 
                   TextView title =
-                          text(
-                                  "LEDDMX AI PRO",
-                                  22,
-                                  Color.WHITE
-                          );
+                          text("LEDDMX AI PRO",22);
 
-
-                  header.addView(
+                  top.addView(
                           title,
                           new LinearLayout.LayoutParams(
                                   0,
@@ -579,28 +372,25 @@ jobs:
                           )
                   );
 
+                  Button connect =
+                          button("SCAN");
 
-                  connectionStatus =
-                          text(
-                                  ble.connected
-                                          ? "CONNECTED"
-                                          : "OFFLINE",
-                                  12,
-                                  ble.connected
-                                          ? Color.GREEN
-                                          : Color.GRAY
-                          );
-
-
-                  header.addView(
-                          connectionStatus
+                  connect.setOnClickListener(
+                          v -> scan()
                   );
 
+                  top.addView(connect);
 
-                  root.addView(
-                          header
+                  root.addView(top);
+
+                  status =
+                          text("DISCONNECTED",14);
+
+                  status.setPadding(
+                          24,0,24,15
                   );
 
+                  root.addView(status);
 
                   content =
                           new LinearLayout(this);
@@ -609,6 +399,9 @@ jobs:
                           LinearLayout.VERTICAL
                   );
 
+                  content.setPadding(
+                          18,10,18,10
+                  );
 
                   root.addView(
                           content,
@@ -619,370 +412,224 @@ jobs:
                           )
                   );
 
-
-                  LinearLayout navigation =
+                  LinearLayout nav =
                           new LinearLayout(this);
 
-                  navigation.setGravity(
-                          Gravity.CENTER
-                  );
+                  nav.setPadding(8,8,8,8);
 
-
-                  addNavigationButton(
-                          navigation,
+                  String[] names = {
                           "HOME",
-                          v -> buildHome()
-                  );
-
-
-                  addNavigationButton(
-                          navigation,
                           "MODES",
-                          v -> buildModes()
-                  );
-
-
-                  addNavigationButton(
-                          navigation,
                           "CUSTOM",
-                          v -> buildCustom()
-                  );
-
-
-                  addNavigationButton(
-                          navigation,
                           "AI",
-                          v -> buildAI()
-                  );
+                          "SETTINGS"
+                  };
 
+                  for (String name : names) {
 
-                  addNavigationButton(
-                          navigation,
-                          "SET",
-                          v -> buildSettings()
-                  );
+                      Button b =
+                              button(name);
 
+                      b.setTextSize(11);
 
-                  root.addView(
-                          navigation
-                  );
+                      b.setOnClickListener(v -> {
 
+                          switch (name) {
 
-                  setContentView(
-                          root
-                  );
+                              case "HOME":
+                                  showHome();
+                                  break;
+
+                              case "MODES":
+                                  showModes();
+                                  break;
+
+                              case "CUSTOM":
+                                  showCustom();
+                                  break;
+
+                              case "AI":
+                                  showAI();
+                                  break;
+
+                              case "SETTINGS":
+                                  showSettings();
+                                  break;
+                          }
+
+                      });
+
+                      nav.addView(
+                              b,
+                              new LinearLayout.LayoutParams(
+                                      0,
+                                      60,
+                                      1
+                              )
+                      );
+                  }
+
+                  root.addView(nav);
+
+                  setContentView(root);
               }
 
-
-              // ======================================================
-              // HOME
-              // ======================================================
-
-              private void buildHome() {
+              private void clearContent() {
 
                   stopPreview();
+                  content.removeAllViews();
+              }
 
-                  createBase();
+              private void showHome() {
 
-                  content.addView(
-                          text(
-                                  "CONTROLLER",
-                                  18,
-                                  Color.WHITE
-                          )
-                  );
-
-
-                  Button scan =
-                          button(
-                                  "SCAN & CONNECT"
-                          );
-
-                  scan.setOnClickListener(
-                          v -> scan()
-                  );
+                  clearContent();
 
                   content.addView(
-                          scan
+                          text("HOME",28)
                   );
 
-
-                  modeStatus =
+                  currentMode =
                           text(
                                   "MODE " +
-                                  selectedMode,
-                                  28,
-                                  Color.WHITE
+                                  currentModeNumber,
+                                  22
                           );
-
-                  modeStatus.setGravity(
-                          Gravity.CENTER
-                  );
-
 
                   content.addView(
-                          modeStatus,
-                          new LinearLayout.LayoutParams(
-                                  -1,
-                                  90
-                          )
+                          currentMode
                   );
 
+                  Button on =
+                          button("POWER ON");
 
-                  Button powerOn =
-                          button(
-                                  "POWER ON / RESTORE MODE"
-                          );
-
-                  powerOn.setOnClickListener(
+                  on.setOnClickListener(
                           v -> sendMode(
-                                  selectedMode
+                                  currentModeNumber
                           )
                   );
 
-                  content.addView(
-                          powerOn
-                  );
+                  content.addView(on);
 
+                  Button off =
+                          button("POWER OFF");
 
-                  Button powerOff =
-                          button(
-                                  "POWER OFF"
-                          );
-
-                  powerOff.setOnClickListener(
+                  off.setOnClickListener(
                           v -> sendOff()
                   );
 
-                  content.addView(
-                          powerOff
-                  );
+                  content.addView(off);
 
-
-                  content.addView(
+                  TextView info =
                           text(
-                                  "BRIGHTNESS",
-                                  14,
-                                  Color.LTGRAY
-                          )
-                  );
+                                  "Last mode akan dipanggil kembali saat ON.",
+                                  14
+                          );
 
+                  content.addView(info);
 
-                  SeekBar bar =
+                  SeekBar brightness =
                           new SeekBar(this);
 
-                  bar.setMax(255);
+                  brightness.setMax(100);
+                  brightness.setProgress(100);
 
-                  bar.setProgress(
+                  content.addView(
+                          label("BRIGHTNESS")
+                  );
+
+                  content.addView(
                           brightness
                   );
 
-                  bar.setOnSeekBarChangeListener(
-                          new SeekBar
-                                  .OnSeekBarChangeListener() {
+                  SeekBar speed =
+                          new SeekBar(this);
 
-                              @Override
-                              public void onProgressChanged(
-                                      SeekBar seekBar,
-                                      int value,
-                                      boolean fromUser
-                              ) {
-
-                                  brightness =
-                                          value;
-                              }
-
-                              @Override
-                              public void onStartTrackingTouch(
-                                      SeekBar seekBar
-                              ) {
-                              }
-
-                              @Override
-                              public void onStopTrackingTouch(
-                                      SeekBar seekBar
-                              ) {
-                              }
-                          }
-                  );
+                  speed.setMax(900);
+                  speed.setProgress(350);
 
                   content.addView(
-                          bar
+                          label("PREVIEW SPEED")
                   );
 
+                  content.addView(speed);
+
+                  Button custom =
+                          button(
+                                  "OPEN CUSTOM / DIY STUDIO"
+                          );
+
+                  custom.setOnClickListener(
+                          v -> showCustom()
+                  );
+
+                  content.addView(custom);
+
+                  Button ai =
+                          button(
+                                  "AI ANIMATION"
+                          );
+
+                  ai.setOnClickListener(
+                          v -> showAI()
+                  );
+
+                  content.addView(ai);
+              }
+
+              private void showModes() {
+
+                  clearContent();
+
+                  content.addView(
+                          text("MODES 1 - 210",28)
+                  );
 
                   content.addView(
                           text(
-                                  "Quick Modes",
-                                  18,
-                                  Color.WHITE
+                                  "Preset mode dari controller.",
+                                  14
                           )
                   );
-
 
                   GridLayout grid =
                           new GridLayout(this);
 
                   grid.setColumnCount(4);
 
+                  for (int i=1; i<=210; i++) {
 
-                  int[] quickModes = {
-                          1,
-                          10,
-                          20,
-                          30,
-                          50,
-                          75,
-                          100,
-                          125,
-                          150,
-                          171,
-                          200,
-                          210
-                  };
-
-
-                  for (
-                          int mode :
-                          quickModes
-                  ) {
-
-                      final int m =
-                              mode;
-
-                      Button b =
-                              button(
-                                      String.valueOf(m)
-                              );
-
-                      b.setOnClickListener(
-                              v -> sendMode(m)
-                      );
-
-
-                      GridLayout.LayoutParams p =
-                              new GridLayout.LayoutParams();
-
-                      p.width = 0;
-
-                      p.columnSpec =
-                              GridLayout.spec(
-                                      GridLayout.UNDEFINED,
-                                      1f
-                              );
-
-
-                      grid.addView(
-                              b,
-                              p
-                      );
-                  }
-
-
-                  content.addView(
-                          grid
-                  );
-              }
-
-
-              // ======================================================
-              // MODES
-              // ======================================================
-
-              private void buildModes() {
-
-                  stopPreview();
-
-                  createBase();
-
-
-                  content.addView(
-                          text(
-                                  "MODES 1 - 210",
-                                  22,
-                                  Color.WHITE
-                          )
-                  );
-
-
-                  content.addView(
-                          text(
-                                  "Preset controller modes",
-                                  13,
-                                  Color.GRAY
-                          )
-                  );
-
-
-                  EditText search =
-                          new EditText(this);
-
-                  search.setHint(
-                          "Mode number"
-                  );
-
-                  search.setTextColor(
-                          Color.WHITE
-                  );
-
-                  search.setHintTextColor(
-                          Color.GRAY
-                  );
-
-
-                  content.addView(
-                          search
-                  );
-
-
-                  GridLayout grid =
-                          new GridLayout(this);
-
-                  grid.setColumnCount(3);
-
-
-                  for (
-                          int mode = 1;
-                          mode <= 210;
-                          mode++
-                  ) {
-
-                      final int m =
-                              mode;
+                      final int mode = i;
 
                       Button b =
                               button(
                                       String.format(
                                               Locale.US,
                                               "%03d",
-                                              m
+                                              mode
                                       )
                               );
 
+                      b.setTextSize(12);
 
                       b.setOnClickListener(
-                              v -> sendMode(m)
+                              v -> sendMode(mode)
                       );
 
-
-                      GridLayout.LayoutParams p =
+                      GridLayout.LayoutParams lp =
                               new GridLayout.LayoutParams();
 
-                      p.width = 0;
-
-                      p.columnSpec =
+                      lp.width = 0;
+                      lp.height = 58;
+                      lp.columnSpec =
                               GridLayout.spec(
                                       GridLayout.UNDEFINED,
                                       1f
                               );
 
+                      lp.setMargins(4,4,4,4);
 
-                      grid.addView(
-                              b,
-                              p
-                      );
+                      grid.addView(b,lp);
                   }
-
 
                   content.addView(
                           grid,
@@ -994,243 +641,82 @@ jobs:
                   );
               }
 
+              private void showCustom() {
 
-              // ======================================================
-              // CUSTOM
-              // ======================================================
-
-              private void buildCustom() {
-
-                  stopPreview();
-
-                  createBase();
-
+                  clearContent();
 
                   content.addView(
                           text(
                                   "CUSTOM STUDIO",
-                                  24,
-                                  Color.WHITE
+                                  28
                           )
                   );
-
 
                   content.addView(
                           text(
-                                  "Custom slots 171 - 210",
-                                  14,
-                                  Color.LTGRAY
+                                  "Slot lokal 171 - 210",
+                                  14
                           )
                   );
 
+                  Spinner slot =
+                          new Spinner(this);
 
-                  for (
-                          int slot = 171;
-                          slot <= 210;
-                          slot++
-                  ) {
+                  String[] slots =
+                          new String[40];
 
-                      final int s =
-                              slot;
-
-
-                      Button b =
-                              button(
-                                      "SLOT " +
-                                      s +
-                                      (
-                                              s ==
-                                                      selectedMode
-                                                      ? "  ACTIVE"
-                                                      : ""
-                                      )
-                              );
-
-
-                      b.setOnClickListener(
-                              v -> {
-
-                                  selectedMode =
-                                          s;
-
-                                  loadSlot();
-
-                                  buildCustom();
-                              }
-                      );
-
-
-                      content.addView(
-                              b
-                      );
+                  for (int i=0;i<40;i++) {
+                      slots[i] =
+                              "CUSTOM " + (171+i);
                   }
 
-
-                  Button editor =
-                          button(
-                                  "OPEN ANIMATION EDITOR"
+                  android.widget.ArrayAdapter<String> adapter =
+                          new android.widget.ArrayAdapter<>(
+                                  this,
+                                  android.R.layout.simple_spinner_dropdown_item,
+                                  slots
                           );
 
-                  editor.setOnClickListener(
-                          v -> buildEditor()
+                  slot.setAdapter(adapter);
+
+                  slot.setSelection(
+                          selectedSlot - 171
                   );
 
-                  content.addView(
-                          editor
+                  slot.setOnItemSelectedListener(
+                          new android.widget.AdapterView.OnItemSelectedListener() {
+
+                              @Override
+                              public void onItemSelected(
+                                      android.widget.AdapterView<?> parent,
+                                      View view,
+                                      int position,
+                                      long id) {
+
+                                  selectedSlot =
+                                          171 + position;
+
+                                  loadSlot();
+                              }
+
+                              @Override
+                              public void onNothingSelected(
+                                      android.widget.AdapterView<?> parent) {
+                              }
+                          }
                   );
 
+                  content.addView(slot);
 
-                  Button preview =
-                          button(
-                                  "PREVIEW"
-                          );
-
-                  preview.setOnClickListener(
-                          v -> buildPreview()
-                  );
-
-                  content.addView(
-                          preview
-                  );
-              }
-
-
-              // ======================================================
-              // EDITOR
-              // ======================================================
-
-              private void buildEditor() {
-
-                  stopPreview();
-
-                  createBase();
-
-
-                  content.addView(
-                          text(
-                                  "ANIMATION EDITOR",
-                                  24,
-                                  Color.WHITE
-                          )
-                  );
-
-
-                  content.addView(
-                          text(
-                                  "Slot " +
-                                  selectedMode,
-                                  16,
-                                  Color.LTGRAY
-                          )
-                  );
-
-
-                  EditText command =
-                          new EditText(this);
-
-                  command.setHint(
-                          "contoh: merah biru bergantian"
-                  );
-
-                  command.setTextColor(
-                          Color.WHITE
-                  );
-
-                  command.setHintTextColor(
-                          Color.GRAY
-                  );
-
-
-                  content.addView(
-                          command
-                  );
-
-
-                  Button generate =
-                          button(
-                                  "AI GENERATE"
-                          );
-
-                  generate.setOnClickListener(
-                          v -> generateAnimation(
-                                  command
-                                          .getText()
-                                          .toString()
-                          )
-                  );
-
-                  content.addView(
-                          generate
-                  );
-
-
-                  content.addView(
-                          text(
-                                  "TIMELINE",
-                                  18,
-                                  Color.WHITE
-                          )
-                  );
-
-
-                  LinearLayout timeline =
+                  LinearLayout editor =
                           new LinearLayout(this);
 
-                  timeline.setOrientation(
+                  editor.setOrientation(
                           LinearLayout.VERTICAL
                   );
 
-
-                  for (
-                          int i = 0;
-                          i < frames.size();
-                          i++
-                  ) {
-
-                      final int index =
-                              i;
-
-                      Frame f =
-                              frames.get(i);
-
-
-                      Button row =
-                              button(
-                                      "#" +
-                                      (i + 1) +
-                                      "  LEFT " +
-                                      rgb(
-                                              f.lr,
-                                              f.lg,
-                                              f.lb
-                                      ) +
-                                      "  RIGHT " +
-                                      rgb(
-                                              f.rr,
-                                              f.rg,
-                                              f.rb
-                                      ) +
-                                      "  " +
-                                      f.duration +
-                                      "ms"
-                              );
-
-
-                      row.setOnClickListener(
-                              v -> editFrame(
-                                      index
-                              )
-                      );
-
-
-                      timeline.addView(
-                              row
-                      );
-                  }
-
-
                   content.addView(
-                          timeline,
+                          editor,
                           new LinearLayout.LayoutParams(
                                   -1,
                                   0,
@@ -1238,1120 +724,795 @@ jobs:
                           )
                   );
 
+                  loadSlot();
+
+                  rebuildEditor(editor);
+              }
+
+              private void rebuildEditor(
+                      LinearLayout editor) {
+
+                  editor.removeAllViews();
 
                   Button add =
-                          button(
-                                  "ADD FRAME"
-                          );
+                          button("ADD FRAME");
 
-                  add.setOnClickListener(
-                          v -> {
+                  add.setOnClickListener(v -> {
 
-                              frames.add(
-                                      new Frame(
-                                              255,
-                                              0,
-                                              0,
-                                              255,
-                                              0,
-                                              0,
-                                              500
-                                      )
-                              );
+                      frames.add(
+                              new Frame(
+                                      255,0,0,
+                                      255,0,0,
+                                      400
+                              )
+                      );
 
-                              buildEditor();
-                          }
-                  );
+                      rebuildEditor(editor);
+                  });
 
-                  content.addView(
-                          add
-                  );
-
+                  editor.addView(add);
 
                   Button duplicate =
-                          button(
-                                  "DUPLICATE LAST FRAME"
+                          button("DUPLICATE LAST");
+
+                  duplicate.setOnClickListener(v -> {
+
+                      if (!frames.isEmpty()) {
+
+                          Frame f =
+                                  frames.get(
+                                          frames.size()-1
+                                  );
+
+                          frames.add(
+                                  new Frame(
+                                          f.lr,f.lg,f.lb,
+                                          f.rr,f.rg,f.rb,
+                                          f.duration
+                                  )
                           );
 
-                  duplicate.setOnClickListener(
-                          v -> {
+                          rebuildEditor(editor);
+                      }
+                  });
 
-                              if (!frames.isEmpty()) {
+                  editor.addView(duplicate);
 
-                                  Frame f =
-                                          frames.get(
-                                                  frames.size() - 1
-                                          );
+                  Button clear =
+                          button("CLEAR TIMELINE");
 
-                                  frames.add(
-                                          f.copy()
-                                  );
+                  clear.setOnClickListener(v -> {
+
+                      frames.clear();
+
+                      rebuildEditor(editor);
+                  });
+
+                  editor.addView(clear);
+
+                  for (int i=0;i<frames.size();i++) {
+
+                      final int index = i;
+
+                      Frame f =
+                              frames.get(i);
+
+                      LinearLayout row =
+                              new LinearLayout(this);
+
+                      row.setPadding(
+                              8,10,8,10
+                      );
+
+                      row.setOrientation(
+                              LinearLayout.VERTICAL
+                      );
+
+                      row.addView(
+                              text(
+                                      "FRAME " +
+                                      (i+1),
+                                      18
+                              )
+                      );
+
+                      TextView preview =
+                              text(
+                                      "LEFT  RGB(" +
+                                      f.lr + "," +
+                                      f.lg + "," +
+                                      f.lb +
+                                      ")   RIGHT RGB(" +
+                                      f.rr + "," +
+                                      f.rg + "," +
+                                      f.rb + ")",
+                                      13
+                              );
+
+                      row.addView(preview);
+
+                      Button color =
+                              button(
+                                      "COLOR WHEEL"
+                              );
+
+                      color.setOnClickListener(
+                              v -> openColorEditor(
+                                      f,
+                                      editor
+                              )
+                      );
+
+                      row.addView(color);
+
+                      SeekBar duration =
+                              new SeekBar(this);
+
+                      duration.setMax(1950);
+                      duration.setProgress(
+                              Math.max(
+                                      50,
+                                      f.duration - 50
+                              )
+                      );
+
+                      duration.setOnSeekBarChangeListener(
+                              new SeekBar.OnSeekBarChangeListener() {
+
+                                  public void onProgressChanged(
+                                          SeekBar s,
+                                          int p,
+                                          boolean fromUser) {
+
+                                      f.duration =
+                                              50 + p;
+                                  }
+
+                                  public void onStartTrackingTouch(
+                                          SeekBar s) {}
+
+                                  public void onStopTrackingTouch(
+                                          SeekBar s) {}
                               }
+                      );
 
-                              buildEditor();
-                          }
-                  );
+                      row.addView(
+                              label(
+                                      "DURATION " +
+                                      f.duration +
+                                      " ms"
+                              )
+                      );
 
-                  content.addView(
-                          duplicate
-                  );
+                      row.addView(duration);
 
+                      Button del =
+                              button("DELETE FRAME");
+
+                      del.setOnClickListener(v -> {
+
+                          frames.remove(index);
+
+                          rebuildEditor(editor);
+                      });
+
+                      row.addView(del);
+
+                      content.addView(row);
+                  }
 
                   Button stripe =
                           button(
                                   "GENERATE STRIPE / BELANG"
                           );
 
-                  stripe.setOnClickListener(
-                          v -> generateStripe()
-                  );
+                  stripe.setOnClickListener(v -> {
 
-                  content.addView(
-                          stripe
-                  );
+                      frames.clear();
 
+                      int[][] c = {
+                              {255,0,0},
+                              {0,255,0},
+                              {0,0,255},
+                              {255,255,0}
+                      };
+
+                      for (int i=0;i<8;i++) {
+
+                          int[] x =
+                                  c[i % c.length];
+
+                          frames.add(
+                                  new Frame(
+                                          x[0],x[1],x[2],
+                                          x[0],x[1],x[2],
+                                          180
+                                  )
+                          );
+                      }
+
+                      rebuildEditor(editor);
+                  });
+
+                  content.addView(stripe);
 
                   Button chase =
                           button(
                                   "GENERATE CHASE"
                           );
 
-                  chase.setOnClickListener(
-                          v -> generateChase()
-                  );
+                  chase.setOnClickListener(v -> {
 
-                  content.addView(
-                          chase
-                  );
+                      frames.clear();
 
+                      for (int i=0;i<12;i++) {
+
+                          int r =
+                                  (i % 3 == 0) ? 255 : 0;
+
+                          int g =
+                                  (i % 3 == 1) ? 255 : 0;
+
+                          int b =
+                                  (i % 3 == 2) ? 255 : 0;
+
+                          frames.add(
+                                  new Frame(
+                                          r,g,b,
+                                          b,r,g,
+                                          120
+                                  )
+                          );
+                      }
+
+                      rebuildEditor(editor);
+                  });
+
+                  content.addView(chase);
 
                   Button rainbow =
                           button(
                                   "GENERATE RAINBOW"
                           );
 
-                  rainbow.setOnClickListener(
-                          v -> generateRainbow()
+                  rainbow.setOnClickListener(v -> {
+
+                      frames.clear();
+
+                      int[] colors = {
+                              Color.RED,
+                              Color.YELLOW,
+                              Color.GREEN,
+                              Color.CYAN,
+                              Color.BLUE,
+                              Color.MAGENTA
+                      };
+
+                      for (int c : colors) {
+
+                          frames.add(
+                                  new Frame(
+                                          Color.red(c),
+                                          Color.green(c),
+                                          Color.blue(c),
+                                          Color.blue(c),
+                                          Color.red(c),
+                                          Color.green(c),
+                                          180
+                                  )
+                          );
+                      }
+
+                      rebuildEditor(editor);
+                  });
+
+                  content.addView(rainbow);
+
+                  Button previewBtn =
+                          button(
+                                  "▶ PREVIEW BEFORE SEND"
+                          );
+
+                  previewBtn.setOnClickListener(
+                          v -> showPreview()
                   );
 
-                  content.addView(
-                          rainbow
-                  );
-
+                  content.addView(previewBtn);
 
                   Button save =
                           button(
-                                  "SAVE SLOT " +
-                                  selectedMode
+                                  "SAVE CUSTOM SLOT " +
+                                  selectedSlot
                           );
 
                   save.setOnClickListener(
                           v -> saveSlot()
                   );
 
-                  content.addView(
-                          save
-                  );
+                  content.addView(save);
 
-
-                  Button preview =
+                  Button send =
                           button(
-                                  "PREVIEW BEFORE SEND"
+                                  "TEST / SEND"
                           );
 
-                  preview.setOnClickListener(
-                          v -> buildPreview()
+                  send.setOnClickListener(
+                          v -> testFrames()
                   );
 
-                  content.addView(
-                          preview
-                  );
+                  content.addView(send);
               }
 
+              private void openColorEditor(
+                      Frame f,
+                      LinearLayout editor) {
 
-              // ======================================================
-              // EDIT FRAME
-              // ======================================================
-
-              private void editFrame(
-                      int index
-              ) {
-
-                  if (
-                          index < 0 ||
-                          index >= frames.size()
-                  ) {
-                      return;
-                  }
-
-
-                  Frame f =
-                          frames.get(index);
-
-
-                  createBase();
-
+                  clearContent();
 
                   content.addView(
                           text(
-                                  "EDIT FRAME " +
-                                  (index + 1),
-                                  22,
-                                  Color.WHITE
+                                  "COLOR EDITOR",
+                                  28
                           )
                   );
 
+                  content.addView(
+                          text(
+                                  "LEFT / RIGHT dapat diatur terpisah.",
+                                  14
+                          )
+                  );
 
-                  EditText lr =
+                  EditText left =
                           edit(
-                                  f.lr
-                          );
-
-                  EditText lg =
-                          edit(
-                                  f.lg
-                          );
-
-                  EditText lb =
-                          edit(
+                                  f.lr + "," +
+                                  f.lg + "," +
                                   f.lb
                           );
 
-
-                  EditText rr =
+                  EditText right =
                           edit(
-                                  f.rr
-                          );
-
-                  EditText rg =
-                          edit(
-                                  f.rg
-                          );
-
-                  EditText rb =
-                          edit(
+                                  f.rr + "," +
+                                  f.rg + "," +
                                   f.rb
                           );
 
+                  content.addView(
+                          label("LEFT RGB")
+                  );
 
-                  EditText duration =
-                          edit(
-                                  f.duration
+                  content.addView(left);
+
+                  content.addView(
+                          label("RIGHT RGB")
+                  );
+
+                  content.addView(right);
+
+                  TextView wheel =
+                          text(
+                                  "⭕ RGB COLOR WHEEL\n" +
+                                  "Gunakan input RGB di bawah.\n" +
+                                  "Format: R,G,B",
+                                  18
                           );
 
-
-                  addField(
-                          "LEFT R",
-                          lr
+                  wheel.setGravity(
+                          Gravity.CENTER
                   );
 
-                  addField(
-                          "LEFT G",
-                          lg
+                  wheel.setPadding(
+                          20,50,20,50
                   );
 
-                  addField(
-                          "LEFT B",
-                          lb
-                  );
+                  GradientDrawable gd =
+                          new GradientDrawable(
+                                  GradientDrawable.Orientation.TL_BR,
+                                  new int[]{
+                                          Color.RED,
+                                          Color.YELLOW,
+                                          Color.GREEN,
+                                          Color.CYAN,
+                                          Color.BLUE,
+                                          Color.MAGENTA,
+                                          Color.RED
+                                  }
+                          );
 
+                  gd.setCornerRadius(500);
 
-                  addField(
-                          "RIGHT R",
-                          rr
-                  );
+                  wheel.setBackground(gd);
 
-                  addField(
-                          "RIGHT G",
-                          rg
-                  );
-
-                  addField(
-                          "RIGHT B",
-                          rb
-                  );
-
-
-                  addField(
-                          "DURATION MS",
-                          duration
-                  );
-
+                  content.addView(wheel);
 
                   Button apply =
-                          button(
-                                  "APPLY"
-                          );
+                          button("APPLY");
 
+                  apply.setOnClickListener(v -> {
 
-                  apply.setOnClickListener(
-                          v -> {
+                      int[] l =
+                              parseRGB(
+                                      left.getText().toString()
+                              );
 
-                              f.lr =
-                                      read(
-                                              lr,
-                                              f.lr
-                                      );
+                      int[] r =
+                              parseRGB(
+                                      right.getText().toString()
+                              );
 
-                              f.lg =
-                                      read(
-                                              lg,
-                                              f.lg
-                                      );
+                      if (l != null) {
+                          f.lr=l[0];
+                          f.lg=l[1];
+                          f.lb=l[2];
+                      }
 
-                              f.lb =
-                                      read(
-                                              lb,
-                                              f.lb
-                                      );
+                      if (r != null) {
+                          f.rr=r[0];
+                          f.rg=r[1];
+                          f.rb=r[2];
+                      }
 
+                      showCustom();
+                  });
 
-                              f.rr =
-                                      read(
-                                              rr,
-                                              f.rr
-                                      );
-
-                              f.rg =
-                                      read(
-                                              rg,
-                                              f.rg
-                                      );
-
-                              f.rb =
-                                      read(
-                                              rb,
-                                              f.rb
-                                      );
-
-
-                              f.duration =
-                                      Math.max(
-                                              30,
-                                              read(
-                                                      duration,
-                                                      f.duration
-                                              )
-                                      );
-
-
-                              buildEditor();
-                          }
-                  );
-
-
-                  content.addView(
-                          apply
-                  );
-
-
-                  Button delete =
-                          button(
-                                  "DELETE FRAME"
-                          );
-
-
-                  delete.setOnClickListener(
-                          v -> {
-
-                              if (
-                                      frames.size() >
-                                              1
-                              ) {
-                                  frames.remove(
-                                          index
-                                  );
-                              }
-
-                              buildEditor();
-                          }
-                  );
-
-
-                  content.addView(
-                          delete
-                  );
-
+                  content.addView(apply);
 
                   Button back =
-                          button(
-                                  "BACK"
-                          );
-
+                          button("BACK");
 
                   back.setOnClickListener(
-                          v -> buildEditor()
+                          v -> showCustom()
                   );
 
+                  content.addView(back);
+              }
 
-                  content.addView(
-                          back
+              private int[] parseRGB(String s) {
+
+                  try {
+
+                      String[] p =
+                              s.trim().split(",");
+
+                      if (p.length != 3) {
+                          return null;
+                      }
+
+                      int r =
+                              clamp(
+                                      Integer.parseInt(
+                                              p[0].trim()
+                                      )
+                              );
+
+                      int g =
+                              clamp(
+                                      Integer.parseInt(
+                                              p[1].trim()
+                                      )
+                              );
+
+                      int b =
+                              clamp(
+                                      Integer.parseInt(
+                                              p[2].trim()
+                                      )
+                              );
+
+                      return new int[]{r,g,b};
+
+                  } catch (Exception e) {
+
+                      return null;
+                  }
+              }
+
+              private int clamp(int v) {
+
+                  return Math.max(
+                          0,
+                          Math.min(255,v)
                   );
               }
 
+              private void showPreview() {
 
-              // ======================================================
-              // PREVIEW
-              // ======================================================
-
-              private void buildPreview() {
-
-                  stopPreview();
-
-                  createBase();
-
+                  clearContent();
 
                   content.addView(
                           text(
                                   "ANIMATION PREVIEW",
-                                  24,
-                                  Color.WHITE
+                                  28
                           )
                   );
 
-
-                  content.addView(
+                  TextView screen =
                           text(
-                                  "Slot " +
-                                  selectedMode +
-                                  " — test before SEND",
-                                  14,
-                                  Color.LTGRAY
-                          )
+                                  "PREVIEW",
+                                  32
+                          );
+
+                  screen.setGravity(
+                          Gravity.CENTER
                   );
 
+                  screen.setMinimumHeight(350);
 
-                  LinearLayout lamp =
-                          new LinearLayout(this);
-
-                  lamp.setOrientation(
-                          LinearLayout.HORIZONTAL
-                  );
-
-
-                  View left =
-                          new View(this);
-
-                  View right =
-                          new View(this);
-
-
-                  lamp.addView(
-                          left,
-                          new LinearLayout.LayoutParams(
-                                  0,
-                                  260,
-                                  1
-                          )
-                  );
-
-
-                  lamp.addView(
-                          right,
-                          new LinearLayout.LayoutParams(
-                                  0,
-                                  260,
-                                  1
-                          )
-                  );
-
-
-                  content.addView(
-                          lamp
-                  );
-
+                  content.addView(screen);
 
                   Button play =
-                          button(
-                                  "PLAY"
-                          );
+                          button("▶ PLAY");
 
+                  play.setOnClickListener(v -> {
 
-                  play.setOnClickListener(
-                          v -> {
+                      playing = true;
 
-                              previewPlaying =
-                                      true;
+                      startPreview(screen);
+                  });
 
-                              previewIndex =
-                                      0;
-
-                              handler.removeCallbacks(
-                                      previewRunnable
-                              );
-
-                              handler.post(
-                                      previewRunnable
-                              );
-                          }
-                  );
-
-
-                  content.addView(
-                          play
-                  );
-
+                  content.addView(play);
 
                   Button pause =
-                          button(
-                                  "PAUSE"
-                          );
-
+                          button("⏸ PAUSE");
 
                   pause.setOnClickListener(
                           v -> stopPreview()
                   );
 
-
-                  content.addView(
-                          pause
-                  );
-
+                  content.addView(pause);
 
                   Button restart =
-                          button(
-                                  "RESTART"
-                          );
+                          button("↻ RESTART");
 
+                  restart.setOnClickListener(v -> {
 
-                  restart.setOnClickListener(
-                          v -> {
+                      stopPreview();
 
-                              previewIndex =
-                                      0;
+                      playing = true;
 
-                              previewPlaying =
-                                      true;
+                      startPreview(screen);
+                  });
 
-                              handler.removeCallbacks(
-                                      previewRunnable
-                              );
-
-                              handler.post(
-                                      previewRunnable
-                              );
-                          }
-                  );
-
-
-                  content.addView(
-                          restart
-                  );
-
+                  content.addView(restart);
 
                   Button send =
                           button(
                                   "SEND TO LED"
                           );
 
-
                   send.setOnClickListener(
-                          v -> sendAnimation()
+                          v -> testFrames()
                   );
 
-
-                  content.addView(
-                          send
-                  );
-
+                  content.addView(send);
 
                   Button back =
-                          button(
-                                  "BACK TO EDITOR"
-                          );
-
+                          button("BACK TO EDITOR");
 
                   back.setOnClickListener(
-                          v -> buildEditor()
+                          v -> showCustom()
                   );
 
+                  content.addView(back);
+              }
 
-                  content.addView(
-                          back
+              private void startPreview(
+                      TextView screen) {
+
+                  handler.removeCallbacks(
+                          previewRunnable
+                  );
+
+                  handler.post(
+                          new Runnable() {
+
+                              @Override
+                              public void run() {
+
+                                  if (!playing ||
+                                      frames.isEmpty()) {
+                                      return;
+                                  }
+
+                                  Frame f =
+                                          frames.get(
+                                                  (int)(
+                                                          System.currentTimeMillis()
+                                                          / Math.max(
+                                                                  50,
+                                                                  fDuration()
+                                                          )
+                                                  ) %
+                                                  frames.size()
+                                          );
+
+                                  int r =
+                                          (f.lr + f.rr) / 2;
+
+                                  int g =
+                                          (f.lg + f.rg) / 2;
+
+                                  int b =
+                                          (f.lb + f.rb) / 2;
+
+                                  screen.setBackgroundColor(
+                                          Color.rgb(
+                                                  r,g,b
+                                          )
+                                  );
+
+                                  screen.setText(
+                                          "FRAME\n" +
+                                          "L " +
+                                          f.lr + "," +
+                                          f.lg + "," +
+                                          f.lb +
+                                          "\nR " +
+                                          f.rr + "," +
+                                          f.rg + "," +
+                                          f.rb
+                                  );
+
+                                  handler.postDelayed(
+                                          this,
+                                          Math.max(
+                                                  50,
+                                                  f.duration
+                                          )
+                                  );
+                              }
+                          }
                   );
               }
 
+              private int fDuration() {
 
-              private void showPreviewFrame(
-                      Frame f
-              ) {
-
-                  if (
-                          content == null ||
-                          content.getChildCount() < 3
-                  ) {
-                      return;
+                  if (frames.isEmpty()) {
+                      return 300;
                   }
 
-
-                  int leftColor =
-                          Color.rgb(
-                                  clamp(f.lr),
-                                  clamp(f.lg),
-                                  clamp(f.lb)
-                          );
-
-
-                  int rightColor =
-                          Color.rgb(
-                                  clamp(f.rr),
-                                  clamp(f.rg),
-                                  clamp(f.rb)
-                          );
-
-
-                  ViewGroup group =
-                          (ViewGroup)
-                                  content.getChildAt(2);
-
-
-                  if (
-                          group.getChildCount() >=
-                                  2
-                  ) {
-
-                      group.getChildAt(0)
-                              .setBackgroundColor(
-                                      leftColor
-                              );
-
-                      group.getChildAt(1)
-                              .setBackgroundColor(
-                                      rightColor
-                              );
-                  }
+                  return frames.get(0).duration;
               }
-
 
               private void stopPreview() {
 
-                  previewPlaying =
-                          false;
+                  playing = false;
 
                   handler.removeCallbacks(
                           previewRunnable
                   );
               }
 
-
-              // ======================================================
-              // AI
-              // ======================================================
-
-              private void buildAI() {
-
-                  stopPreview();
-
-                  createBase();
-
-
-                  content.addView(
-                          text(
-                                  "AI ANIMATION",
-                                  24,
-                                  Color.WHITE
-                          )
-                  );
-
-
-                  content.addView(
-                          text(
-                                  "Create animation from normal language.",
-                                  14,
-                                  Color.LTGRAY
-                          )
-                  );
-
-
-                  EditText command =
-                          new EditText(this);
-
-                  command.setHint(
-                          "merah biru bergantian cepat"
-                  );
-
-                  command.setTextColor(
-                          Color.WHITE
-                  );
-
-                  command.setHintTextColor(
-                          Color.GRAY
-                  );
-
-
-                  content.addView(
-                          command
-                  );
-
-
-                  Button generate =
-                          button(
-                                  "GENERATE"
-                          );
-
-
-                  generate.setOnClickListener(
-                          v -> generateAnimation(
-                                  command
-                                          .getText()
-                                          .toString()
-                          )
-                  );
-
-
-                  content.addView(
-                          generate
-                  );
-
-
-                  Button editor =
-                          button(
-                                  "OPEN EDITOR"
-                          );
-
-
-                  editor.setOnClickListener(
-                          v -> buildEditor()
-                  );
-
-
-                  content.addView(
-                          editor
-                  );
+              private void applyPreviewColor(
+                      int r,
+                      int g,
+                      int b) {
               }
 
+              private void testFrames() {
 
-              private void generateAnimation(
-                      String command
-              ) {
+                  if (frames.isEmpty()) {
 
-                  String q =
-                          command.toLowerCase(
-                                  Locale.US
-                          );
-
-
-                  frames.clear();
-
-
-                  if (
-                          q.contains("rainbow") ||
-                          q.contains("pelangi")
-                  ) {
-
-                      generateRainbow();
+                      Toast.makeText(
+                              this,
+                              "Timeline masih kosong.",
+                              Toast.LENGTH_SHORT
+                      ).show();
 
                       return;
                   }
 
+                  playing = true;
 
-                  if (
-                          q.contains("stripe") ||
-                          q.contains("belang")
-                  ) {
-
-                      generateStripe();
-
-                      return;
-                  }
-
-
-                  if (
-                          q.contains("chase") ||
-                          q.contains("kejar")
-                  ) {
-
-                      generateChase();
-
-                      return;
-                  }
-
-
-                  if (
-                          q.contains("merah") &&
-                          q.contains("biru")
-                  ) {
-
-                      frames.add(
-                              new Frame(
-                                      255,
-                                      0,
-                                      0,
-                                      0,
-                                      0,
-                                      255,
-                                      q.contains("cepat")
-                                              ? 180
-                                              : 400
-                              )
-                      );
-
-
-                      frames.add(
-                              new Frame(
-                                      0,
-                                      0,
-                                      255,
-                                      255,
-                                      0,
-                                      0,
-                                      q.contains("cepat")
-                                              ? 180
-                                              : 400
-                              )
-                      );
-
-
-                      buildEditor();
-
-                      return;
-                  }
-
-
-                  if (
-                          q.contains("hijau")
-                  ) {
-
-                      frames.add(
-                              new Frame(
-                                      0,
-                                      255,
-                                      0,
-                                      0,
-                                      255,
-                                      0,
-                                      500
-                              )
-                      );
-
-                  } else if (
-                          q.contains("biru")
-                  ) {
-
-                      frames.add(
-                              new Frame(
-                                      0,
-                                      0,
-                                      255,
-                                      0,
-                                      0,
-                                      255,
-                                      500
-                              )
-                      );
-
-                  } else {
-
-                      frames.add(
-                              new Frame(
-                                      255,
-                                      0,
-                                      0,
-                                      255,
-                                      0,
-                                      0,
-                                      500
-                              )
-                      );
-                  }
-
-
-                  buildEditor();
-              }
-
-
-              // ======================================================
-              // STRIPE
-              // ======================================================
-
-              private void generateStripe() {
-
-                  frames.clear();
-
-
-                  frames.add(
-                          new Frame(
-                                  255,
-                                  0,
-                                  0,
-                                  0,
-                                  0,
-                                  255,
-                                  220
-                          )
+                  handler.removeCallbacks(
+                          previewRunnable
                   );
 
+                  handler.post(
+                          new Runnable() {
 
-                  frames.add(
-                          new Frame(
-                                  0,
-                                  0,
-                                  255,
-                                  255,
-                                  0,
-                                  0,
-                                  220
-                          )
+                              int index = 0;
+
+                              @Override
+                              public void run() {
+
+                                  if (!playing ||
+                                      frames.isEmpty()) {
+                                      return;
+                                  }
+
+                                  Frame f =
+                                          frames.get(
+                                                  index %
+                                                  frames.size()
+                                          );
+
+                                  int r =
+                                          (f.lr + f.rr) / 2;
+
+                                  int g =
+                                          (f.lg + f.rg) / 2;
+
+                                  int b =
+                                          (f.lb + f.rb) / 2;
+
+                                  sendColor(
+                                          r,g,b
+                                  );
+
+                                  index++;
+
+                                  handler.postDelayed(
+                                          this,
+                                          Math.max(
+                                                  50,
+                                                  f.duration
+                                          )
+                                  );
+                              }
+                          }
                   );
-
-
-                  frames.add(
-                          new Frame(
-                                  255,
-                                  255,
-                                  255,
-                                  0,
-                                  0,
-                                  0,
-                                  220
-                          )
-                  );
-
-
-                  frames.add(
-                          new Frame(
-                                  0,
-                                  0,
-                                  0,
-                                  255,
-                                  255,
-                                  255,
-                                  220
-                          )
-                  );
-
-
-                  buildEditor();
               }
-
-
-              // ======================================================
-              // CHASE
-              // ======================================================
-
-              private void generateChase() {
-
-                  frames.clear();
-
-
-                  int[][] colors = {
-
-                          {255, 0, 0},
-
-                          {255, 100, 0},
-
-                          {255, 255, 0},
-
-                          {0, 255, 0},
-
-                          {0, 255, 255},
-
-                          {0, 0, 255},
-
-                          {180, 0, 255},
-
-                          {255, 0, 180}
-
-                  };
-
-
-                  for (
-                          int[] c :
-                          colors
-                  ) {
-
-                      frames.add(
-                              new Frame(
-                                      c[0],
-                                      c[1],
-                                      c[2],
-                                      c[0],
-                                      c[1],
-                                      c[2],
-                                      140
-                              )
-                      );
-                  }
-
-
-                  buildEditor();
-              }
-
-
-              // ======================================================
-              // RAINBOW
-              // ======================================================
-
-              private void generateRainbow() {
-
-                  frames.clear();
-
-
-                  for (
-                          int i = 0;
-                          i < 24;
-                          i++
-                  ) {
-
-                      float hue =
-                              i * 15f;
-
-
-                      int c =
-                              Color.HSVToColor(
-                                      new float[]{
-                                              hue,
-                                              1f,
-                                              1f
-                                      }
-                              );
-
-
-                      frames.add(
-                              new Frame(
-                                      Color.red(c),
-                                      Color.green(c),
-                                      Color.blue(c),
-                                      Color.red(c),
-                                      Color.green(c),
-                                      Color.blue(c),
-                                      120
-                              )
-                      );
-                  }
-
-
-                  buildEditor();
-              }
-
-
-              // ======================================================
-              // SAVE
-              // ======================================================
 
               private void saveSlot() {
 
-                  SharedPreferences prefs =
-                          getSharedPreferences(
-                                  "leddmx_slots",
-                                  MODE_PRIVATE
-                          );
+                  StringBuilder s =
+                          new StringBuilder();
 
+                  for (Frame f : frames) {
 
-                  SharedPreferences.Editor e =
-                          prefs.edit();
-
-
-                  e.putInt(
-                          "slot_" +
-                                  selectedMode +
-                                  "_count",
-                          frames.size()
-                  );
-
-
-                  for (
-                          int i = 0;
-                          i < frames.size();
-                          i++
-                  ) {
-
-                      Frame f =
-                              frames.get(i);
-
-
-                      String data =
-                              f.lr + "," +
-                              f.lg + "," +
-                              f.lb + "," +
-                              f.rr + "," +
-                              f.rg + "," +
-                              f.rb + "," +
-                              f.duration;
-
-
-                      e.putString(
-                              "slot_" +
-                                      selectedMode +
-                                      "_" +
-                                      i,
-                              data
-                      );
+                      s.append(f.lr).append(",");
+                      s.append(f.lg).append(",");
+                      s.append(f.lb).append(",");
+                      s.append(f.rr).append(",");
+                      s.append(f.rg).append(",");
+                      s.append(f.rb).append(",");
+                      s.append(f.duration).append(";");
                   }
 
+                  prefs.edit()
+                          .putString(
+                                  "slot_" + selectedSlot,
+                                  s.toString()
+                          )
+                          .apply();
 
-                  e.apply();
-
-
-                  toast(
-                          "SLOT " +
-                                  selectedMode +
-                                  " SAVED"
-                  );
+                  Toast.makeText(
+                          this,
+                          "CUSTOM " +
+                          selectedSlot +
+                          " tersimpan.",
+                          Toast.LENGTH_SHORT
+                  ).show();
               }
-
-
-              // ======================================================
-              // LOAD
-              // ======================================================
 
               private void loadSlot() {
 
-                  SharedPreferences prefs =
-                          getSharedPreferences(
-                                  "leddmx_slots",
-                                  MODE_PRIVATE
+                  frames.clear();
+
+                  String s =
+                          prefs.getString(
+                                  "slot_" + selectedSlot,
+                                  ""
                           );
 
-
-                  int count =
-                          prefs.getInt(
-                                  "slot_" +
-                                          selectedMode +
-                                          "_count",
-                                  0
-                          );
-
-
-                  if (count <= 0) {
+                  if (s.isEmpty()) {
                       return;
                   }
 
+                  String[] rows =
+                          s.split(";");
 
-                  ArrayList<Frame> loaded =
-                          new ArrayList<>();
-
-
-                  for (
-                          int i = 0;
-                          i < count;
-                          i++
-                  ) {
-
-                      String data =
-                              prefs.getString(
-                                      "slot_" +
-                                              selectedMode +
-                                              "_" +
-                                              i,
-                                      null
-                              );
-
-
-                      if (data == null) {
-                          continue;
-                      }
-
+                  for (String row : rows) {
 
                       try {
 
                           String[] p =
-                                  data.split(",");
+                                  row.split(",");
 
+                          if (p.length == 7) {
 
-                          if (p.length >= 7) {
-
-                              loaded.add(
+                              frames.add(
                                       new Frame(
                                               Integer.parseInt(p[0]),
                                               Integer.parseInt(p[1]),
@@ -2367,233 +1528,127 @@ jobs:
                       } catch (Exception ignored) {
                       }
                   }
+              }
 
+              private void sendMode(int mode) {
 
-                  if (!loaded.isEmpty()) {
+                  if (mode < 1 ||
+                      mode > 210) {
+                      return;
+                  }
 
-                      frames.clear();
+                  currentModeNumber =
+                          mode;
 
-                      frames.addAll(
-                              loaded
+                  BluetoothService.getInstance()
+                          .lastUsedMode =
+                          mode;
+
+                  byte[] packet = {
+                          0x7B,
+                          (byte)0xFF,
+                          0x03,
+                          (byte)mode,
+                          (byte)0xFF,
+                          (byte)0xFF,
+                          (byte)0xFF,
+                          (byte)0xFF,
+                          (byte)0xBF
+                  };
+
+                  BluetoothService.getInstance()
+                          .sendPacket(packet);
+
+                  if (currentMode != null) {
+                      currentMode.setText(
+                              "MODE " +
+                              mode
                       );
                   }
+
+                  Toast.makeText(
+                          this,
+                          "MODE " + mode,
+                          Toast.LENGTH_SHORT
+                  ).show();
               }
 
+              private void sendOff() {
 
-              // ======================================================
-              // SETTINGS
-              // ======================================================
+                  byte[] packet = {
+                          0x7B,
+                          (byte)0xFF,
+                          0x07,
+                          0x00,
+                          0x00,
+                          0x00,
+                          (byte)0xBF
+                  };
 
-              private void buildSettings() {
-
-                  stopPreview();
-
-                  createBase();
-
-
-                  content.addView(
-                          text(
-                                  "SETTINGS",
-                                  24,
-                                  Color.WHITE
-                          )
-                  );
-
-
-                  Button reconnect =
-                          button(
-                                  "RECONNECT BLE"
-                          );
-
-
-                  reconnect.setOnClickListener(
-                          v -> scan()
-                  );
-
-
-                  content.addView(
-                          reconnect
-                  );
-
-
-                  Button disconnect =
-                          button(
-                                  "DISCONNECT"
-                          );
-
-
-                  disconnect.setOnClickListener(
-                          v -> {
-
-                              ble.disconnect();
-
-                              updateConnectionStatus();
-                          }
-                  );
-
-
-                  content.addView(
-                          disconnect
-                  );
-
-
-                  content.addView(
-                          text(
-                                  "DEVICE",
-                                  17,
-                                  Color.WHITE
-                          )
-                  );
-
-
-                  content.addView(
-                          text(
-                                  "LEDDMX-00-b2cd",
-                                  15,
-                                  Color.LTGRAY
-                          )
-                  );
-
-
-                  content.addView(
-                          text(
-                                  "BLE SERVICE",
-                                  17,
-                                  Color.WHITE
-                          )
-                  );
-
-
-                  content.addView(
-                          text(
-                                  "FFE0",
-                                  15,
-                                  Color.LTGRAY
-                          )
-                  );
-
-
-                  content.addView(
-                          text(
-                                  "WRITE CHARACTERISTIC",
-                                  17,
-                                  Color.WHITE
-                          )
-                  );
-
-
-                  content.addView(
-                          text(
-                                  "FFE1",
-                                  15,
-                                  Color.LTGRAY
-                          )
-                  );
-
-
-                  content.addView(
-                          text(
-                                  "Custom slot data is stored locally.",
-                                  14,
-                                  Color.GRAY
-                          )
-                  );
-
-
-                  content.addView(
-                          text(
-                                  "Controller memory save is not assumed.",
-                                  14,
-                                  Color.GRAY
-                          )
-                  );
+                  BluetoothService.getInstance()
+                          .sendPacket(packet);
               }
 
+              private void sendColor(
+                      int r,
+                      int g,
+                      int b) {
 
-              // ======================================================
-              // BLE SCAN
-              // ======================================================
+                  byte[] packet = {
+                          0x7B,
+                          (byte)0xFF,
+                          0x07,
+                          (byte)clamp(r),
+                          (byte)clamp(g),
+                          (byte)clamp(b),
+                          (byte)0xBF
+                  };
+
+                  BluetoothService.getInstance()
+                          .sendPacket(packet);
+              }
 
               private void scan() {
 
-                  if (adapter == null) {
-
-                      toast(
-                              "Bluetooth tidak tersedia"
-                      );
-
+                  if (bluetoothAdapter == null) {
                       return;
                   }
 
+                  if (Build.VERSION.SDK_INT >= 31 &&
+                      checkSelfPermission(
+                              Manifest.permission.BLUETOOTH_SCAN
+                      ) != PackageManager.PERMISSION_GRANTED) {
 
-                  if (!adapter.isEnabled()) {
-
-                      toast(
-                              "Aktifkan Bluetooth"
-                      );
-
+                      requestBluetoothPermission();
                       return;
                   }
-
 
                   scanner =
-                          adapter.getBluetoothLeScanner();
+                          bluetoothAdapter
+                                  .getBluetoothLeScanner();
 
+                  status.setText(
+                          "SCANNING..."
+                  );
 
-                  if (scanner == null) {
+                  scanner.startScan(
+                          scanCallback
+                  );
 
-                      toast(
-                              "BLE scanner tidak tersedia"
-                      );
+                  handler.postDelayed(
+                          () -> {
 
-                      return;
-                  }
+                              try {
+                                  scanner.stopScan(
+                                          scanCallback
+                                  );
+                              } catch (Exception ignored) {
+                              }
 
-
-                  try {
-
-                      scanner.startScan(
-                              scanCallback
-                      );
-
-
-                      toast(
-                              "Scanning LEDDMX..."
-                      );
-
-
-                      handler.postDelayed(
-                              () -> {
-
-                                  try {
-
-                                      if (
-                                              scanner != null
-                                      ) {
-
-                                          scanner.stopScan(
-                                                  scanCallback
-                                          );
-                                      }
-
-                                  } catch (Exception ignored) {
-                                  }
-
-                              },
-                              10000
-                      );
-
-
-                  } catch (
-                          SecurityException e
-                  ) {
-
-                      toast(
-                              "Izin Bluetooth ditolak"
-                      );
-                  }
+                          },
+                          10000
+                  );
               }
-
 
               private final ScanCallback scanCallback =
                       new ScanCallback() {
@@ -2601,744 +1656,204 @@ jobs:
                           @Override
                           public void onScanResult(
                                   int callbackType,
-                                  ScanResult result
-                          ) {
+                                  ScanResult result) {
 
-                              BluetoothDevice device =
+                              BluetoothDevice d =
                                       result.getDevice();
 
-
-                              String name =
-                                      null;
-
+                              String name = null;
 
                               try {
-
                                   name =
-                                          device.getName();
-
-                              } catch (
-                                      SecurityException ignored
-                              ) {
+                                          d.getName();
+                              } catch (SecurityException ignored) {
                               }
 
-
-                              if (
-                                      name != null &&
-                                      name.toUpperCase(
-                                              Locale.US
-                                      ).contains(
-                                              "LEDDMX"
-                                      )
-                              ) {
+                              if (name != null &&
+                                  name.contains(
+                                          "LEDDMX"
+                                  )) {
 
                                   try {
 
-                                      if (
-                                              scanner != null
-                                      ) {
-
-                                          scanner.stopScan(
-                                                  scanCallback
-                                          );
-                                      }
+                                      scanner.stopScan(
+                                              this
+                                      );
 
                                   } catch (Exception ignored) {
                                   }
 
-
-                                  connect(
-                                          device
-                                  );
+                                  connect(d);
                               }
                           }
                       };
 
-
-              // ======================================================
-              // CONNECT
-              // ======================================================
-
               private void connect(
-                      BluetoothDevice device
-              ) {
+                      BluetoothDevice device) {
 
-                  try {
+                  status.setText(
+                          "CONNECTING..."
+                  );
 
-                      ble.disconnect();
+                  if (Build.VERSION.SDK_INT >= 31 &&
+                      checkSelfPermission(
+                              Manifest.permission.BLUETOOTH_CONNECT
+                      ) != PackageManager.PERMISSION_GRANTED) {
 
-
-                      ble.gatt =
-                              device.connectGatt(
-                                      this,
-                                      false,
-                                      gattCallback,
-                                      BluetoothDevice
-                                              .TRANSPORT_LE
-                              );
-
-
-                      toast(
-                              "Connecting..."
-                      );
-
-
-                  } catch (
-                          SecurityException e
-                  ) {
-
-                      toast(
-                              "Bluetooth permission denied"
-                      );
+                      return;
                   }
+
+                  gatt =
+                          device.connectGatt(
+                                  this,
+                                  false,
+                                  gattCallback
+                          );
               }
-
-
-              // ======================================================
-              // GATT
-              // ======================================================
 
               private final BluetoothGattCallback gattCallback =
                       new BluetoothGattCallback() {
 
                           @Override
                           public void onConnectionStateChange(
-                                  BluetoothGatt gatt,
-                                  int status,
-                                  int newState
-                          ) {
+                                  BluetoothGatt g,
+                                  int statusCode,
+                                  int newState) {
 
-                              if (
-                                      newState ==
-                                              BluetoothGatt
-                                                      .STATE_CONNECTED
-                              ) {
+                              runOnUiThread(() -> {
 
-                                  ble.gatt =
-                                          gatt;
+                                  if (newState ==
+                                      BluetoothGatt.STATE_CONNECTED) {
 
-                                  ble.connected =
-                                          true;
+                                      status.setText(
+                                              "CONNECTED"
+                                      );
 
+                                      BluetoothService.getInstance()
+                                              .gatt =
+                                              g;
 
-                                  runOnUiThread(
-                                          () -> {
+                                      BluetoothService.getInstance()
+                                              .isConnected =
+                                              true;
 
-                                              updateConnectionStatus();
+                                      g.discoverServices();
 
-                                              toast(
-                                                      "LEDDMX CONNECTED"
-                                              );
-                                          }
-                                  );
+                                  } else {
 
+                                      status.setText(
+                                              "DISCONNECTED"
+                                      );
 
-                                  try {
+                                      BluetoothService.getInstance()
+                                              .isConnected =
+                                              false;
 
-                                      gatt.discoverServices();
+                                      BluetoothService.getInstance()
+                                              .gatt =
+                                              null;
 
-                                  } catch (
-                                          SecurityException ignored
-                                  ) {
+                                      BluetoothService.getInstance()
+                                              .writeChar =
+                                              null;
                                   }
-
-
-                              } else {
-
-                                  ble.connected =
-                                          false;
-
-
-                                  runOnUiThread(
-                                          thisActivity::updateConnectionStatus
-                                  );
-                              }
+                              });
                           }
-
 
                           @Override
                           public void onServicesDiscovered(
-                                  BluetoothGatt gatt,
-                                  int status
-                          ) {
+                                  BluetoothGatt g,
+                                  int statusCode) {
 
                               BluetoothGattService service =
-                                      gatt.getService(
-                                              BluetoothService
-                                                      .SERVICE_FFE0
+                                      g.getService(
+                                              java.util.UUID.fromString(
+                                                      BluetoothService.SERVICE_FFE0
+                                              )
                                       );
 
-
-                              if (
-                                      service == null
-                              ) {
+                              if (service == null) {
                                   return;
                               }
 
-
-                              BluetoothGattCharacteristic characteristic =
+                              BluetoothGattCharacteristic write =
                                       service.getCharacteristic(
-                                              BluetoothService
-                                                      .CHAR_FFE1
+                                              java.util.UUID.fromString(
+                                                      BluetoothService.SERVICE_FFE1
+                                              )
                                       );
 
+                              if (write != null) {
 
-                              if (
-                                      characteristic != null
-                              ) {
+                                  BluetoothService.getInstance()
+                                          .writeChar =
+                                          write;
 
-                                  ble.gatt =
-                                          gatt;
-
-                                  ble.writeChar =
-                                          characteristic;
-
-                                  ble.connected =
-                                          true;
-
-
-                                  runOnUiThread(
-                                          MainActivity.this::
-                                                  updateConnectionStatus
+                                  runOnUiThread(() ->
+                                          status.setText(
+                                                  "CONNECTED / READY"
+                                          )
                                   );
                               }
                           }
                       };
 
-
-              private final MainActivity thisActivity =
-                      this;
-
-
-              // ======================================================
-              // MODE
-              // ======================================================
-
-              private void sendMode(
-                      int mode
-              ) {
-
-                  if (
-                          mode < 1 ||
-                          mode > 210
-                  ) {
-                      return;
-                  }
-
-
-                  selectedMode =
-                          mode;
-
-
-                  byte[] packet = {
-
-                          0x7B,
-
-                          (byte) 0xFF,
-
-                          0x03,
-
-                          (byte) mode,
-
-                          (byte) 0xFF,
-
-                          (byte) 0xFF,
-
-                          (byte) 0xFF,
-
-                          (byte) 0xFF,
-
-                          (byte) 0xBF
-                  };
-
-
-                  ble.send(
-                          packet
-                  );
-
-
-                  if (
-                          modeStatus != null
-                  ) {
-
-                      modeStatus.setText(
-                              "MODE " +
-                                      selectedMode
-                      );
-                  }
-
-
-                  toast(
-                          "MODE " +
-                                  selectedMode
-                  );
-              }
-
-
-              // ======================================================
-              // COLOR
-              // ======================================================
-
-              private void sendColor(
-                      int r,
-                      int g,
-                      int b
-              ) {
-
-                  r =
-                          scaleBrightness(
-                                  r
-                          );
-
-                  g =
-                          scaleBrightness(
-                                  g
-                          );
-
-                  b =
-                          scaleBrightness(
-                                  b
-                          );
-
-
-                  byte[] packet = {
-
-                          0x7B,
-
-                          (byte) 0xFF,
-
-                          0x07,
-
-                          (byte) clamp(r),
-
-                          (byte) clamp(g),
-
-                          (byte) clamp(b),
-
-                          (byte) 0xBF
-                  };
-
-
-                  ble.send(
-                          packet
-                  );
-              }
-
-
-              private int scaleBrightness(
-                      int value
-              ) {
-
-                  return (
-                          value *
-                                  brightness
-                  ) / 255;
-              }
-
-
-              // ======================================================
-              // OFF
-              // ======================================================
-
-              private void sendOff() {
-
-                  byte[] packet = {
-
-                          0x7B,
-
-                          (byte) 0xFF,
-
-                          0x07,
-
-                          0x00,
-
-                          0x00,
-
-                          0x00,
-
-                          (byte) 0xBF
-                  };
-
-
-                  ble.send(
-                          packet
-                  );
-
-
-                  toast(
-                          "POWER OFF"
-                  );
-              }
-
-
-              // ======================================================
-              // SEND ANIMATION
-              // ======================================================
-
-              private void sendAnimation() {
-
-                  if (
-                          frames.isEmpty()
-                  ) {
-
-                      toast(
-                              "Animation kosong"
-                      );
-
-                      return;
-                  }
-
-
-                  stopPreview();
-
-
-                  for (
-                          Frame f :
-                          frames
-                  ) {
-
-                      int r =
-                              (
-                                      f.lr +
-                                              f.rr
-                              ) / 2;
-
-
-                      int g =
-                              (
-                                      f.lg +
-                                              f.rg
-                              ) / 2;
-
-
-                      int b =
-                              (
-                                      f.lb +
-                                              f.rb
-                              ) / 2;
-
-
-                      sendColor(
-                              r,
-                              g,
-                              b
-                      );
-
-
-                      try {
-
-                          Thread.sleep(
-                                  Math.min(
-                                          300,
-                                          Math.max(
-                                                  30,
-                                                  f.duration
-                                          )
-                                  )
-                          );
-
-                      } catch (
-                              InterruptedException ignored
-                      ) {
-                      }
-                  }
-
-
-                  toast(
-                          "Animation sent"
-                  );
-              }
-
-
-              // ======================================================
-              // DEFAULT
-              // ======================================================
-
-              private void createDefaultAnimation() {
-
-                  frames.clear();
-
-
-                  frames.add(
-                          new Frame(
-                                  255,
-                                  0,
-                                  0,
-                                  255,
-                                  0,
-                                  0,
-                                  400
-                          )
-                  );
-
-
-                  frames.add(
-                          new Frame(
-                                  0,
-                                  0,
-                                  255,
-                                  0,
-                                  0,
-                                  255,
-                                  400
-                          )
-                  );
-              }
-
-
-              // ======================================================
-              // UI HELPERS
-              // ======================================================
-
-              private TextView text(
-                      String value,
-                      float size,
-                      int color
-              ) {
+              private TextView label(
+                      String s) {
 
                   TextView t =
-                          new TextView(this);
-
-
-                  t.setText(
-                          value
-                  );
-
-
-                  t.setTextSize(
-                          size
-                  );
-
-
-                  t.setTextColor(
-                          color
-                  );
-
+                          text(s,14);
 
                   t.setPadding(
-                          8,
-                          8,
-                          8,
-                          8
+                          0,12,0,4
                   );
-
 
                   return t;
               }
 
+              private TextView text(
+                      String s,
+                      float size) {
+
+                  TextView t =
+                          new TextView(this);
+
+                  t.setText(s);
+                  t.setTextSize(size);
+                  t.setTextColor(Color.WHITE);
+                  t.setPadding(
+                          8,8,8,8
+                  );
+
+                  return t;
+              }
 
               private Button button(
-                      String value
-              ) {
+                      String s) {
 
                   Button b =
                           new Button(this);
 
-
-                  b.setText(
-                          value
-                  );
-
-
-                  b.setTextColor(
-                          Color.WHITE
-                  );
-
-
-                  b.setAllCaps(
-                          false
-                  );
-
+                  b.setText(s);
+                  b.setTextColor(Color.WHITE);
 
                   return b;
               }
 
-
-              private void addNavigationButton(
-                      LinearLayout parent,
-                      String name,
-                      View.OnClickListener listener
-              ) {
-
-                  Button b =
-                          button(
-                                  name
-                          );
-
-
-                  b.setTextSize(
-                          10
-                  );
-
-
-                  b.setOnClickListener(
-                          listener
-                  );
-
-
-                  parent.addView(
-                          b,
-                          new LinearLayout.LayoutParams(
-                                  0,
-                                  -2,
-                                  1
-                          )
-                  );
-              }
-
-
               private EditText edit(
-                      int value
-              ) {
+                      String s) {
 
                   EditText e =
                           new EditText(this);
 
-
-                  e.setText(
-                          String.valueOf(
-                                  value
-                          )
+                  e.setText(s);
+                  e.setTextColor(Color.WHITE);
+                  e.setHintTextColor(
+                          Color.GRAY
                   );
-
-
-                  e.setTextColor(
-                          Color.WHITE
-                  );
-
-
-                  e.setSingleLine(
-                          true
-                  );
-
 
                   return e;
               }
-
-
-              private void addField(
-                      String name,
-                      EditText field
-              ) {
-
-                  content.addView(
-                          text(
-                                  name,
-                                  13,
-                                  Color.LTGRAY
-                          )
-                  );
-
-
-                  content.addView(
-                          field
-                  );
-              }
-
-
-              private int read(
-                      EditText field,
-                      int fallback
-              ) {
-
-                  try {
-
-                      return clamp(
-                              Integer.parseInt(
-                                      field
-                                              .getText()
-                                              .toString()
-                                              .trim()
-                              )
-                      );
-
-                  } catch (
-                          Exception e
-                  ) {
-
-                      return fallback;
-                  }
-              }
-
-
-              private int clamp(
-                      int value
-              ) {
-
-                  return Math.max(
-                          0,
-                          Math.min(
-                                  255,
-                                  value
-                          )
-                  );
-              }
-
-
-              private String rgb(
-                      int r,
-                      int g,
-                      int b
-              ) {
-
-                  return String.format(
-                          Locale.US,
-                          "#%02X%02X%02X",
-                          clamp(r),
-                          clamp(g),
-                          clamp(b)
-                  );
-              }
-
-
-              private void updateConnectionStatus() {
-
-                  if (
-                          connectionStatus == null
-                  ) {
-                      return;
-                  }
-
-
-                  connectionStatus.setText(
-                          ble.connected
-                                  ? "CONNECTED"
-                                  : "OFFLINE"
-                  );
-
-
-                  connectionStatus.setTextColor(
-                          ble.connected
-                                  ? Color.GREEN
-                                  : Color.GRAY
-                  );
-              }
-
-
-              private void toast(
-                      String message
-              ) {
-
-                  Toast.makeText(
-                          this,
-                          message,
-                          Toast.LENGTH_SHORT
-                  ).show();
-              }
-
-
-              @Override
-              protected void onDestroy() {
-
-                  stopPreview();
-
-                  super.onDestroy();
-              }
-
-
-              // ======================================================
-              // FRAME
-              // ======================================================
 
               private static class Frame {
 
@@ -3352,7 +1867,6 @@ jobs:
 
                   int duration;
 
-
                   Frame(
                           int lr,
                           int lg,
@@ -3360,87 +1874,280 @@ jobs:
                           int rr,
                           int rg,
                           int rb,
-                          int duration
-                  ) {
+                          int duration) {
 
-                      this.lr = lr;
-                      this.lg = lg;
-                      this.lb = lb;
+                      this.lr=lr;
+                      this.lg=lg;
+                      this.lb=lb;
 
-                      this.rr = rr;
-                      this.rg = rg;
-                      this.rb = rb;
+                      this.rr=rr;
+                      this.rg=rg;
+                      this.rb=rb;
 
-                      this.duration = duration;
+                      this.duration =
+                              duration;
                   }
+              }
 
+              private void showAI() {
 
-                  Frame copy() {
+                  clearContent();
 
-                      return new Frame(
-                              lr,
-                              lg,
-                              lb,
-                              rr,
-                              rg,
-                              rb,
-                              duration
+                  content.addView(
+                          text(
+                                  "AI ANIMATION",
+                                  28
+                          )
+                  );
+
+                  content.addView(
+                          text(
+                                  "Contoh: \"merah biru bergantian cepat\"",
+                                  14
+                          )
+                  );
+
+                  EditText command =
+                          edit("");
+
+                  content.addView(command);
+
+                  Button generate =
+                          button(
+                                  "GENERATE"
+                          );
+
+                  generate.setOnClickListener(
+                          v -> {
+
+                              generateAI(
+                                      command
+                                              .getText()
+                                              .toString()
+                              );
+
+                              showCustom();
+                          }
+                  );
+
+                  content.addView(generate);
+              }
+
+              private void generateAI(
+                      String command) {
+
+                  frames.clear();
+
+                  String s =
+                          command.toLowerCase(
+                                  Locale.US
+                          );
+
+                  if (s.contains("pelan") ||
+                      s.contains("slow")) {
+
+                      frames.add(
+                              new Frame(
+                                      255,0,0,
+                                      0,0,255,
+                                      1000
+                              )
                       );
+
+                      frames.add(
+                              new Frame(
+                                      0,0,255,
+                                      255,0,0,
+                                      1000
+                              )
+                      );
+
+                      return;
                   }
+
+                  if (s.contains("cepat") ||
+                      s.contains("fast")) {
+
+                      frames.add(
+                              new Frame(
+                                      255,0,0,
+                                      0,0,255,
+                                      120
+                              )
+                      );
+
+                      frames.add(
+                              new Frame(
+                                      0,0,255,
+                                      255,0,0,
+                                      120
+                              )
+                      );
+
+                      return;
+                  }
+
+                  if (s.contains("pelangi") ||
+                      s.contains("rainbow")) {
+
+                      int[][] c = {
+                              {255,0,0},
+                              {255,255,0},
+                              {0,255,0},
+                              {0,255,255},
+                              {0,0,255},
+                              {255,0,255}
+                      };
+
+                      for (int[] x : c) {
+
+                          frames.add(
+                                  new Frame(
+                                          x[0],x[1],x[2],
+                                          x[2],x[0],x[1],
+                                          250
+                                  )
+                          );
+                      }
+
+                      return;
+                  }
+
+                  if (s.contains("biru")) {
+
+                      frames.add(
+                              new Frame(
+                                      0,0,255,
+                                      0,0,255,
+                                      500
+                              )
+                      );
+
+                      return;
+                  }
+
+                  if (s.contains("hijau")) {
+
+                      frames.add(
+                              new Frame(
+                                      0,255,0,
+                                      0,255,0,
+                                      500
+                              )
+                      );
+
+                      return;
+                  }
+
+                  frames.add(
+                          new Frame(
+                                  255,0,0,
+                                  0,0,255,
+                                  400
+                          )
+                  );
+
+                  frames.add(
+                          new Frame(
+                                  0,0,255,
+                                  255,0,0,
+                                  400
+                          )
+                  );
+              }
+
+              private void showSettings() {
+
+                  clearContent();
+
+                  content.addView(
+                          text(
+                                  "SETTINGS",
+                                  28
+                          )
+                  );
+
+                  content.addView(
+                          text(
+                                  "Bluetooth / Protocol",
+                                  16
+                          )
+                  );
+
+                  Button reconnect =
+                          button(
+                                  "SCAN & RECONNECT"
+                          );
+
+                  reconnect.setOnClickListener(
+                          v -> scan()
+                  );
+
+                  content.addView(reconnect);
+
+                  content.addView(
+                          text(
+                                  "BLE SERVICE: FFE0",
+                                  14
+                          )
+                  );
+
+                  content.addView(
+                          text(
+                                  "WRITE: FFE1",
+                                  14
+                          )
+                  );
+
+                  content.addView(
+                          text(
+                                  "Preset packet:\n" +
+                                  "7B FF 03 MODE FF FF FF FF BF",
+                                  14
+                          )
+                  );
+
+                  content.addView(
+                          text(
+                                  "Custom slot disimpan lokal di aplikasi.\n" +
+                                  "Belum mengklaim write permanen ke memory controller.",
+                                  14
+                          )
+                  );
+              }
+
+              @Override
+              protected void onDestroy() {
+
+                  stopPreview();
+
+                  if (gatt != null) {
+
+                      try {
+                          gatt.disconnect();
+                          gatt.close();
+                      } catch (Exception ignored) {
+                      }
+                  }
+
+                  super.onDestroy();
               }
           }
           EOF
 
-
-      # ============================================================
-      # 14. GENERATE GRADLE WRAPPER
-      # ============================================================
-
-      - name: Generate Gradle wrapper
+      - name: Generate Gradle Wrapper
         shell: bash
-        run: |
-          gradle wrapper --gradle-version 8.10.2
-
-
-      # ============================================================
-      # 15. BUILD
-      # ============================================================
+        run: gradle wrapper --gradle-version 8.8
 
       - name: Build Debug APK
         shell: bash
         run: |
-          chmod +x gradlew
+          set -e
           ./gradlew clean assembleDebug --stacktrace
 
-
-      # ============================================================
-      # 16. VERIFY APK
-      # ============================================================
-
-      - name: Verify generated APK
-        shell: bash
-        run: |
-          echo "========================================"
-          echo "APK OUTPUT"
-          echo "========================================"
-
-          find app/build/outputs -type f -name "*.apk" -print
-
-          echo "========================================"
-          echo "APK DIRECTORY"
-          echo "========================================"
-
-          ls -lah app/build/outputs/apk/debug/
-
-
-      # ============================================================
-      # 17. UPLOAD ARTIFACT
-      # ============================================================
-
-      - name: Upload FINAL APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: LEDDMX-AI-PRO-FINAL
-          path: app/build/outputs/apk/debug/*.apk
+          name: LEDDMX-AI-Pro-FINAL
+          path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-          retention-days: 30
