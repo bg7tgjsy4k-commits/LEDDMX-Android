@@ -79,6 +79,8 @@ jobs:
               <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
               <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
               <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+              <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
               <uses-feature
                   android:name="android.hardware.bluetooth_le"
@@ -139,7 +141,6 @@ jobs:
           import android.os.Handler;
           import android.os.Looper;
           import android.view.Gravity;
-          import android.view.View;
           import android.widget.Button;
           import android.widget.EditText;
           import android.widget.LinearLayout;
@@ -179,19 +180,16 @@ jobs:
                   public void onScanResult(int callbackType, ScanResult result) {
                       BluetoothDevice device = result.getDevice();
 
-                      if (device == null || device.getName() == null) {
+                      if (device == null) {
                           return;
                       }
 
                       String name = device.getName();
-
-                      if (!name.toUpperCase(Locale.US).contains("LEDDMX")
-                              && !name.toUpperCase(Locale.US).contains("LED DMX")) {
-                          return;
+                      if (name == null || name.isEmpty()) {
+                          name = "Unknown Device";
                       }
 
                       boolean exists = false;
-
                       for (BluetoothDevice d : devices) {
                           if (d.getAddress().equals(device.getAddress())) {
                               exists = true;
@@ -201,7 +199,7 @@ jobs:
 
                       if (!exists) {
                           devices.add(device);
-                          addDeviceButton(device);
+                          addDeviceButton(device, name);
                       }
                   }
               };
@@ -308,7 +306,7 @@ jobs:
                   root.addView(status);
 
                   Button scan = new Button(this);
-                  scan.setText("SCAN LEDDMX");
+                  scan.setText("SCAN ALL BLE DEVICES");
                   scan.setOnClickListener(v -> startScan());
                   root.addView(scan);
 
@@ -379,23 +377,19 @@ jobs:
               }
 
               private void requestBlePermission() {
-
+                  String[] perms;
                   if (android.os.Build.VERSION.SDK_INT >= 31) {
-
-                      if (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN)
-                              != PackageManager.PERMISSION_GRANTED
-                              || checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)
-                              != PackageManager.PERMISSION_GRANTED) {
-
-                          requestPermissions(
-                                  new String[]{
-                                          Manifest.permission.BLUETOOTH_SCAN,
-                                          Manifest.permission.BLUETOOTH_CONNECT
-                                  },
-                                  100
-                          );
-                      }
+                      perms = new String[]{
+                              Manifest.permission.BLUETOOTH_SCAN,
+                              Manifest.permission.BLUETOOTH_CONNECT,
+                              Manifest.permission.ACCESS_FINE_LOCATION
+                      };
+                  } else {
+                      perms = new String[]{
+                              Manifest.permission.ACCESS_FINE_LOCATION
+                      };
                   }
+                  requestPermissions(perms, 100);
               }
 
               private void startScan() {
@@ -415,7 +409,7 @@ jobs:
                   devices.clear();
                   deviceList.removeAllViews();
 
-                  status.setText("Scanning...");
+                  status.setText("Scanning all BLE...");
 
                   try {
                       scanner.startScan(scanCallback);
@@ -426,7 +420,7 @@ jobs:
                           } catch (Exception ignored) {
                           }
 
-                          status.setText("Scan finished");
+                          status.setText("Scan finished. Found: " + devices.size());
                       }, 10000);
 
                   } catch (SecurityException e) {
@@ -434,27 +428,21 @@ jobs:
                   }
               }
 
-              private void addDeviceButton(BluetoothDevice device) {
-
+              private void addDeviceButton(BluetoothDevice device, String name) {
                   Button b = new Button(this);
-
-                  b.setText(device.getName() + "\n" + device.getAddress());
-
+                  b.setText(name + "\n" + device.getAddress());
                   b.setOnClickListener(v -> connect(device));
-
                   deviceList.addView(b);
               }
 
               private void connect(BluetoothDevice device) {
-
                   try {
-
                       if (gatt != null) {
                           gatt.close();
                           gatt = null;
                       }
 
-                      status.setText("Connecting...");
+                      status.setText("Connecting to " + device.getAddress() + "...");
 
                       gatt = device.connectGatt(
                               this,
@@ -473,7 +461,6 @@ jobs:
                       BluetoothGattCharacteristic characteristic) {
 
                   try {
-
                       g.setCharacteristicNotification(characteristic, true);
 
                       BluetoothGattDescriptor descriptor =
@@ -496,7 +483,6 @@ jobs:
               }
 
               private void sendMode(int mode) {
-
                   byte[] packet = new byte[]{
                           0x7B,
                           (byte) 0xFF,
@@ -508,71 +494,54 @@ jobs:
                           (byte) 0xFF,
                           (byte) 0xBF
                   };
-
                   send(packet);
               }
 
               private void sendRaw() {
-
                   String text = hexInput.getText().toString().trim();
-
                   if (text.isEmpty()) {
                       return;
                   }
 
                   try {
-
                       String[] parts = text.replace(",", " ").split("\\s+");
-
                       byte[] data = new byte[parts.length];
-
                       for (int i = 0; i < parts.length; i++) {
                           data[i] = (byte) Integer.parseInt(parts[i], 16);
                       }
-
                       send(data);
-
                   } catch (Exception e) {
                       appendLog("Invalid HEX");
                   }
               }
 
               private void send(byte[] data) {
-
                   if (gatt == null || writeChar == null) {
                       appendLog("Not connected / FFE1 unavailable");
                       return;
                   }
 
                   try {
-
                       writeChar.setValue(data);
-
                       boolean result = gatt.writeCharacteristic(writeChar);
-
                       appendLog(
                               "TX " + bytesToHex(data)
                                       + " [" + result + "]"
                       );
-
                   } catch (SecurityException e) {
                       appendLog("Bluetooth permission denied");
                   }
               }
 
               private void appendLog(String text) {
-
                   if (log == null) {
                       return;
                   }
-
                   log.append(text + "\n");
               }
 
               private String bytesToHex(byte[] data) {
-
                   StringBuilder sb = new StringBuilder();
-
                   for (byte b : data) {
                       sb.append(String.format(
                               Locale.US,
@@ -580,13 +549,11 @@ jobs:
                               b & 0xFF
                       ));
                   }
-
                   return sb.toString().trim();
               }
 
               @Override
               protected void onDestroy() {
-
                   try {
                       if (scanner != null) {
                           scanner.stopScan(scanCallback);
@@ -622,11 +589,6 @@ jobs:
         working-directory: project
         run: |
           gradle --no-daemon clean assembleDebug
-
-      - name: Verify APK
-        run: |
-          test -f project/app/build/outputs/apk/debug/app-debug.apk
-          ls -lh project/app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
