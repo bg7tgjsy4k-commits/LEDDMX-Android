@@ -88,7 +88,7 @@ jobs:
 
               <application
                   android:allowBackup="false"
-                  android:label="LEDDMX Controller"
+                  android:label="LEDDMX Ultimate Controller"
                   android:theme="@style/AppTheme">
 
                   <activity
@@ -143,6 +143,7 @@ jobs:
           import android.view.Gravity;
           import android.widget.Button;
           import android.widget.EditText;
+          import android.widget.HorizontalScrollView;
           import android.widget.LinearLayout;
           import android.widget.ScrollView;
           import android.widget.TextView;
@@ -172,6 +173,7 @@ jobs:
               private TextView status;
               private TextView log;
               private EditText hexInput;
+              private EditText customFrameInput;
 
               private final Handler handler = new Handler(Looper.getMainLooper());
 
@@ -179,10 +181,7 @@ jobs:
                   @Override
                   public void onScanResult(int callbackType, ScanResult result) {
                       BluetoothDevice device = result.getDevice();
-
-                      if (device == null) {
-                          return;
-                      }
+                      if (device == null) return;
 
                       String name = device.getName();
                       if (name == null || name.isEmpty()) {
@@ -208,17 +207,12 @@ jobs:
                       new BluetoothGattCallback() {
 
                           @Override
-                          public void onConnectionStateChange(
-                                  BluetoothGatt g,
-                                  int statusCode,
-                                  int newState) {
-
+                          public void onConnectionStateChange(BluetoothGatt g, int statusCode, int newState) {
                               if (newState == BluetoothGatt.STATE_CONNECTED) {
                                   gatt = g;
                                   appendLog("CONNECTED");
                                   status.setText("Connected - discovering services");
                                   g.discoverServices();
-
                               } else if (newState == BluetoothGatt.STATE_DISCONNECTED) {
                                   appendLog("DISCONNECTED");
                                   status.setText("Disconnected");
@@ -228,18 +222,13 @@ jobs:
                           }
 
                           @Override
-                          public void onServicesDiscovered(
-                                  BluetoothGatt g,
-                                  int statusCode) {
-
+                          public void onServicesDiscovered(BluetoothGatt g, int statusCode) {
                               if (statusCode != BluetoothGatt.GATT_SUCCESS) {
                                   appendLog("Service discovery failed: " + statusCode);
                                   return;
                               }
 
-                              BluetoothGattService service =
-                                      g.getService(SERVICE_FFE0);
-
+                              BluetoothGattService service = g.getService(SERVICE_FFE0);
                               if (service == null) {
                                   appendLog("FFE0 service NOT found");
                                   return;
@@ -261,12 +250,8 @@ jobs:
                           }
 
                           @Override
-                          public void onCharacteristicChanged(
-                                  BluetoothGatt g,
-                                  BluetoothGattCharacteristic characteristic) {
-
+                          public void onCharacteristicChanged(BluetoothGatt g, BluetoothGattCharacteristic characteristic) {
                               byte[] data = characteristic.getValue();
-
                               if (data != null) {
                                   appendLog("RX " + bytesToHex(data));
                               }
@@ -277,9 +262,7 @@ jobs:
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
 
-                  BluetoothManager manager =
-                          (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
-
+                  BluetoothManager manager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
                   adapter = manager.getAdapter();
 
                   buildUi();
@@ -287,7 +270,6 @@ jobs:
               }
 
               private void buildUi() {
-
                   ScrollView scroll = new ScrollView(this);
 
                   LinearLayout root = new LinearLayout(this);
@@ -295,7 +277,7 @@ jobs:
                   root.setPadding(20, 20, 20, 20);
 
                   TextView title = new TextView(this);
-                  title.setText("LEDDMX Controller");
+                  title.setText("LEDDMX Ultimate Controller");
                   title.setTextSize(22);
                   title.setGravity(Gravity.CENTER);
                   root.addView(title);
@@ -314,65 +296,57 @@ jobs:
                   deviceList.setOrientation(LinearLayout.VERTICAL);
                   root.addView(deviceList);
 
-                  // BAGIAN TEST COMMAND MISTERIUS
-                  TextView testTitle = new TextView(this);
-                  testTitle.setText("TEST MYSTERY COMMANDS");
-                  testTitle.setTextSize(18);
-                  root.addView(testTitle);
+                  // KONTROL FITUR UTAMA
+                  TextView controlTitle = new TextView(this);
+                  controlTitle.setText("CONTROLLER FUNCTIONS");
+                  controlTitle.setTextSize(18);
+                  root.addView(controlTitle);
 
-                  Button btnCmd02_35 = new Button(this);
-                  btnCmd02_35.setText("Test Cmd 0x02 (35 FF 00...)");
-                  btnCmd02_35.setOnClickListener(v -> sendCustomPacket(new byte[]{0x7B, (byte)0xFF, 0x02, 0x35, (byte)0xFF, 0x00, (byte)0xFF, (byte)0xFF, (byte)0xBF}));
-                  root.addView(btnCmd02_35);
+                  Button btnSlow = new Button(this);
+                  btnSlow.setText("Speed Slow (Cmd 0x02)");
+                  btnSlow.setOnClickListener(v -> sendCustomPacket(new byte[]{0x7B, (byte)0xFF, 0x02, 0x35, (byte)0xFF, 0x00, (byte)0xFF, (byte)0xFF, (byte)0xBF}));
+                  root.addView(btnSlow);
 
-                  Button btnCmd02_47 = new Button(this);
-                  btnCmd02_47.setText("Test Cmd 0x02 (47 FF 00...)");
-                  btnCmd02_47.setOnClickListener(v -> sendCustomPacket(new byte[]{0x7B, (byte)0xFF, 0x02, 0x47, (byte)0xFF, 0x00, (byte)0xFF, (byte)0xFF, (byte)0xBF}));
-                  root.addView(btnCmd02_47);
+                  Button btnPowerOff = new Button(this);
+                  btnPowerOff.setText("Power Off / Stop (Cmd 0x07)");
+                  btnPowerOff.setOnClickListener(v -> sendCustomPacket(new byte[]{0x7B, (byte)0xFF, 0x07, 0x00, 0x00, 0x02, (byte)0xBF}));
+                  root.addView(btnPowerOff);
 
-                  Button btnCmd07 = new Button(this);
-                  btnCmd07.setText("Test Cmd 0x07 (00 00 02 02...)");
-                  btnCmd07.setOnClickListener(v -> sendCustomPacket(new byte[]{0x7B, (byte)0xFF, 0x07, 0x00, 0x00, 0x02, 0x02, (byte)0xBF}));
-                  root.addView(btnCmd07);
+                  // CUSTOM ANIMATION EDITOR
+                  TextView editorTitle = new TextView(this);
+                  editorTitle.setText("CUSTOM ANIMATION EDITOR");
+                  editorTitle.setTextSize(18);
+                  root.addView(editorTitle);
 
-                  Button btnCmd13 = new Button(this);
-                  btnCmd13.setText("Test Cmd 0x13 (Save/NVM?)");
-                  btnCmd13.setOnClickListener(v -> sendCustomPacket(new byte[]{0x7B, (byte)0xFF, 0x13, (byte)0xFF, (byte)0xFF, (byte)0xFF, (byte)0xFF, (byte)0xFF, (byte)0xBF}));
-                  root.addView(btnCmd13);
+                  customFrameInput = new EditText(this);
+                  customFrameInput.setHint("Masukkan Frame HEX (contoh: 7B FF 03 AA ...)");
+                  root.addView(customFrameInput);
 
+                  Button sendCustom = new Button(this);
+                  sendCustom.setText("APPLY CUSTOM FRAME");
+                  sendCustom.setOnClickListener(v -> sendCustomAnimationSequence());
+                  root.addView(sendCustom);
+
+                  // SEMUA MODUS 1 SAMPAI 210
                   TextView modeTitle = new TextView(this);
-                  modeTitle.setText("MODES 171 - 210");
+                  modeTitle.setText("ALL MODES (1 - 210)");
                   modeTitle.setTextSize(18);
                   root.addView(modeTitle);
 
                   LinearLayout modes = new LinearLayout(this);
                   modes.setOrientation(LinearLayout.VERTICAL);
 
-                  for (int start = 171; start <= 210; start += 5) {
-
+                  for (int start = 1; start <= 210; start += 5) {
                       LinearLayout row = new LinearLayout(this);
-
                       for (int mode = start; mode < start + 5 && mode <= 210; mode++) {
-
                           final int id = mode;
-
                           Button b = new Button(this);
                           b.setText(String.valueOf(id));
                           b.setOnClickListener(v -> sendMode(id));
-
-                          row.addView(
-                                  b,
-                                  new LinearLayout.LayoutParams(
-                                          0,
-                                          LinearLayout.LayoutParams.WRAP_CONTENT,
-                                          1
-                                  )
-                          );
+                          row.addView(b, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
                       }
-
                       modes.addView(row);
                   }
-
                   root.addView(modes);
 
                   TextView rawTitle = new TextView(this);
@@ -419,14 +393,12 @@ jobs:
               }
 
               private void startScan() {
-
                   if (adapter == null) {
                       status.setText("Bluetooth unavailable");
                       return;
                   }
 
                   scanner = adapter.getBluetoothLeScanner();
-
                   if (scanner == null) {
                       status.setText("BLE scanner unavailable");
                       return;
@@ -434,21 +406,17 @@ jobs:
 
                   devices.clear();
                   deviceList.removeAllViews();
-
                   status.setText("Scanning all BLE...");
 
                   try {
                       scanner.startScan(scanCallback);
-
                       handler.postDelayed(() -> {
                           try {
                               scanner.stopScan(scanCallback);
                           } catch (Exception ignored) {
                           }
-
                           status.setText("Scan finished. Found: " + devices.size());
                       }, 10000);
-
                   } catch (SecurityException e) {
                       appendLog("Bluetooth permission denied");
                   }
@@ -467,42 +435,23 @@ jobs:
                           gatt.close();
                           gatt = null;
                       }
-
                       status.setText("Connecting to " + device.getAddress() + "...");
-
-                      gatt = device.connectGatt(
-                              this,
-                              false,
-                              gattCallback,
-                              BluetoothDevice.TRANSPORT_LE
-                      );
-
+                      gatt = device.connectGatt(this, false, gattCallback, BluetoothDevice.TRANSPORT_LE);
                   } catch (SecurityException e) {
                       appendLog("Bluetooth permission denied");
                   }
               }
 
-              private void enableNotifications(
-                      BluetoothGatt g,
-                      BluetoothGattCharacteristic characteristic) {
-
+              private void enableNotifications(BluetoothGatt g, BluetoothGattCharacteristic characteristic) {
                   try {
                       g.setCharacteristicNotification(characteristic, true);
-
-                      BluetoothGattDescriptor descriptor =
-                              characteristic.getDescriptor(
-                                      UUID.fromString(
-                                              "00002902-0000-1000-8000-00805F9B34FB"
-                                      )
-                              );
-
+                      BluetoothGattDescriptor descriptor = characteristic.getDescriptor(
+                              UUID.fromString("00002902-0000-1000-8000-00805F9B34FB")
+                      );
                       if (descriptor != null) {
-                          descriptor.setValue(
-                                  BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                          );
+                          descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
                           g.writeDescriptor(descriptor);
                       }
-
                   } catch (SecurityException e) {
                       appendLog("Notification permission denied");
                   }
@@ -510,15 +459,8 @@ jobs:
 
               private void sendMode(int mode) {
                   byte[] packet = new byte[]{
-                          0x7B,
-                          (byte) 0xFF,
-                          0x03,
-                          (byte) mode,
-                          (byte) 0xFF,
-                          (byte) 0xFF,
-                          (byte) 0xFF,
-                          (byte) 0xFF,
-                          (byte) 0xBF
+                          0x7B, (byte) 0xFF, 0x03, (byte) mode,
+                          (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xBF
                   };
                   send(packet);
               }
@@ -527,12 +469,31 @@ jobs:
                   send(packet);
               }
 
+              private void sendCustomAnimationSequence() {
+                  String text = customFrameInput.getText().toString().trim();
+                  if (text.isEmpty()) {
+                      appendLog("Custom frame empty");
+                      return;
+                  }
+                  try {
+                      String[] parts = text.replace(",", " ").split("\\s+");
+                      byte[] data = new byte[parts.length];
+                      for (int i = 0; i < parts.length; i++) {
+                          data[i] = (byte) Integer.parseInt(parts[i], 16);
+                      }
+                      // Kirim custom frame animasi yang diedit user
+                      send(data);
+                      appendLog("Custom Animation Frame Applied!");
+                  } catch (Exception e) {
+                      appendLog("Invalid Custom Frame HEX");
+                  }
+              }
+
               private void sendRaw() {
                   String text = hexInput.getText().toString().trim();
                   if (text.isEmpty()) {
                       return;
                   }
-
                   try {
                       String[] parts = text.replace(",", " ").split("\\s+");
                       byte[] data = new byte[parts.length];
@@ -550,34 +511,24 @@ jobs:
                       appendLog("Not connected / FFE1 unavailable");
                       return;
                   }
-
                   try {
                       writeChar.setValue(data);
                       boolean result = gatt.writeCharacteristic(writeChar);
-                      appendLog(
-                              "TX " + bytesToHex(data)
-                                      + " [" + result + "]"
-                      );
+                      appendLog("TX " + bytesToHex(data) + " [" + result + "]");
                   } catch (SecurityException e) {
                       appendLog("Bluetooth permission denied");
                   }
               }
 
               private void appendLog(String text) {
-                  if (log == null) {
-                      return;
-                  }
+                  if (log == null) return;
                   log.append(text + "\n");
               }
 
               private String bytesToHex(byte[] data) {
                   StringBuilder sb = new StringBuilder();
                   for (byte b : data) {
-                      sb.append(String.format(
-                              Locale.US,
-                              "%02X ",
-                              b & 0xFF
-                      ));
+                      sb.append(String.format(Locale.US, "%02X ", b & 0xFF));
                   }
                   return sb.toString().trim();
               }
@@ -590,7 +541,6 @@ jobs:
                       }
                   } catch (Exception ignored) {
                   }
-
                   if (gatt != null) {
                       try {
                           gatt.close();
@@ -598,7 +548,6 @@ jobs:
                       }
                       gatt = null;
                   }
-
                   super.onDestroy();
               }
           }
