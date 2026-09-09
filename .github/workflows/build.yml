@@ -1,4 +1,4 @@
-name: Build LEDDMX Ultimate Fix v12
+name: Build LEDDMX Direct Gradle v13
 
 on:
   workflow_dispatch:
@@ -21,37 +21,42 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Build Project Directly
+      - name: Build APK via Gradle Wrapper
         shell: bash
         run: |
           set -e
-          rm -rf app build.gradle settings.gradle gradle.properties local.properties
+          rm -rf app build.gradle settings.gradle gradle.properties local.properties gradlew gradlew.bat gradle
 
+          # Buat struktur direktori Android standar
+          mkdir -p app/src/main/java/com/leddmx/pro
+          mkdir -p app/src/main/res/values
+          mkdir -p gradle/wrapper
+
+          # Konfigurasi local.properties agar otomatis mendeteksi Android SDK bawaan runner Linux
           echo "sdk.dir=$ANDROID_HOME" > local.properties
 
           cat > settings.gradle << 'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
           rootProject.name = "LEDDMX-Pro"
           include ':app'
           EOF
 
           cat > build.gradle << 'EOF'
-          buildscript {
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-              dependencies {
-                  classpath 'com.android.tools.build:gradle:7.4.2'
-              }
-          }
-          allprojects {
-              repositories {
-                  google()
-                  mavenCentral()
-              }
+          plugins {
+              id 'com.android.application' version '8.2.0' apply false
           }
           EOF
 
@@ -61,27 +66,25 @@ jobs:
           android.enableJetifier=true
           EOF
 
-          mkdir -p app/src/main/java/com/leddmx/pro
-          mkdir -p app/src/main/res/values
-
           cat > app/build.gradle << 'EOF'
-          apply plugin: 'com.android.application'
-
+          plugins {
+              id 'com.android.application'
+          }
           android {
-              compileSdkVersion 33
+              namespace 'com.leddmx.pro'
+              compileSdk 34
               defaultConfig {
                   applicationId "com.leddmx.pro"
-                  minSdkVersion 21
-                  targetSdkVersion 33
+                  minSdk 21
+                  targetSdk 34
                   versionCode 1
-                  versionName "12.0"
+                  versionName "13.0"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_1_8
                   targetCompatibility JavaVersion.VERSION_1_8
               }
           }
-
           dependencies {
               implementation 'androidx.appcompat:appcompat:1.6.1'
           }
@@ -89,13 +92,12 @@ jobs:
 
           cat > app/src/main/res/values/strings.xml << 'EOF'
           <resources>
-              <string name="app_name">LEDDMX Pro v12</string>
+              <string name="app_name">LEDDMX Pro v13</string>
           </resources>
           EOF
 
           cat > app/src/main/AndroidManifest.xml << 'EOF'
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-              package="com.leddmx.pro">
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <uses-permission android:name="android.permission.BLUETOOTH" />
               <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
               <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
@@ -132,7 +134,7 @@ jobs:
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
                   TextView tv = new TextView(this);
-                  tv.setText("LEDDMX Pro v12 - Ready");
+                  tv.setText("LEDDMX Pro v13 - Direct Build Success");
                   tv.setTextSize(18);
                   tv.setTextColor(Color.WHITE);
                   tv.setBackgroundColor(Color.BLACK);
@@ -141,11 +143,13 @@ jobs:
           }
           EOF
 
-          gradle assembleDebug --stacktrace
+          # Download dan gunakan gradle wrapper versi 8.5 secara mandiri
+          gradle wrapper --gradle-version 8.5
+          ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: LEDDMX-Pro-v12
+          name: LEDDMX-Pro-v13
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
