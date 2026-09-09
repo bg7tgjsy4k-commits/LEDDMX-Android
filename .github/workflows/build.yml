@@ -1,4 +1,4 @@
-name: Build LEDDMX AI Pro FINAL
+Name: Build LEDDMX AI Pro FINAL
 
 on:
   workflow_dispatch:
@@ -489,10 +489,9 @@ jobs:
 
                   clearContent();
 
-                  TextView h =
-                          text("HOME",28);
-
-                  content.addView(h);
+                  content.addView(
+                          text("HOME",28)
+                  );
 
                   currentMode =
                           text(
@@ -1785,7 +1784,7 @@ jobs:
                               BluetoothGattCharacteristic write =
                                       service.getCharacteristic(
                                               java.util.UUID.fromString(
-                                                      BluetoothService.CHAR_FFE1
+                                                      BluetoothService.SERVICE_FFE1
                                               )
                                       );
 
@@ -1965,7 +1964,8 @@ jobs:
                                       0,0,255,
                                       255,0,0,
                                       1000
-                              );
+                              )
+                      );
 
                       return;
                   }
@@ -1986,7 +1986,8 @@ jobs:
                                       0,0,255,
                                       255,0,0,
                                       120
-                              );
+                              )
+                      );
 
                       return;
                   }
@@ -2139,61 +2140,10 @@ jobs:
           }
           EOF
 
-      - name: Fix Java syntax
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          p="app/src/main/java/com/leddmx/pro/MainActivity.java"
-          s=open(p).read()
-
-          s=s.replace(
-              """                      frames.add(
-                              new Frame(
-                                      0,0,255,
-                                      255,0,0,
-                                      1000
-                              );
-
-                      return;""",
-              """                      frames.add(
-                              new Frame(
-                                      0,0,255,
-                                      255,0,0,
-                                      1000
-                              )
-                      );
-
-                      return;"""
-          )
-
-          s=s.replace(
-              """                      frames.add(
-                              new Frame(
-                                      0,0,255,
-                                      255,0,0,
-                                      120
-                              );
-
-                      return;""",
-              """                      frames.add(
-                              new Frame(
-                                      0,0,255,
-                                      255,0,0,
-                                      120
-                              )
-                      );
-
-                      return;"""
-          )
-
-          open(p,"w").write(s)
-          PY
-
       - name: Build Debug APK
         shell: bash
         run: |
           set -e
-          gradle wrapper --gradle-version 8.10.2
           ./gradlew clean assembleDebug --stacktrace
 
       - name: Upload APK
