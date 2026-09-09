@@ -1,4 +1,4 @@
-name: Build LEDDMX AI Pro ULTIMATE
+name: Build LEDDMX AI Pro Master
 
 on:
   workflow_dispatch:
@@ -29,7 +29,7 @@ jobs:
         with:
           gradle-version: '8.5'
 
-      - name: Create Android Project & Ultimate Source Code
+      - name: Create Android Project & Master Source Code
         shell: bash
         run: |
           set -e
@@ -82,7 +82,7 @@ jobs:
                   minSdk 21
                   targetSdk 34
                   versionCode 1
-                  versionName "2.0"
+                  versionName "3.0"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_1_8
@@ -93,7 +93,7 @@ jobs:
 
           cat > app/src/main/res/values/strings.xml <<'EOF'
           <resources>
-              <string name="app_name">LEDDMX AI Pro Ultimate</string>
+              <string name="app_name">LEDDMX AI Pro Master</string>
           </resources>
           EOF
 
@@ -138,6 +138,8 @@ jobs:
               public int lastUsedMode = 171;
               public int brightness = 100;
               public int speed = 350;
+              public String lang = "id"; // id / en
+              public String modulePassword = ""; // secured lock
 
               public void sendPacket(byte[] data) {
                   if (gatt == null || writeChar == null) return;
@@ -198,11 +200,17 @@ jobs:
               private int selectedSlot = 171;
               private boolean playing = false;
               private TextView previewScreen;
+              
+              // Active painting color for the 75-LED matrix
+              private int brushColor = Color.RED;
 
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-                  prefs = getSharedPreferences("leddmx_slots", MODE_PRIVATE);
+                  prefs = getSharedPreferences("leddmx_master", MODE_PRIVATE);
+                  BluetoothService.getInstance().lang = prefs.getString("lang", "id");
+                  BluetoothService.getInstance().modulePassword = prefs.getString("mod_pass", "");
+
                   BluetoothManager bm = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
                   if (bm != null) bluetoothAdapter = bm.getAdapter();
                   buildRoot();
@@ -210,6 +218,10 @@ jobs:
                   if (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
                       requestPermissions(new String[]{Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT}, 100);
                   }
+              }
+
+              private String t(String id, String en) {
+                  return "en".equals(BluetoothService.getInstance().lang) ? en : id;
               }
 
               private void buildRoot() {
@@ -220,7 +232,7 @@ jobs:
                   LinearLayout top = new LinearLayout(this);
                   top.setGravity(Gravity.CENTER_VERTICAL);
                   top.setPadding(24,18,24,18);
-                  TextView title = text("LEDDMX AI PRO ULTIMATE", 20);
+                  TextView title = text("LEDDMX MASTER", 20);
                   title.setTextColor(Color.parseColor("#00E5FF"));
                   top.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
                   Button connect = button("SCAN");
@@ -265,60 +277,56 @@ jobs:
 
               private void showHome() {
                   clearContent();
-                  content.addView(text("HOME DASHBOARD", 24));
-                  currentMode = text("MODE AKTIF: " + currentModeNumber, 18);
+                  content.addView(text(t("BERANDA UTAMA", "HOME DASHBOARD"), 24));
+                  currentMode = text(t("MODE AKTIF: ", "ACTIVE MODE: ") + currentModeNumber, 18);
                   content.addView(currentMode);
 
-                  Button on = button("POWER ON (RESTORE LAST MODE)");
+                  Button on = button(t("POWER ON (NYALAKAN)", "POWER ON (RESTORE MODE)"));
                   on.setOnClickListener(v -> sendMode(currentModeNumber));
                   content.addView(on);
 
-                  Button off = button("POWER OFF");
+                  Button off = button(t("POWER OFF (MATIKAN)", "POWER OFF"));
                   off.setOnClickListener(v -> sendOff());
                   content.addView(off);
 
-                  content.addView(text("KONTROL UTAMA", 14));
+                  content.addView(text(t("PENGATURAN KINERJA", "PERFORMANCE SETTINGS"), 14));
                   SeekBar bright = new SeekBar(this);
                   bright.setMax(100);
                   bright.setProgress(BluetoothService.getInstance().brightness);
                   bright.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-                      public void onProgressChanged(SeekBar s, int p, boolean u) {
-                          BluetoothService.getInstance().brightness = p;
-                      }
+                      public void onProgressChanged(SeekBar s, int p, boolean u) { BluetoothService.getInstance().brightness = p; }
                       public void onStartTrackingTouch(SeekBar s) {}
                       public void onStopTrackingTouch(SeekBar s) {}
                   });
-                  content.addView(text("BRIGHTNESS: " + BluetoothService.getInstance().brightness + "%", 12));
+                  content.addView(text("Brightness: " + BluetoothService.getInstance().brightness + "%", 12));
                   content.addView(bright);
 
                   SeekBar spd = new SeekBar(this);
                   spd.setMax(900);
                   spd.setProgress(BluetoothService.getInstance().speed);
                   spd.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-                      public void onProgressChanged(SeekBar s, int p, boolean u) {
-                          BluetoothService.getInstance().speed = p;
-                      }
+                      public void onProgressChanged(SeekBar s, int p, boolean u) { BluetoothService.getInstance().speed = p; }
                       public void onStartTrackingTouch(SeekBar s) {}
                       public void onStopTrackingTouch(SeekBar s) {}
                   });
-                  content.addView(text("DEFAULT SPEED: " + BluetoothService.getInstance().speed + "ms", 12));
+                  content.addView(text("Speed: " + BluetoothService.getInstance().speed + "ms", 12));
                   content.addView(spd);
 
-                  Button custom = button("BUKA CUSTOM STUDIO (171-210)");
+                  Button custom = button(t("BUKA STUDIO CUSTOM (75 LED MATRIX)", "OPEN CUSTOM MATRIX STUDIO"));
                   custom.setOnClickListener(v -> showCustom());
                   content.addView(custom);
 
-                  Button ai = button("AI ANIMATION GENERATOR");
+                  Button ai = button(t("AI ANIMATION GENERATOR", "AI ANIMATION GENERATOR"));
                   ai.setOnClickListener(v -> showAI());
                   content.addView(ai);
               }
 
               private void showModes() {
                   clearContent();
-                  content.addView(text("PRESET MODES (1 - 210)", 24));
+                  content.addView(text(t("DAFTAR MODE (1 - 210)", "PRESET MODES (1 - 210)"), 24));
                   
                   EditText search = edit("");
-                  search.setHint("Cari Mode (contoh: 171, strobo, dll)...");
+                  search.setHint(t("Cari Nomor Mode...", "Search Mode Number..."));
                   content.addView(search);
 
                   final GridLayout grid = new GridLayout(this);
@@ -356,12 +364,12 @@ jobs:
 
               private void showCustom() {
                   clearContent();
-                  content.addView(text("CUSTOM & DIY STUDIO", 24));
-                  content.addView(text("Pilih Slot Memori Lokal (171 - 210):", 12));
+                  content.addView(text(t("STUDIO KUSTOM MATRIKS 75 LED", "75 LED MATRIX CUSTOM STUDIO"), 24));
+                  content.addView(text(t("Pilih Slot Memori (171 - 210):", "Select Memory Slot (171 - 210):"), 12));
 
                   Spinner slot = new Spinner(this);
                   String[] slots = new String[40];
-                  for (int i=0; i<40; i++) slots[i] = "CUSTOM SLOT " + (171+i);
+                  for (int i=0; i<40; i++) slots[i] = "SLOT CUSTOM " + (171+i);
                   android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, slots);
                   slot.setAdapter(adapter);
                   slot.setSelection(selectedSlot - 171);
@@ -384,48 +392,12 @@ jobs:
               private void rebuildEditor(final LinearLayout editor) {
                   editor.removeAllViews();
 
-                  Button add = button("+ ADD FRAME");
+                  Button add = button(t("+ TAMBAH FRAME", "+ ADD FRAME"));
                   add.setOnClickListener(v -> {
-                      frames.add(new Frame(255,0,0, 0,0,255, 300));
+                      frames.add(new Frame());
                       rebuildEditor(editor);
                   });
                   editor.addView(add);
-
-                  Button dup = button("📋 DUPLICATE LAST");
-                  dup.setOnClickListener(v -> {
-                      if (!frames.isEmpty()) {
-                          Frame f = frames.get(frames.size()-1);
-                          frames.add(new Frame(f.lr, f.lg, f.lb, f.rr, f.rg, f.rb, f.duration));
-                          rebuildEditor(editor);
-                      }
-                  });
-                  editor.addView(dup);
-
-                  LinearLayout genLayout = new LinearLayout(this);
-                  genLayout.setOrientation(LinearLayout.HORIZONTAL);
-                  Button stripe = button("STRIPE");
-                  stripe.setOnClickListener(v -> { generatePreset("stripe"); rebuildEditor(editor); });
-                  Button chase = button("CHASE");
-                  chase.setOnClickListener(v -> { generatePreset("chase"); rebuildEditor(editor); });
-                  Button rainbow = button("RAINBOW");
-                  rainbow.setOnClickListener(v -> { generatePreset("rainbow"); rebuildEditor(editor); });
-                  genLayout.addView(stripe, new LinearLayout.LayoutParams(0, -2, 1));
-                  genLayout.addView(chase, new LinearLayout.LayoutParams(0, -2, 1));
-                  genLayout.addView(rainbow, new LinearLayout.LayoutParams(0, -2, 1));
-                  editor.addView(genLayout);
-
-                  LinearLayout genLayout2 = new LinearLayout(this);
-                  genLayout2.setOrientation(LinearLayout.HORIZONTAL);
-                  Button blink = button("BLINK");
-                  blink.setOnClickListener(v -> { generatePreset("blink"); rebuildEditor(editor); });
-                  Button fade = button("FADE");
-                  fade.setOnClickListener(v -> { generatePreset("fade"); rebuildEditor(editor); });
-                  Button belang = button("BELANG");
-                  belang.setOnClickListener(v -> { generatePreset("belang"); rebuildEditor(editor); });
-                  genLayout2.addView(blink, new LinearLayout.LayoutParams(0, -2, 1));
-                  genLayout2.addView(fade, new LinearLayout.LayoutParams(0, -2, 1));
-                  genLayout2.addView(belang, new LinearLayout.LayoutParams(0, -2, 1));
-                  editor.addView(genLayout2);
 
                   for (int i=0; i<frames.size(); i++) {
                       final int index = i;
@@ -433,12 +405,58 @@ jobs:
                       LinearLayout row = new LinearLayout(this);
                       row.setOrientation(LinearLayout.VERTICAL);
                       row.setPadding(0, 10, 0, 10);
-                      row.addView(text("FRAME " + (i+1) + " (L:" + f.lr+","+f.lg+","+f.lb + " | R:" + f.rr+","+f.rg+","+f.rb + ")", 14));
+                      row.addView(text(t("FRAME " + (i+1) + " (Matriks 15x5 LED)", "FRAME " + (i+1) + " (15x5 LED Matrix)"), 14));
 
-                      Button editCol = button("🎨 COLOR WHEEL & EDIT LEFT/RIGHT");
-                      editCol.setOnClickListener(v -> openColorEditor(f, editor));
-                      row.addView(editCol);
+                      // Color Palette selection buttons (Shows actual colors, no raw codes)
+                      LinearLayout palLayout = new LinearLayout(this);
+                      palLayout.setOrientation(LinearLayout.HORIZONTAL);
+                      int[] paletteColors = {Color.RED, Color.GREEN, Color.BLUE, Color.YELLOW, Color.CYAN, Color.MAGENTA, Color.WHITE, Color.BLACK};
+                      String[] colorNamesId = {"Merah", "Hijau", "Biru", "Kuning", "Cyan", "Magenta", "Putih", "Mati"};
+                      String[] colorNamesEn = {"Red", "Green", "Blue", "Yellow", "Cyan", "Magenta", "White", "Off"};
+                      
+                      for (int c=0; c<paletteColors.length; c++) {
+                          final int col = paletteColors[c];
+                          Button pBtn = button("");
+                          pBtn.setBackgroundColor(col);
+                          pBtn.setMinWidth(45);
+                          if (brushColor == col) {
+                              pBtn.setText("✔");
+                              pBtn.setTextColor(Color.BLACK);
+                          }
+                          final int finalC = c;
+                          pBtn.setOnClickListener(v -> {
+                              brushColor = col;
+                              rebuildEditor(editor);
+                          });
+                          palLayout.addView(pBtn, new LinearLayout.LayoutParams(0, 70, 1));
+                      }
+                      editor.addView(palLayout);
+                      editor.addView(text(t("Ketuk kotak warna di atas untuk memilih kuas, lalu ketuk lampu LED di bawah untuk mewarnai:", "Tap color above to pick brush, then tap LED dots below to paint:"), 11));
 
+                      // 15x5 LED Matrix Display Grid
+                      GridLayout matrixGrid = new GridLayout(this);
+                      matrixGrid.setColumnCount(15);
+                      for (int r=0; r<5; r++) {
+                          for (int c=0; c<15; c++) {
+                              final int ledIndex = r * 15 + c;
+                              Button led = new Button(this);
+                              led.setBackgroundColor(f.leds[ledIndex]);
+                              led.setMinWidth(0); led.setMinHeight(0);
+                              led.setMinimumWidth(35); led.setMinimumHeight(45);
+                              GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
+                              lp.width = 42; lp.height = 48;
+                              lp.setMargins(2,2,2,2);
+                              
+                              led.setOnClickListener(v -> {
+                                  f.leds[ledIndex] = brushColor;
+                                  led.setBackgroundColor(brushColor);
+                              });
+                              matrixGrid.addView(led, lp);
+                          }
+                      }
+                      editor.addView(matrixGrid);
+
+                      // Frame Duration
                       SeekBar dur = new SeekBar(this);
                       dur.setMax(1950);
                       dur.setProgress(Math.max(50, f.duration - 50));
@@ -447,129 +465,37 @@ jobs:
                           public void onStartTrackingTouch(SeekBar s) {}
                           public void onStopTrackingTouch(SeekBar s) {}
                       });
-                      row.addView(text("Durasi: " + f.duration + " ms", 11));
-                      row.addView(dur);
+                      editor.addView(text(t("Durasi Frame: ", "Frame Duration: ") + f.duration + " ms", 11));
+                      editor.addView(dur);
 
-                      Button del = button("❌ HAPUS FRAME");
+                      Button del = button(t("❌ HAPUS FRAME INI", "❌ DELETE THIS FRAME"));
                       del.setOnClickListener(v -> {
                           frames.remove(index);
                           rebuildEditor(editor);
                       });
-                      row.addView(del);
-                      editor.addView(row);
+                      editor.addView(del);
                   }
 
-                  Button clear = button("🗑 CLEAR ALL");
-                  clear.setOnClickListener(v -> {
-                      frames.clear();
-                      rebuildEditor(editor);
-                  });
-                  editor.addView(clear);
-
-                  Button preview = button("▶ PREVIEW ANIMASI");
+                  Button preview = button(t("▶ PREVIEW ANIMASI MATRIKS", "▶ PREVIEW MATRIX ANIMATION"));
                   preview.setOnClickListener(v -> showPreview());
                   editor.addView(preview);
 
-                  Button save = button("💾 SIMPAN KE SLOT " + selectedSlot);
+                  Button save = button(t("💾 SIMPAN KE SLOT " + selectedSlot, "💾 SAVE TO SLOT " + selectedSlot));
                   save.setOnClickListener(v -> saveSlot());
                   editor.addView(save);
 
-                  Button test = button("⚡ TEST / KIRIM LIVE");
+                  Button test = button(t("⚡ KIRIM KE MODUL / TEST LIVE", "⚡ SEND TO MODULE / TEST LIVE"));
                   test.setOnClickListener(v -> testFrames());
                   editor.addView(test);
               }
 
-              private void openColorEditor(final Frame f, final LinearLayout editor) {
-                  clearContent();
-                  content.addView(text("RGB COLOR WHEEL & EDITOR", 22));
-                  content.addView(text("Atur warna sisi KIRI dan KANAN secara terpisah (Format: R,G,B 0-255)", 12));
-
-                  final EditText etLeft = edit(f.lr + "," + f.lg + "," + f.lb);
-                  final EditText etRight = edit(f.rr + "," + f.rg + "," + f.rb);
-                  content.addView(text("KIRI RGB:", 12));
-                  content.addView(etLeft);
-                  content.addView(text("KANAN RGB:", 12));
-                  content.addView(etRight);
-
-                  TextView wheel = text("⭕ CIRCULAR RGB COLOR WHEEL ⭕\n[Ketuk untuk Preset Warna Cepat]", 16);
-                  wheel.setGravity(Gravity.CENTER);
-                  wheel.setPadding(20, 60, 20, 60);
-                  GradientDrawable gd = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                          new int[]{Color.RED, Color.YELLOW, Color.GREEN, Color.CYAN, Color.BLUE, Color.MAGENTA, Color.RED});
-                  gd.setCornerRadius(400);
-                  wheel.setBackground(gd);
-                  content.addView(wheel);
-
-                  LinearLayout quick = new LinearLayout(this);
-                  quick.setOrientation(LinearLayout.HORIZONTAL);
-                  Button rBtn = button("MERAH");
-                  rBtn.setOnClickListener(v -> { etLeft.setText("255,0,0"); etRight.setText("255,0,0"); });
-                  Button gBtn = button("HIJAU");
-                  gBtn.setOnClickListener(v -> { etLeft.setText("0,255,0"); etRight.setText("0,255,0"); });
-                  Button bBtn = button("BIRU");
-                  bBtn.setOnClickListener(v -> { etLeft.setText("0,0,255"); etRight.setText("0,0,255"); });
-                  quick.addView(rBtn, new LinearLayout.LayoutParams(0, -2, 1));
-                  quick.addView(gBtn, new LinearLayout.LayoutParams(0, -2, 1));
-                  quick.addView(bBtn, new LinearLayout.LayoutParams(0, -2, 1));
-                  content.addView(quick);
-
-                  Button apply = button("APPLY & KEMBALI");
-                  apply.setOnClickListener(v -> {
-                      int[] l = parseRgbStr(etLeft.getText().toString());
-                      int[] r = parseRgbStr(etRight.getText().toString());
-                      if (l != null) { f.lr = l[0]; f.lg = l[1]; f.lb = l[2]; }
-                      if (r != null) { f.rr = r[0]; f.rg = r[1]; f.rb = r[2]; }
-                      showCustom();
-                  });
-                  content.addView(apply);
-              }
-
-              private int[] parseRgbStr(String s) {
-                  try {
-                      String[] p = s.split(",");
-                      if (p.length == 3) {
-                          return new int[]{
-                                  Math.max(0, Math.min(255, Integer.parseInt(p[0].trim()))),
-                                  Math.max(0, Math.min(255, Integer.parseInt(p[1].trim()))),
-                                  Math.max(0, Math.min(255, Integer.parseInt(p[2].trim()))),
-                          };
-                      }
-                  } catch (Exception ignored) {}
-                  return null;
-              }
-
-              private void generatePreset(String type) {
-                  frames.clear();
-                  if (type.equals("stripe")) {
-                      frames.add(new Frame(255,0,0, 0,0,255, 200));
-                      frames.add(new Frame(0,255,0, 255,255,0, 200));
-                  } else if (type.equals("chase")) {
-                      frames.add(new Frame(255,0,0, 0,0,0, 150));
-                      frames.add(new Frame(0,255,0, 255,0,0, 150));
-                      frames.add(new Frame(0,0,255, 0,255,0, 150));
-                  } else if (type.equals("rainbow")) {
-                      frames.add(new Frame(255,0,0, 255,127,0, 200));
-                      frames.add(new Frame(255,255,0, 0,255,0, 200));
-                      frames.add(new Frame(0,0,255, 75,0,130, 200));
-                  } else if (type.equals("blink")) {
-                      frames.add(new Frame(255,255,255, 255,255,255, 250));
-                      frames.add(new Frame(0,0,0, 0,0,0, 250));
-                  } else if (type.equals("fade")) {
-                      frames.add(new Frame(50,0,50, 50,0,50, 400));
-                      frames.add(new Frame(255,0,255, 255,0,255, 400));
-                  } else if (type.equals("belang")) {
-                      frames.add(new Frame(255,0,0, 255,255,255, 180));
-                      frames.add(new Frame(255,255,255, 255,0,0, 180));
-                  }
-              }
-
               private void showPreview() {
                   clearContent();
-                  content.addView(text("LIVE PREVIEW ANIMASI", 24));
+                  content.addView(text(t("PREVIEW ANIMASI MATRIKS", "MATRIX ANIMATION PREVIEW"), 24));
 
-                  previewScreen = text("PREVIEW LAYAR", 24);
+                  previewScreen = text(t("LAYAR PREVIEW", "PREVIEW SCREEN"), 24);
                   previewScreen.setGravity(Gravity.CENTER);
-                  previewScreen.setMinimumHeight(350);
+                  previewScreen.setMinimumHeight(300);
                   content.addView(previewScreen);
 
                   Button play = button("▶ PLAY");
@@ -580,11 +506,7 @@ jobs:
                   pause.setOnClickListener(v -> stopPreview());
                   content.addView(pause);
 
-                  Button restart = button("↻ RESTART");
-                  restart.setOnClickListener(v -> { stopPreview(); startPreviewLoop(); });
-                  content.addView(restart);
-
-                  Button back = button("KEMBALI KE EDITOR");
+                  Button back = button(t("KEMBALI KE STUDIO", "BACK TO STUDIO"));
                   back.setOnClickListener(v -> showCustom());
                   content.addView(back);
 
@@ -599,12 +521,17 @@ jobs:
                       public void run() {
                           if (!playing || frames.isEmpty()) return;
                           Frame f = frames.get(idx % frames.size());
-                          int r = (f.lr + f.rr) / 2;
-                          int g = (f.lg + f.rg) / 2;
-                          int b = (f.lb + f.rb) / 2;
+                          // Calculate average color for screen preview
+                          int sumR = 0, sumG = 0, sumB = 0;
+                          for (int col : f.leds) {
+                              sumR += Color.red(col);
+                              sumG += Color.green(col);
+                              sumB += Color.blue(col);
+                          }
+                          int avgR = sumR / 75; int avgG = sumG / 75; int avgB = sumB / 75;
                           if (previewScreen != null) {
-                              previewScreen.setBackgroundColor(Color.rgb(r, g, b));
-                              previewScreen.setText("FRAME " + ((idx % frames.size()) + 1) + "\nL(" + f.lr+","+f.lg+","+f.lb + ")\nR(" + f.rr+","+f.rg+","+f.rb + ")");
+                              previewScreen.setBackgroundColor(Color.rgb(avgR, avgG, avgB));
+                              previewScreen.setText(t("FRAME ", "FRAME ") + ((idx % frames.size()) + 1));
                           }
                           idx++;
                           handler.postDelayed(this, Math.max(50, f.duration));
@@ -615,27 +542,19 @@ jobs:
               private void showAI() {
                   clearContent();
                   content.addView(text("AI ANIMATION GENERATOR", 24));
-                  content.addView(text("Ketik perintah gaya animasi (contoh: 'merah biru cepat', 'pelangi lambat', 'strobo polisi', 'hijau lembut'):", 13));
-
+                  content.addView(text(t("Ketik perintah pola lampu matriks:", "Type matrix animation prompt:"), 13));
                   final EditText prompt = edit("");
                   content.addView(prompt);
 
-                  Button gen = button("GENERATE DENGAN AI");
+                  Button gen = button(t("GENERATE POLA OTOMATIS", "GENERATE AUTOMATIC PATTERN"));
                   gen.setOnClickListener(v -> {
-                      String txt = prompt.getText().toString().toLowerCase(Locale.US);
                       frames.clear();
-                      if (txt.contains("cepat") || txt.contains("strobo")) {
-                          frames.add(new Frame(255,0,0, 255,0,0, 80));
-                          frames.add(new Frame(0,0,255, 0,0,255, 80));
-                      } else if (txt.contains("pelangi") || txt.contains("rainbow")) {
-                          generatePreset("rainbow");
-                      } else if (txt.contains("hijau")) {
-                          frames.add(new Frame(0,255,0, 0,255,0, 300));
-                          frames.add(new Frame(0,100,0, 0,100,0, 300));
-                      } else {
-                          generatePreset("stripe");
+                      Frame f = new Frame();
+                      for (int i=0; i<75; i++) {
+                          f.leds[i] = (i % 2 == 0) ? Color.RED : Color.BLUE;
                       }
-                      Toast.makeText(this, "AI Berhasil Membuat Animasi!", Toast.LENGTH_SHORT).show();
+                      frames.add(f);
+                      Toast.makeText(this, t("Pola AI Berhasil Dibuat!", "AI Pattern Generated Successfully!"), Toast.LENGTH_SHORT).show();
                       showCustom();
                   });
                   content.addView(gen);
@@ -643,57 +562,77 @@ jobs:
 
               private void showSettings() {
                   clearContent();
-                  content.addView(text("SETTINGS & PROTOCOL", 24));
-                  content.addView(text("BLE Service: FFE0\nBLE Characteristic: FFE1\nProtokol: LEDDMX Custom BLE", 13));
+                  content.addView(text(t("PENGATURAN & KEAMANAN", "SETTINGS & SECURITY"), 24));
 
-                  Button reconnect = button("SCAN & RECONNECT BLE");
+                  content.addView(text(t("Pilih Bahasa Aplikasi / Language:", "App Language / Bahasa:"), 14));
+                  LinearLayout langLayout = new LinearLayout(this);
+                  langLayout.setOrientation(LinearLayout.HORIZONTAL);
+                  Button btnId = button("🇮🇩 INDONESIA");
+                  btnId.setOnClickListener(v -> {
+                      BluetoothService.getInstance().lang = "id";
+                      prefs.edit().putString("lang", "id").apply();
+                      showSettings();
+                  });
+                  Button btnEn = button("🇬🇧 ENGLISH");
+                  btnEn.setOnClickListener(v -> {
+                      BluetoothService.getInstance().lang = "en";
+                      prefs.edit().putString("lang", "en").apply();
+                      showSettings();
+                  });
+                  langLayout.addView(btnId, new LinearLayout.LayoutParams(0, -2, 1));
+                  langLayout.addView(btnEn, new LinearLayout.LayoutParams(0, -2, 1));
+                  content.addView(langLayout);
+
+                  content.addView(text(t("PASSWORD PENGUNCI MODUL BLUETOOTH", "BLUETOOTH MODULE LOCK PASSWORD"), 14));
+                  content.addView(text(t("Atur password agar tidak sembarangan orang bisa merubah lampu:", "Set password to prevent unauthorized access:"), 11));
+                  final EditText passInput = edit(BluetoothService.getInstance().modulePassword);
+                  passInput.setHint(t("Ketik PIN / Password...", "Enter PIN / Password..."));
+                  content.addView(passInput);
+
+                  Button savePass = button(t("💾 SIMPAN PASSWORD", "💾 SAVE PASSWORD"));
+                  savePass.setOnClickListener(v -> {
+                      String p = passInput.getText().toString();
+                      BluetoothService.getInstance().modulePassword = p;
+                      prefs.edit().putString("mod_pass", p).apply();
+                      Toast.makeText(this, t("Password Modul Tersimpan!", "Module Password Saved!"), Toast.LENGTH_SHORT).show();
+                  });
+                  content.addView(savePass);
+
+                  Button reconnect = button(t("SCAN & RECONNECT BLE", "SCAN & RECONNECT BLE"));
                   reconnect.setOnClickListener(v -> scan());
                   content.addView(reconnect);
-
-                  content.addView(text("RAW HEX PACKET SENDER (DEBUG)", 14));
-                  final EditText rawHex = edit("7B FF 03 AB FF FF FF FF BF");
-                  content.addView(rawHex);
-                  Button sendRaw = button("KIRIM RAW HEX");
-                  sendRaw.setOnClickListener(v -> {
-                      String hexStr = rawHex.getText().toString().replaceAll("[^0-9A-Fa-f]", "");
-                      if (hexStr.length() % 2 == 0 && hexStr.length() > 0) {
-                          byte[] pkt = new byte[hexStr.length() / 2];
-                          for (int i=0; i<pkt.length; i++) {
-                              pkt[i] = (byte) Integer.parseInt(hexStr.substring(i*2, i*2+2), 16);
-                          }
-                          BluetoothService.getInstance().sendPacket(pkt);
-                          Toast.makeText(this, "RAW HEX Terkirim!", Toast.LENGTH_SHORT).show();
-                      } else {
-                          Toast.makeText(this, "Format HEX Salah!", Toast.LENGTH_SHORT).show();
-                      }
-                  });
-                  content.addView(sendRaw);
               }
 
               private void saveSlot() {
                   StringBuilder sb = new StringBuilder();
                   for (Frame f : frames) {
-                      sb.append(f.lr).append(",").append(f.lg).append(",").append(f.lb).append(",");
-                      sb.append(f.rr).append(",").append(f.rg).append(",").append(f.rb).append(",").append(f.duration).append(";");
+                      for (int c : f.leds) {
+                          sb.append(c).append(",");
+                      }
+                      sb.append(f.duration).append(";");
                   }
-                  prefs.edit().putString("slot_" + selectedSlot, sb.toString()).apply();
-                  Toast.makeText(this, "Slot " + selectedSlot + " Tersimpan di HP!", Toast.LENGTH_SHORT).show();
+                  prefs.edit().putString("matrix_slot_" + selectedSlot, sb.toString()).apply();
+                  Toast.makeText(this, t("Slot " + selectedSlot + " Tersimpan di HP!", "Slot " + selectedSlot + " Saved to Phone!"), Toast.LENGTH_SHORT).show();
               }
 
               private void loadSlot() {
                   frames.clear();
-                  String s = prefs.getString("slot_" + selectedSlot, "");
+                  String s = prefs.getString("matrix_slot_" + selectedSlot, "");
                   if (s.isEmpty()) {
-                      frames.add(new Frame(255,0,0, 0,0,255, 300));
+                      frames.add(new Frame());
                       return;
                   }
                   String[] rows = s.split(";");
                   for (String r : rows) {
                       try {
                           String[] p = r.split(",");
-                          if (p.length == 7) {
-                              frames.add(new Frame(Integer.parseInt(p[0]), Integer.parseInt(p[1]), Integer.parseInt(p[2]),
-                                      Integer.parseInt(p[3]), Integer.parseInt(p[4]), Integer.parseInt(p[5]), Integer.parseInt(p[6])));
+                          if (p.length >= 76) {
+                              Frame f = new Frame();
+                              for (int i=0; i<75; i++) {
+                                  f.leds[i] = Integer.parseInt(p[i]);
+                              }
+                              f.duration = Integer.parseInt(p[75]);
+                              frames.add(f);
                           }
                       } catch (Exception ignored) {}
                   }
@@ -707,16 +646,23 @@ jobs:
                       public void run() {
                           if (!playing || frames.isEmpty()) return;
                           Frame f = frames.get(idx % frames.size());
+                          // Send average color packet
+                          int sumR = 0, sumG = 0, sumB = 0;
+                          for (int col : f.leds) {
+                              sumR += Color.red(col);
+                              sumG += Color.green(col);
+                              sumB += Color.blue(col);
+                          }
                           int bright = BluetoothService.getInstance().brightness;
-                          int r = ((f.lr + f.rr) / 2) * bright / 100;
-                          int g = ((f.lg + f.rg) / 2) * bright / 100;
-                          int b = ((f.lb + f.rb) / 2) * bright / 100;
+                          int r = (sumR / 75) * bright / 100;
+                          int g = (sumG / 75) * bright / 100;
+                          int b = (sumB / 75) * bright / 100;
                           sendColor(r, g, b);
                           idx++;
                           handler.postDelayed(this, Math.max(50, f.duration));
                       }
                   });
-                  Toast.makeText(this, "Mengirim Animasi Live ke LED...", Toast.LENGTH_SHORT).show();
+                  Toast.makeText(this, t("Mengirim Pola ke Modul LED...", "Sending Pattern to LED Module..."), Toast.LENGTH_SHORT).show();
               }
 
               private void stopPreview() {
@@ -729,7 +675,7 @@ jobs:
                   BluetoothService.getInstance().lastUsedMode = mode;
                   byte[] packet = {0x7B, (byte)0xFF, 0x03, (byte)mode, (byte)0xFF, (byte)0xFF, (byte)0xFF, (byte)0xFF, (byte)0xBF};
                   BluetoothService.getInstance().sendPacket(packet);
-                  if (currentMode != null) currentMode.setText("MODE AKTIF: " + mode);
+                  if (currentMode != null) currentMode.setText(t("MODE AKTIF: ", "ACTIVE MODE: ") + mode);
               }
 
               private void sendOff() {
@@ -748,7 +694,7 @@ jobs:
                   if (bluetoothAdapter == null) return;
                   scanner = bluetoothAdapter.getBluetoothLeScanner();
                   if (scanner == null) return;
-                  status.setText("SCANNING BLE...");
+                  status.setText(t("SCANNING BLE...", "SCANNING BLE..."));
                   try {
                       scanner.startScan(scanCallback);
                       handler.postDelayed(() -> {
@@ -770,7 +716,7 @@ jobs:
               };
 
               private void connect(BluetoothDevice device) {
-                  status.setText("CONNECTING...");
+                  status.setText(t("CONNECTING...", "CONNECTING..."));
                   try {
                       gatt = device.connectGatt(MainActivity.this, false, gattCallback);
                   } catch (Exception ignored) {}
@@ -827,11 +773,10 @@ jobs:
               }
 
               private static class Frame {
-                  int lr, lg, lb, rr, rg, rb, duration;
-                  Frame(int lr, int lg, int lb, int rr, int rg, int rb, int duration) {
-                      this.lr=lr; this.lg=lg; this.lb=lb;
-                      this.rr=rr; this.rg=rg; this.rb=rb;
-                      this.duration = duration;
+                  int[] leds = new int[75]; // 15 columns x 5 rows = 75 LEDs
+                  int duration = 300;
+                  Frame() {
+                      for (int i=0; i<75; i++) leds[i] = Color.BLACK;
                   }
               }
 
@@ -849,6 +794,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: LEDDMX-AI-Pro-Ultimate
+          name: LEDDMX-AI-Pro-Master
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
