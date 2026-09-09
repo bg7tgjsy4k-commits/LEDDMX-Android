@@ -1,4 +1,4 @@
-name: Build LEDDMX AI Pro Dual Channel
+name: Build LEDDMX AI Pro Motion Studio
 
 on:
   workflow_dispatch:
@@ -29,7 +29,7 @@ jobs:
         with:
           gradle-version: '8.5'
 
-      - name: Create Android Project & Dual Channel Source Code
+      - name: Create Android Project & Motion Studio Source Code
         shell: bash
         run: |
           set -e
@@ -82,7 +82,7 @@ jobs:
                   minSdk 21
                   targetSdk 34
                   versionCode 1
-                  versionName "5.0"
+                  versionName "6.0"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_1_8
@@ -93,7 +93,7 @@ jobs:
 
           cat > app/src/main/res/values/strings.xml <<'EOF'
           <resources>
-              <string name="app_name">LEDDMX AI Pro Dual</string>
+              <string name="app_name">LEDDMX Motion Studio</string>
           </resources>
           EOF
 
@@ -199,13 +199,13 @@ jobs:
               private int selectedSlot = 171;
               private boolean playing = false;
               
-              private int selectedLampTarget = 0; // 0 = Both, 1 = Lampu 1 (Kiri), 2 = Lampu 2 (Kanan)
+              private int selectedLampTarget = 0; // 0 = Kedua Lampu, 1 = Kiri, 2 = Kanan
               private View lamp1PreviewBox, lamp2PreviewBox;
 
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-                  prefs = getSharedPreferences("leddmx_dual", MODE_PRIVATE);
+                  prefs = getSharedPreferences("leddmx_motion", MODE_PRIVATE);
                   BluetoothService.getInstance().lang = prefs.getString("lang", "id");
                   BluetoothService.getInstance().modulePassword = prefs.getString("mod_pass", "");
 
@@ -213,7 +213,8 @@ jobs:
                   if (bm != null) bluetoothAdapter = bm.getAdapter();
                   
                   if (frames.isEmpty()) {
-                      frames.add(new Frame(Color.RED, Color.BLUE, 300));
+                      frames.add(new Frame(Color.RED, Color.BLUE, 250));
+                      frames.add(new Frame(Color.BLUE, Color.RED, 250));
                   }
 
                   buildRoot();
@@ -235,7 +236,7 @@ jobs:
                   LinearLayout top = new LinearLayout(this);
                   top.setGravity(Gravity.CENTER_VERTICAL);
                   top.setPadding(24,18,24,18);
-                  TextView title = text("LEDDMX DUAL PRO", 20);
+                  TextView title = text("LEDDMX MOTION STUDIO", 18);
                   title.setTextColor(Color.parseColor("#00E5FF"));
                   top.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
                   Button connect = button("SCAN");
@@ -304,18 +305,7 @@ jobs:
                   content.addView(text("Brightness: " + BluetoothService.getInstance().brightness + "%", 12));
                   content.addView(bright);
 
-                  SeekBar spd = new SeekBar(this);
-                  spd.setMax(900);
-                  spd.setProgress(BluetoothService.getInstance().speed);
-                  spd.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-                      public void onProgressChanged(SeekBar s, int p, boolean u) { BluetoothService.getInstance().speed = p; }
-                      public void onStartTrackingTouch(SeekBar s) {}
-                      public void onStopTrackingTouch(SeekBar s) {}
-                  });
-                  content.addView(text("Speed: " + BluetoothService.getInstance().speed + "ms", 12));
-                  content.addView(spd);
-
-                  Button custom = button(t("BUKA STUDIO CUSTOM (LAMPU 1 & 2)", "OPEN DUAL LAMP CUSTOM STUDIO"));
+                  Button custom = button(t("BUKA STUDIO ANIMASI KUSTOM", "OPEN CUSTOM MOTION STUDIO"));
                   custom.setOnClickListener(v -> showCustom());
                   content.addView(custom);
 
@@ -367,12 +357,12 @@ jobs:
 
               private void showCustom() {
                   clearContent();
-                  content.addView(text(t("STUDIO CUSTOM LAMPU 1 (KIRI) & 2 (KANAN)", "DUAL LAMP CUSTOM STUDIO"), 22));
-                  content.addView(text(t("Pilih Slot Memori (171 - 210):", "Select Memory Slot (171 - 210):"), 12));
+                  content.addView(text(t("STUDIO ANIMASI & KUSTOM LAMPU", "CUSTOM MOTION & ANIMATION STUDIO"), 22));
+                  content.addView(text(t("Pilih Slot Target Mode untuk Disimpan (171 - 210):", "Select Target Slot to Save & Command (171 - 210):"), 12));
 
                   Spinner slot = new Spinner(this);
                   String[] slots = new String[40];
-                  for (int i=0; i<40; i++) slots[i] = "SLOT CUSTOM " + (171+i);
+                  for (int i=0; i<40; i++) slots[i] = "SLOT MODE " + (171+i);
                   android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, slots);
                   slot.setAdapter(adapter);
                   slot.setSelection(selectedSlot - 171);
@@ -385,19 +375,42 @@ jobs:
                   });
                   content.addView(slot);
 
+                  // PRESET ANIMATION GENERATOR BUTTONS (BELANG, STROBO, RUNNING, DLL)
+                  content.addView(text(t("PILIH PRESET ANIMASI GERAK INSTAN:", "SELECT INSTANT MOTION PRESETS:"), 12));
+                  LinearLayout presetRow1 = new LinearLayout(this);
+                  presetRow1.setOrientation(LinearLayout.HORIZONTAL);
+                  Button btnBelang = button(t("⚡ BELANG SILANG", "⚡ CROSS STRIPE"));
+                  btnBelang.setOnClickListener(v -> { generateMotionPreset("belang"); rebuildEditor((LinearLayout) content.getChildAt(content.getChildCount()-1)); });
+                  Button btnStrobo = button(t("🚨 STROBO POLISI", "🚨 POLICE STROBE"));
+                  btnStrobo.setOnClickListener(v -> { generateMotionPreset("strobo"); rebuildEditor((LinearLayout) content.getChildAt(content.getChildCount()-1)); });
+                  presetRow1.addView(btnBelang, new LinearLayout.LayoutParams(0, -2, 1));
+                  presetRow1.addView(btnStrobo, new LinearLayout.LayoutParams(0, -2, 1));
+                  content.addView(presetRow1);
+
+                  LinearLayout presetRow2 = new LinearLayout(this);
+                  presetRow2.setOrientation(LinearLayout.HORIZONTAL);
+                  Button btnRunning = button(t("🏃 RUNNING KANAN-KIRI", "🏃 RUNNING DUAL"));
+                  btnRunning.setOnClickListener(v -> { generateMotionPreset("running"); rebuildEditor((LinearLayout) content.getChildAt(content.getChildCount()-1)); });
+                  Button btnFade = button(t("🌊 FADE BREATHING", "🌊 FADE BREATHING"));
+                  btnFade.setOnClickListener(v -> { generateMotionPreset("fade"); rebuildEditor((LinearLayout) content.getChildAt(content.getChildCount()-1)); });
+                  presetRow2.addView(btnRunning, new LinearLayout.LayoutParams(0, -2, 1));
+                  presetRow2.addView(btnFade, new LinearLayout.LayoutParams(0, -2, 1));
+                  content.addView(presetRow2);
+
                   LinearLayout editor = new LinearLayout(this);
                   editor.setOrientation(LinearLayout.VERTICAL);
                   content.addView(editor);
                   
+                  loadSlot();
                   rebuildEditor(editor);
               }
 
               private void rebuildEditor(final LinearLayout editor) {
                   editor.removeAllViews();
 
-                  Button add = button(t("+ TAMBAH FRAME", "+ ADD FRAME"));
+                  Button add = button(t("+ TAMBAH FRAME BARU", "+ ADD NEW FRAME"));
                   add.setOnClickListener(v -> {
-                      frames.add(new Frame(Color.RED, Color.BLUE, 300));
+                      frames.add(new Frame(Color.RED, Color.BLUE, 250));
                       rebuildEditor(editor);
                   });
                   editor.addView(add);
@@ -413,57 +426,44 @@ jobs:
 
                       frameCard.addView(text(t("FRAME " + (i+1), "FRAME " + (i+1)), 16));
 
-                      // Lamp Target Selector: [ Lampu 1 (Kiri) ] [ Lampu 2 (Kanan) ] [ Dua-duanya ]
-                      frameCard.addView(text(t("PILIH LAMPU YANG INGIN DI-SETTING:", "SELECT TARGET LAMP TO EDIT:"), 12));
+                      // Target selector: Lampu 1 Kiri / Lampu 2 Kanan / Keduanya
+                      frameCard.addView(text(t("Pilih Bagian Lampu yang Mau Diwarnai:", "Select Lamp Target to Color:"), 11));
                       LinearLayout targetLayout = new LinearLayout(this);
                       targetLayout.setOrientation(LinearLayout.HORIZONTAL);
                       
-                      Button bTarget1 = button(t("LAMPU 1 (KIRI)", "LAMP 1 (LEFT)"));
-                      Button bTarget2 = button(t("LAMPU 2 (KANAN)", "LAMP 2 (RIGHT)"));
-                      Button bTargetBoth = button(t("DUA-DUANYA", "BOTH LAMPS"));
+                      Button b1 = button(t("KIRI (1)", "LEFT (1)"));
+                      Button b2 = button(t("KANAN (2)", "RIGHT (2)"));
+                      Button bBoth = button(t("DUA-DUANYA", "BOTH"));
 
-                      bTarget1.setOnClickListener(v -> { selectedLampTarget = 1; rebuildEditor(editor); });
-                      bTarget2.setOnClickListener(v -> { selectedLampTarget = 2; rebuildEditor(editor); });
-                      bTargetBoth.setOnClickListener(v -> { selectedLampTarget = 0; rebuildEditor(editor); });
+                      b1.setOnClickListener(v -> { selectedLampTarget = 1; rebuildEditor(editor); });
+                      b2.setOnClickListener(v -> { selectedLampTarget = 2; rebuildEditor(editor); });
+                      bBoth.setOnClickListener(v -> { selectedLampTarget = 0; rebuildEditor(editor); });
 
-                      if (selectedLampTarget == 1) bTarget1.setBackgroundColor(Color.parseColor("#00E5FF"));
-                      else if (selectedLampTarget == 2) bTarget2.setBackgroundColor(Color.parseColor("#00E5FF"));
-                      else bTargetBoth.setBackgroundColor(Color.parseColor("#00E5FF"));
+                      if (selectedLampTarget == 1) b1.setBackgroundColor(Color.parseColor("#00E5FF"));
+                      else if (selectedLampTarget == 2) b2.setBackgroundColor(Color.parseColor("#00E5FF"));
+                      else bBoth.setBackgroundColor(Color.parseColor("#00E5FF"));
 
-                      targetLayout.addView(bTarget1, new LinearLayout.LayoutParams(0, -2, 1));
-                      targetLayout.addView(bTarget2, new LinearLayout.LayoutParams(0, -2, 1));
-                      targetLayout.addView(bTargetBoth, new LinearLayout.LayoutParams(0, -2, 1));
+                      targetLayout.addView(b1, new LinearLayout.LayoutParams(0, -2, 1));
+                      targetLayout.addView(b2, new LinearLayout.LayoutParams(0, -2, 1));
+                      targetLayout.addView(bBoth, new LinearLayout.LayoutParams(0, -2, 1));
                       frameCard.addView(targetLayout);
 
-                      // Visual boxes showing current colors of Lamp 1 & Lamp 2
-                      LinearLayout previewRow = new LinearLayout(this);
-                      previewRow.setOrientation(LinearLayout.HORIZONTAL);
-                      previewRow.setPadding(0, 10, 0, 10);
+                      // Visual preview box current frame colors
+                      LinearLayout boxRow = new LinearLayout(this);
+                      boxRow.setOrientation(LinearLayout.HORIZONTAL);
+                      boxRow.setPadding(0, 8, 0, 8);
+                      TextView tBox1 = new TextView(this);
+                      tBox1.setText(t("KIRI", "LEFT")); tBox1.setGravity(Gravity.CENTER); tBox1.setTextColor(Color.WHITE); tBox1.setBackgroundColor(f.lamp1Color); tBox1.setHeight(80);
+                      TextView tBox2 = new TextView(this);
+                      tBox2.setText(t("KANAN", "RIGHT")); tBox2.setGravity(Gravity.CENTER); tBox2.setTextColor(Color.WHITE); tBox2.setBackgroundColor(f.lamp2Color); tBox2.setHeight(80);
+                      boxRow.addView(tBox1, new LinearLayout.LayoutParams(0, -1, 1));
+                      boxRow.addView(tBox2, new LinearLayout.LayoutParams(0, -1, 1));
+                      frameCard.addView(boxRow);
 
-                      TextView box1 = new TextView(this);
-                      box1.setText(t("LAMPU 1 (KIRI)", "LAMP 1 (LEFT)"));
-                      box1.setGravity(Gravity.CENTER);
-                      box1.setTextColor(Color.WHITE);
-                      box1.setBackgroundColor(f.lamp1Color);
-                      box1.setHeight(100);
-
-                      TextView box2 = new TextView(this);
-                      box2.setText(t("LAMPU 2 (KANAN)", "LAMP 2 (RIGHT)"));
-                      box2.setGravity(Gravity.CENTER);
-                      box2.setTextColor(Color.WHITE);
-                      box2.setBackgroundColor(f.lamp2Color);
-                      box2.setHeight(100);
-
-                      previewRow.addView(box1, new LinearLayout.LayoutParams(0, -1, 1));
-                      previewRow.addView(box2, new LinearLayout.LayoutParams(0, -1, 1));
-                      frameCard.addView(previewRow);
-
-                      // Color Palette for Target Lamp Selection
-                      frameCard.addView(text(t("PILIH WARNA:", "PICK COLOR:"), 12));
+                      // Color palette selection
                       LinearLayout palLayout = new LinearLayout(this);
                       palLayout.setOrientation(LinearLayout.HORIZONTAL);
                       int[] paletteColors = {Color.RED, Color.GREEN, Color.BLUE, Color.YELLOW, Color.CYAN, Color.MAGENTA, Color.WHITE, Color.BLACK};
-                      
                       for (int col : paletteColors) {
                           Button pBtn = button("");
                           pBtn.setBackgroundColor(col);
@@ -473,11 +473,11 @@ jobs:
                               else { f.lamp1Color = col; f.lamp2Color = col; }
                               rebuildEditor(editor);
                           });
-                          palLayout.addView(pBtn, new LinearLayout.LayoutParams(0, 70, 1));
+                          palLayout.addView(pBtn, new LinearLayout.LayoutParams(0, 60, 1));
                       }
                       frameCard.addView(palLayout);
 
-                      // Frame Duration
+                      // Duration slider
                       SeekBar dur = new SeekBar(this);
                       dur.setMax(1950);
                       dur.setProgress(Math.max(50, f.duration - 50));
@@ -486,10 +486,10 @@ jobs:
                           public void onStartTrackingTouch(SeekBar s) {}
                           public void onStopTrackingTouch(SeekBar s) {}
                       });
-                      frameCard.addView(text(t("Durasi Frame: ", "Frame Duration: ") + f.duration + " ms", 11));
+                      frameCard.addView(text(t("Durasi: ", "Duration: ") + f.duration + " ms", 11));
                       frameCard.addView(dur);
 
-                      Button del = button(t("❌ HAPUS FRAME INI", "❌ DELETE THIS FRAME"));
+                      Button del = button(t("❌ HAPUS FRAME", "❌ DELETE FRAME"));
                       del.setOnClickListener(v -> {
                           frames.remove(index);
                           rebuildEditor(editor);
@@ -499,7 +499,7 @@ jobs:
                       editor.addView(frameCard);
                   }
 
-                  Button preview = button(t("▶ PREVIEW ANIMASI DUAL LAMPU", "▶ PREVIEW DUAL LAMP ANIMATION"));
+                  Button preview = button(t("▶ PREVIEW ANIMASI GERAK", "▶ PREVIEW MOTION ANIMATION"));
                   preview.setOnClickListener(v -> showPreview());
                   editor.addView(preview);
 
@@ -512,28 +512,48 @@ jobs:
                   editor.addView(test);
               }
 
+              private void generateMotionPreset(String type) {
+                  frames.clear();
+                  if (type.equals("belang")) {
+                      frames.add(new Frame(Color.RED, Color.BLUE, 200));
+                      frames.add(new Frame(Color.BLUE, Color.RED, 200));
+                  } else if (type.equals("strobo")) {
+                      frames.add(new Frame(Color.RED, Color.RED, 80));
+                      frames.add(new Frame(Color.BLACK, Color.BLACK, 80));
+                      frames.add(new Frame(Color.BLUE, Color.BLUE, 80));
+                      frames.add(new Frame(Color.BLACK, Color.BLACK, 80));
+                  } else if (type.equals("running")) {
+                      frames.add(new Frame(Color.GREEN, Color.BLACK, 150));
+                      frames.add(new Frame(Color.BLACK, Color.GREEN, 150));
+                      frames.add(new Frame(Color.BLUE, Color.BLACK, 150));
+                      frames.add(new Frame(Color.BLACK, Color.BLUE, 150));
+                  } else if (type.equals("fade")) {
+                      frames.add(new Frame(Color.YELLOW, Color.YELLOW, 400));
+                      frames.add(new Frame(Color.BLACK, Color.BLACK, 400));
+                  }
+              }
+
               private void showPreview() {
                   clearContent();
-                  content.addView(text(t("PREVIEW ANIMASI DUAL LAMPU", "DUAL LAMP ANIMATION PREVIEW"), 24));
+                  content.addView(text(t("PREVIEW ANIMASI GERAK LAMPU", "MOTION ANIMATION PREVIEW"), 24));
 
-                  LinearLayout previewBoxContainer = new LinearLayout(this);
-                  previewBoxContainer.setOrientation(LinearLayout.HORIZONTAL);
-                  previewBoxContainer.setPadding(10, 20, 10, 20);
+                  LinearLayout container = new LinearLayout(this);
+                  container.setOrientation(LinearLayout.HORIZONTAL);
+                  container.setPadding(10, 30, 10, 30);
 
                   lamp1PreviewBox = new View(this);
                   lamp1PreviewBox.setBackgroundColor(Color.RED);
-                  
                   lamp2PreviewBox = new View(this);
                   lamp2PreviewBox.setBackgroundColor(Color.BLUE);
 
-                  LinearLayout.LayoutParams lp1 = new LinearLayout.LayoutParams(0, 250, 1);
-                  lp1.setMargins(10, 10, 10, 10);
-                  LinearLayout.LayoutParams lp2 = new LinearLayout.LayoutParams(0, 250, 1);
-                  lp2.setMargins(10, 10, 10, 10);
+                  LinearLayout.LayoutParams lp1 = new LinearLayout.LayoutParams(0, 280, 1);
+                  lp1.setMargins(15, 10, 15, 10);
+                  LinearLayout.LayoutParams lp2 = new LinearLayout.LayoutParams(0, 280, 1);
+                  lp2.setMargins(15, 10, 15, 10);
 
-                  previewBoxContainer.addView(lamp1PreviewBox, lp1);
-                  previewBoxContainer.addView(lamp2PreviewBox, lp2);
-                  content.addView(previewBoxContainer);
+                  container.addView(lamp1PreviewBox, lp1);
+                  container.addView(lamp2PreviewBox, lp2);
+                  content.addView(container);
 
                   Button play = button("▶ PLAY");
                   play.setOnClickListener(v -> startPreviewLoop());
@@ -558,10 +578,8 @@ jobs:
                       public void run() {
                           if (!playing || frames.isEmpty()) return;
                           Frame f = frames.get(idx % frames.size());
-                          
                           if (lamp1PreviewBox != null) lamp1PreviewBox.setBackgroundColor(f.lamp1Color);
                           if (lamp2PreviewBox != null) lamp2PreviewBox.setBackgroundColor(f.lamp2Color);
-                          
                           idx++;
                           handler.postDelayed(this, Math.max(50, f.duration));
                       }
@@ -571,16 +589,14 @@ jobs:
               private void showAI() {
                   clearContent();
                   content.addView(text("AI ANIMATION GENERATOR", 24));
-                  content.addView(text(t("Ketik perintah animasi (contoh: 'merah biru strobo', 'kiri hijau kanan kuning'):", "Type animation prompt:"), 13));
+                  content.addView(text(t("Ketik perintah animasi:", "Type prompt:"), 13));
                   final EditText prompt = edit("");
                   content.addView(prompt);
 
-                  Button gen = button(t("GENERATE ANIMASI OTOMATIS", "GENERATE AUTOMATIC ANIMATION"));
+                  Button gen = button(t("GENERATE DENGAN AI", "GENERATE"));
                   gen.setOnClickListener(v -> {
-                      frames.clear();
-                      frames.add(new Frame(Color.RED, Color.BLUE, 200));
-                      frames.add(new Frame(Color.BLUE, Color.RED, 200));
-                      Toast.makeText(this, t("Animasi AI Berhasil Dibuat!", "AI Animation Generated!"), Toast.LENGTH_SHORT).show();
+                      generateMotionPreset("strobo");
+                      Toast.makeText(this, t("Animasi AI Berhasil!", "AI Generated!"), Toast.LENGTH_SHORT).show();
                       showCustom();
                   });
                   content.addView(gen);
@@ -590,7 +606,7 @@ jobs:
                   clearContent();
                   content.addView(text(t("PENGATURAN & KEAMANAN", "SETTINGS & SECURITY"), 24));
 
-                  content.addView(text(t("Pilih Bahasa Aplikasi / Language:", "App Language / Bahasa:"), 14));
+                  content.addView(text(t("Pilih Bahasa Aplikasi / Language:", "Language:"), 14));
                   LinearLayout langLayout = new LinearLayout(this);
                   langLayout.setOrientation(LinearLayout.HORIZONTAL);
                   Button btnId = button("🇮🇩 INDONESIA");
@@ -609,21 +625,21 @@ jobs:
                   langLayout.addView(btnEn, new LinearLayout.LayoutParams(0, -2, 1));
                   content.addView(langLayout);
 
-                  content.addView(text(t("PASSWORD PENGUNCI MODUL BLUETOOTH", "BLUETOOTH MODULE LOCK PASSWORD"), 14));
+                  content.addView(text(t("PASSWORD PENGUNCI MODUL BLUETOOTH", "BLUETOOTH MODULE PASSWORD"), 14));
                   final EditText passInput = edit(BluetoothService.getInstance().modulePassword);
-                  passInput.setHint(t("Ketik PIN / Password...", "Enter PIN / Password..."));
+                  passInput.setHint(t("Ketik PIN...", "Enter PIN..."));
                   content.addView(passInput);
 
-                  Button savePass = button(t("💾 SIMPAN PASSWORD", "💾 SAVE PASSWORD"));
+                  Button savePass = button(t("💾 SIMPAN PASSWORD", "SAVE PASSWORD"));
                   savePass.setOnClickListener(v -> {
                       String p = passInput.getText().toString();
                       BluetoothService.getInstance().modulePassword = p;
                       prefs.edit().putString("mod_pass", p).apply();
-                      Toast.makeText(this, t("Password Modul Tersimpan!", "Module Password Saved!"), Toast.LENGTH_SHORT).show();
+                      Toast.makeText(this, t("Password Tersimpan!", "Saved!"), Toast.LENGTH_SHORT).show();
                   });
                   content.addView(savePass);
 
-                  Button reconnect = button(t("SCAN & RECONNECT BLE", "SCAN & RECONNECT BLE"));
+                  Button reconnect = button(t("SCAN & RECONNECT BLE", "SCAN BLE"));
                   reconnect.setOnClickListener(v -> scan());
                   content.addView(reconnect);
               }
@@ -633,15 +649,15 @@ jobs:
                   for (Frame f : frames) {
                       sb.append(f.lamp1Color).append(",").append(f.lamp2Color).append(",").append(f.duration).append(";");
                   }
-                  prefs.edit().putString("dual_slot_" + selectedSlot, sb.toString()).apply();
-                  Toast.makeText(this, t("Slot " + selectedSlot + " Tersimpan di HP!", "Slot " + selectedSlot + " Saved to Phone!"), Toast.LENGTH_SHORT).show();
+                  prefs.edit().putString("motion_slot_" + selectedSlot, sb.toString()).apply();
+                  Toast.makeText(this, t("Slot " + selectedSlot + " Tersimpan & Siap Diperintahkan ke Modul!", "Slot " + selectedSlot + " Saved!"), Toast.LENGTH_SHORT).show();
               }
 
               private void loadSlot() {
                   frames.clear();
-                  String s = prefs.getString("dual_slot_" + selectedSlot, "");
+                  String s = prefs.getString("motion_slot_" + selectedSlot, "");
                   if (s.isEmpty()) {
-                      frames.add(new Frame(Color.RED, Color.BLUE, 300));
+                      generateMotionPreset("belang");
                       return;
                   }
                   String[] rows = s.split(";");
@@ -657,6 +673,9 @@ jobs:
 
               private void testFrames() {
                   if (frames.isEmpty()) return;
+                  // COMMAND MODULE TO JUMP / ASSIGN TO SELECTED SLOT
+                  sendMode(selectedSlot);
+
                   playing = true;
                   handler.post(new Runnable() {
                       int idx = 0;
@@ -668,7 +687,7 @@ jobs:
                           handler.postDelayed(this, Math.max(50, f.duration));
                       }
                   });
-                  Toast.makeText(this, t("Mengirim Pola Dual Lampu ke Modul...", "Sending Dual Lamp Pattern to Module..."), Toast.LENGTH_SHORT).show();
+                  Toast.makeText(this, t("Memerintahkan Modul untuk Menjalankan Slot " + selectedSlot, "Executing Slot " + selectedSlot), Toast.LENGTH_SHORT).show();
               }
 
               private void stopPreview() {
@@ -701,7 +720,7 @@ jobs:
                   int g2 = (Color.green(col2) * bright) / 100;
                   int b2 = (Color.blue(col2) * bright) / 100;
 
-                  // Dual Channel Packet Command 0x08 (Lamp 1 Left & Lamp 2 Right)
+                  // Dual Channel Packet Command 0x08 (Lamp 1 Left & Lamp 2 Right) Bypass
                   byte[] packet = {
                       (byte)0x7B,
                       (byte)0xFF,
@@ -824,6 +843,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: LEDDMX-AI-Pro-Dual
+          name: LEDDMX-Motion-Studio
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
