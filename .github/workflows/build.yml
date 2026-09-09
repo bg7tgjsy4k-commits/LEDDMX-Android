@@ -88,7 +88,7 @@ jobs:
 
               <application
                   android:allowBackup="false"
-                  android:label="LEDDMX Ultimate Controller"
+                  android:label="LEDDMX Pro Controller"
                   android:theme="@style/AppTheme">
 
                   <activity
@@ -141,11 +141,12 @@ jobs:
           import android.os.Handler;
           import android.os.Looper;
           import android.view.Gravity;
+          import android.view.View;
           import android.widget.Button;
           import android.widget.EditText;
-          import android.widget.HorizontalScrollView;
           import android.widget.LinearLayout;
           import android.widget.ScrollView;
+          import android.widget.SeekBar;
           import android.widget.TextView;
           import java.util.ArrayList;
           import java.util.Locale;
@@ -170,10 +171,17 @@ jobs:
 
               private final ArrayList<BluetoothDevice> devices = new ArrayList<>();
               private LinearLayout deviceList;
+              private LinearLayout connectionPanel;
               private TextView status;
               private TextView log;
               private EditText hexInput;
               private EditText customFrameInput;
+              private TextView speedLabel;
+              private TextView brightLabel;
+
+              private boolean isConnected = false;
+              private boolean powerState = true;
+              private String selectedChannel = "ALL"; // Pilihan channel: ALL, LEFT, RIGHT
 
               private final Handler handler = new Handler(Looper.getMainLooper());
 
@@ -210,10 +218,13 @@ jobs:
                           public void onConnectionStateChange(BluetoothGatt g, int statusCode, int newState) {
                               if (newState == BluetoothGatt.STATE_CONNECTED) {
                                   gatt = g;
+                                  isConnected = true;
                                   appendLog("CONNECTED");
                                   status.setText("Connected - discovering services");
                                   g.discoverServices();
                               } else if (newState == BluetoothGatt.STATE_DISCONNECTED) {
+                                  gatt = null;
+                                  isConnected = false;
                                   appendLog("DISCONNECTED");
                                   status.setText("Disconnected");
                                   writeChar = null;
@@ -276,61 +287,144 @@ jobs:
                   root.setOrientation(LinearLayout.VERTICAL);
                   root.setPadding(20, 20, 20, 20);
 
+                  // TOP BAR DENGAN MENU HAMBURGER (GARIS 3) & JUDUL
+                  LinearLayout topBar = new LinearLayout(this);
+                  topBar.setOrientation(LinearLayout.HORIZONTAL);
+                  topBar.setGravity(Gravity.CENTER_VERTICAL);
+
+                  Button menuBtn = new Button(this);
+                  menuBtn.setText("☰");
+                  menuBtn.setTextSize(20);
+                  menuBtn.setOnClickListener(v -> toggleConnectionPanel());
+                  topBar.addView(menuBtn, new LinearLayout.LayoutParams(120, LinearLayout.LayoutParams.WRAP_CONTENT));
+
                   TextView title = new TextView(this);
-                  title.setText("LEDDMX Ultimate Controller");
-                  title.setTextSize(22);
+                  title.setText("LEDDMX Pro Controller");
+                  title.setTextSize(20);
                   title.setGravity(Gravity.CENTER);
-                  root.addView(title);
+                  topBar.addView(title, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+
+                  root.addView(topBar);
+
+                  // PANEL KONEKSI (BISA DITUTUP/DIBUKA DENGAN MENU ☰)
+                  connectionPanel = new LinearLayout(this);
+                  connectionPanel.setOrientation(LinearLayout.VERTICAL);
+                  connectionPanel.setVisibility(View.GONE); // Default Minimize/Hidden agar bersih
+                  connectionPanel.setPadding(0, 10, 0, 10);
 
                   status = new TextView(this);
-                  status.setText("Ready");
-                  status.setTextSize(16);
-                  root.addView(status);
+                  status.setText("Status: Disconnected");
+                  status.setTextSize(14);
+                  connectionPanel.addView(status);
 
                   Button scan = new Button(this);
                   scan.setText("SCAN ALL BLE DEVICES");
                   scan.setOnClickListener(v -> startScan());
-                  root.addView(scan);
+                  connectionPanel.addView(scan);
 
                   deviceList = new LinearLayout(this);
                   deviceList.setOrientation(LinearLayout.VERTICAL);
-                  root.addView(deviceList);
+                  connectionPanel.addView(deviceList);
 
-                  // KONTROL FITUR UTAMA
-                  TextView controlTitle = new TextView(this);
-                  controlTitle.setText("CONTROLLER FUNCTIONS");
-                  controlTitle.setTextSize(18);
-                  root.addView(controlTitle);
+                  root.addView(connectionPanel);
 
-                  Button btnSlow = new Button(this);
-                  btnSlow.setText("Speed Slow (Cmd 0x02)");
-                  btnSlow.setOnClickListener(v -> sendCustomPacket(new byte[]{0x7B, (byte)0xFF, 0x02, 0x35, (byte)0xFF, 0x00, (byte)0xFF, (byte)0xFF, (byte)0xBF}));
-                  root.addView(btnSlow);
+                  // TOMBOL POWER ON / OFF UTAMA
+                  Button btnPower = new Button(this);
+                  btnPower.setText("POWER ON / OFF");
+                  btnPower.setOnClickListener(v -> togglePower());
+                  root.addView(btnPower);
 
-                  Button btnPowerOff = new Button(this);
-                  btnPowerOff.setText("Power Off / Stop (Cmd 0x07)");
-                  btnPowerOff.setOnClickListener(v -> sendCustomPacket(new byte[]{0x7B, (byte)0xFF, 0x07, 0x00, 0x00, 0x02, (byte)0xBF}));
-                  root.addView(btnPowerOff);
+                  // SLIDER SPEED (0 - 100%)
+                  speedLabel = new TextView(this);
+                  speedLabel.setText("Animation Speed: 50%");
+                  speedLabel.setTextSize(15);
+                  root.addView(speedLabel);
+
+                  SeekBar speedSeekBar = new SeekBar(this);
+                  speedSeekBar.setMax(100);
+                  speedSeekBar.setProgress(50);
+                  speedSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                      @Override
+                      public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                          speedLabel.setText("Animation Speed: " + progress + "%");
+                          if (fromUser) {
+                              int hexVal = (progress * 255) / 100;
+                              sendCustomPacket(new byte[]{0x7B, (byte)0xFF, 0x02, (byte)hexVal, (byte)0xFF, 0x00, (byte)0xFF, (byte)0xFF, (byte)0xBF});
+                          }
+                      }
+                      @Override public void onStartTrackingTouch(SeekBar seekBar) {}
+                      @Override public void onStopTrackingTouch(SeekBar seekBar) {}
+                  });
+                  root.addView(speedSeekBar);
+
+                  // SLIDER BRIGHTNESS (0 - 100%)
+                  brightLabel = new TextView(this);
+                  brightLabel.setText("Brightness Level: 100%");
+                  brightLabel.setTextSize(15);
+                  root.addView(brightLabel);
+
+                  SeekBar brightSeekBar = new SeekBar(this);
+                  brightSeekBar.setMax(100);
+                  brightSeekBar.setProgress(100);
+                  brightSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                      @Override
+                      public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                          brightLabel.setText("Brightness Level: " + progress + "%");
+                          if (fromUser) {
+                              int hexVal = (progress * 2) / 100;
+                              sendCustomPacket(new byte[]{0x7B, (byte)0xFF, 0x07, 0x00, 0x00, (byte)hexVal, (byte)0xBF});
+                          }
+                      }
+                      @Override public void onStartTrackingTouch(SeekBar seekBar) {}
+                      @Override public void onStopTrackingTouch(SeekBar seekBar) {}
+                  });
+                  root.addView(brightSeekBar);
+
+                  // MENU PEMILIHAN CHANNEL LAMPU (KIRI / KANAN / ALL)
+                  TextView channelTitle = new TextView(this);
+                  channelTitle.setText("ACTIVE LED CHANNEL / ZONE");
+                  channelTitle.setTextSize(16);
+                  root.addView(channelTitle);
+
+                  LinearLayout channelLayout = new LinearLayout(this);
+                  channelLayout.setOrientation(LinearLayout.HORIZONTAL);
+
+                  Button btnLeft = new Button(this);
+                  btnLeft.setText("Left Side");
+                  btnLeft.setOnClickListener(v -> { selectedChannel = "LEFT"; appendLog("Channel selected: LEFT"); });
+                  channelLayout.addView(btnLeft, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+
+                  Button btnAll = new Button(this);
+                  btnAll.setText("All / Both");
+                  btnAll.setOnClickListener(v -> { selectedChannel = "ALL"; appendLog("Channel selected: ALL"); });
+                  channelLayout.addView(btnAll, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+
+                  Button btnRight = new Button(this);
+                  btnRight.setText("Right Side");
+                  btnRight.setOnClickListener(v -> { selectedChannel = "RIGHT"; appendLog("Channel selected: RIGHT"); });
+                  channelLayout.addView(btnRight, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+
+                  root.addView(channelLayout);
 
                   // CUSTOM ANIMATION EDITOR
                   TextView editorTitle = new TextView(this);
                   editorTitle.setText("CUSTOM ANIMATION EDITOR");
-                  editorTitle.setTextSize(18);
+                  editorTitle.setTextSize(16);
                   root.addView(editorTitle);
 
                   customFrameInput = new EditText(this);
-                  customFrameInput.setHint("Masukkan Frame HEX (contoh: 7B FF 03 AA ...)");
+                  customFrameInput.setHint("Frame HEX (misal: 7B FF 03 AA ...)");
                   root.addView(customFrameInput);
 
                   Button sendCustom = new Button(this);
-                  sendCustom.setText("APPLY CUSTOM FRAME");
+                  sendCustom.setText("APPLY CUSTOM FRAME TO CHOSEN CHANNEL");
                   sendCustom.setOnClickListener(v -> sendCustomAnimationSequence());
                   root.addView(sendCustom);
 
                   // SEMUA MODUS 1 SAMPAI 210
                   TextView modeTitle = new TextView(this);
                   modeTitle.setText("ALL MODES (1 - 210)");
-                  modeTitle.setTextSize(18);
+                  modeTitle.setTextSize(16);
                   root.addView(modeTitle);
 
                   LinearLayout modes = new LinearLayout(this);
@@ -351,7 +445,7 @@ jobs:
 
                   TextView rawTitle = new TextView(this);
                   rawTitle.setText("RAW HEX");
-                  rawTitle.setTextSize(18);
+                  rawTitle.setTextSize(16);
                   root.addView(rawTitle);
 
                   hexInput = new EditText(this);
@@ -359,7 +453,7 @@ jobs:
                   root.addView(hexInput);
 
                   Button sendHex = new Button(this);
-                  sendHex.setText("SEND HEX");
+                  sendHex.setText("SEND RAW HEX");
                   sendHex.setOnClickListener(v -> sendRaw());
                   root.addView(sendHex);
 
@@ -369,11 +463,32 @@ jobs:
                   root.addView(clear);
 
                   log = new TextView(this);
-                  log.setTextSize(13);
+                  log.setTextSize(12);
                   root.addView(log);
 
                   scroll.addView(root);
                   setContentView(scroll);
+              }
+
+              private void toggleConnectionPanel() {
+                  if (connectionPanel.getVisibility() == View.GONE) {
+                      connectionPanel.setVisibility(View.VISIBLE);
+                  } else {
+                      connectionPanel.setVisibility(View.GONE);
+                  }
+              }
+
+              private void togglePower() {
+                  powerState = !powerState;
+                  if (powerState) {
+                      // Nyalakan kembali pakai command 0x07 normal
+                      sendCustomPacket(new byte[]{0x7B, (byte)0xFF, 0x07, 0x00, 0x00, 0x02, (byte)0xBF});
+                      appendLog("Power ON");
+                  } else {
+                      // Matikan pakai command 0x07 (00 00 00)
+                      sendCustomPacket(new byte[]{0x7B, (byte)0xFF, 0x07, 0x00, 0x00, 0x00, (byte)0xBF});
+                      appendLog("Power OFF");
+                  }
               }
 
               private void requestBlePermission() {
@@ -481,9 +596,8 @@ jobs:
                       for (int i = 0; i < parts.length; i++) {
                           data[i] = (byte) Integer.parseInt(parts[i], 16);
                       }
-                      // Kirim custom frame animasi yang diedit user
                       send(data);
-                      appendLog("Custom Animation Frame Applied!");
+                      appendLog("Custom Animation Applied to [" + selectedChannel + "]!");
                   } catch (Exception e) {
                       appendLog("Invalid Custom Frame HEX");
                   }
