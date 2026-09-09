@@ -1,4 +1,4 @@
-Name: Build LEDDMX AI Pro FINAL
+name: Build LEDDMX AI Pro FINAL
 
 on:
   workflow_dispatch:
@@ -21,17 +21,12 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.10.2'
-
-      - name: Create Android project
+      - name: Create Android project and Gradle Wrapper
         shell: bash
         run: |
           set -e
 
-          rm -rf app build.gradle settings.gradle gradle.properties
+          rm -rf app build.gradle settings.gradle gradle.properties gradlew gradlew.bat gradle
           mkdir -p app/src/main/java/com/leddmx/pro
           mkdir -p app/src/main/res/values
 
@@ -2139,6 +2134,10 @@ jobs:
               }
           }
           EOF
+
+      - name: Generate Gradle Wrapper
+        shell: bash
+        run: gradle wrapper --gradle-version 8.10.2
 
       - name: Build Debug APK
         shell: bash
