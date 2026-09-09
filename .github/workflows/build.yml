@@ -164,7 +164,6 @@ jobs:
           import android.widget.EditText;
           import android.widget.GridLayout;
           import android.widget.LinearLayout;
-          import android.widget.SeekBar;
           import android.widget.Spinner;
           import android.widget.TextView;
           import android.widget.Toast;
@@ -576,8 +575,7 @@ jobs:
           EOF
 
       - name: Build Debug APK
-        shell: bash
-        run: ./gradlew clean assembleDebug --stacktrace
+        run: gradle --no-daemon clean assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
