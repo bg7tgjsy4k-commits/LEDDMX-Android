@@ -3,7 +3,8 @@ name: Build LEDDMX APK
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
   build:
@@ -13,28 +14,604 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Create Android project
+        run: |
+          rm -rf project
+          mkdir -p project/app/src/main/java/com/leddmx/finalapp
+          mkdir -p project/app/src/main/res/values
+
+          cat > project/settings.gradle <<'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+
+          rootProject.name = "LEDDMX"
+          include(":app")
+          EOF
+
+          cat > project/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application' version '8.6.1' apply false
+          }
+          EOF
+
+          cat > project/gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          android.useAndroidX=false
+          EOF
+
+          cat > project/app/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application'
+          }
+
+          android {
+              namespace 'com.leddmx.finalapp'
+              compileSdk 35
+
+              defaultConfig {
+                  applicationId 'com.leddmx.finalapp'
+                  minSdk 23
+                  targetSdk 35
+                  versionCode 1
+                  versionName '1.0'
+              }
+          }
+          EOF
+
+          cat > project/app/src/main/AndroidManifest.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+              <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+              <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+              <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
+              <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
+              <uses-feature
+                  android:name="android.hardware.bluetooth_le"
+                  android:required="true" />
+
+              <application
+                  android:allowBackup="false"
+                  android:label="LEDDMX Controller"
+                  android:theme="@style/AppTheme">
+
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true">
+
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+
+                  </activity>
+              </application>
+
+          </manifest>
+          EOF
+
+          cat > project/app/src/main/res/values/styles.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+
+              <style name="AppTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
+                  <item name="android:fontFamily">sans</item>
+                  <item name="android:windowLightStatusBar">true</item>
+                  <item name="android:colorAccent">#008577</item>
+              </style>
+
+          </resources>
+          EOF
+
+          cat > project/app/src/main/java/com/leddmx/finalapp/MainActivity.java <<'EOF'
+          package com.leddmx.finalapp;
+
+          import android.Manifest;
+          import android.app.Activity;
+          import android.bluetooth.BluetoothAdapter;
+          import android.bluetooth.BluetoothDevice;
+          import android.bluetooth.BluetoothGatt;
+          import android.bluetooth.BluetoothGattCallback;
+          import android.bluetooth.BluetoothGattCharacteristic;
+          import android.bluetooth.BluetoothGattDescriptor;
+          import android.bluetooth.BluetoothGattService;
+          import android.bluetooth.BluetoothManager;
+          import android.bluetooth.le.BluetoothLeScanner;
+          import android.bluetooth.le.ScanCallback;
+          import android.bluetooth.le.ScanResult;
+          import android.content.Context;
+          import android.content.pm.PackageManager;
+          import android.os.Bundle;
+          import android.os.Handler;
+          import android.os.Looper;
+          import android.view.Gravity;
+          import android.view.View;
+          import android.widget.Button;
+          import android.widget.EditText;
+          import android.widget.LinearLayout;
+          import android.widget.ScrollView;
+          import android.widget.TextView;
+          import java.util.ArrayList;
+          import java.util.Locale;
+          import java.util.UUID;
+
+          public class MainActivity extends Activity {
+
+              private static final UUID SERVICE_FFE0 =
+                      UUID.fromString("0000FFE0-0000-1000-8000-00805F9B34FB");
+
+              private static final UUID CHAR_FFE1 =
+                      UUID.fromString("0000FFE1-0000-1000-8000-00805F9B34FB");
+
+              private static final UUID CHAR_FFF4 =
+                      UUID.fromString("0000FFF4-0000-1000-8000-00805F9B34FB");
+
+              private BluetoothAdapter adapter;
+              private BluetoothLeScanner scanner;
+              private BluetoothGatt gatt;
+              private BluetoothGattCharacteristic writeChar;
+              private BluetoothGattCharacteristic notifyChar;
+
+              private final ArrayList<BluetoothDevice> devices = new ArrayList<>();
+              private LinearLayout deviceList;
+              private TextView status;
+              private TextView log;
+              private EditText hexInput;
+
+              private final Handler handler = new Handler(Looper.getMainLooper());
+
+              private final ScanCallback scanCallback = new ScanCallback() {
+                  @Override
+                  public void onScanResult(int callbackType, ScanResult result) {
+                      BluetoothDevice device = result.getDevice();
+
+                      if (device == null || device.getName() == null) {
+                          return;
+                      }
+
+                      String name = device.getName();
+
+                      if (!name.toUpperCase(Locale.US).contains("LEDDMX")
+                              && !name.toUpperCase(Locale.US).contains("LED DMX")) {
+                          return;
+                      }
+
+                      boolean exists = false;
+
+                      for (BluetoothDevice d : devices) {
+                          if (d.getAddress().equals(device.getAddress())) {
+                              exists = true;
+                              break;
+                          }
+                      }
+
+                      if (!exists) {
+                          devices.add(device);
+                          addDeviceButton(device);
+                      }
+                  }
+              };
+
+              private final BluetoothGattCallback gattCallback =
+                      new BluetoothGattCallback() {
+
+                          @Override
+                          public void onConnectionStateChange(
+                                  BluetoothGatt g,
+                                  int statusCode,
+                                  int newState) {
+
+                              if (newState == BluetoothGatt.STATE_CONNECTED) {
+                                  gatt = g;
+                                  appendLog("CONNECTED");
+                                  status.setText("Connected - discovering services");
+                                  g.discoverServices();
+
+                              } else if (newState == BluetoothGatt.STATE_DISCONNECTED) {
+                                  appendLog("DISCONNECTED");
+                                  status.setText("Disconnected");
+                                  writeChar = null;
+                                  notifyChar = null;
+                              }
+                          }
+
+                          @Override
+                          public void onServicesDiscovered(
+                                  BluetoothGatt g,
+                                  int statusCode) {
+
+                              if (statusCode != BluetoothGatt.GATT_SUCCESS) {
+                                  appendLog("Service discovery failed: " + statusCode);
+                                  return;
+                              }
+
+                              BluetoothGattService service =
+                                      g.getService(SERVICE_FFE0);
+
+                              if (service == null) {
+                                  appendLog("FFE0 service NOT found");
+                                  return;
+                              }
+
+                              writeChar = service.getCharacteristic(CHAR_FFE1);
+                              notifyChar = service.getCharacteristic(CHAR_FFF4);
+
+                              if (notifyChar != null) {
+                                  enableNotifications(g, notifyChar);
+                              }
+
+                              if (writeChar != null) {
+                                  status.setText("READY - FFE1");
+                                  appendLog("FFE1 WRITE READY");
+                              } else {
+                                  appendLog("FFE1 NOT FOUND");
+                              }
+                          }
+
+                          @Override
+                          public void onCharacteristicChanged(
+                                  BluetoothGatt g,
+                                  BluetoothGattCharacteristic characteristic) {
+
+                              byte[] data = characteristic.getValue();
+
+                              if (data != null) {
+                                  appendLog("RX " + bytesToHex(data));
+                              }
+                          }
+                      };
+
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+
+                  BluetoothManager manager =
+                          (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+
+                  adapter = manager.getAdapter();
+
+                  buildUi();
+                  requestBlePermission();
+              }
+
+              private void buildUi() {
+
+                  ScrollView scroll = new ScrollView(this);
+
+                  LinearLayout root = new LinearLayout(this);
+                  root.setOrientation(LinearLayout.VERTICAL);
+                  root.setPadding(20, 20, 20, 20);
+
+                  TextView title = new TextView(this);
+                  title.setText("LEDDMX Bluetooth Controller");
+                  title.setTextSize(22);
+                  title.setGravity(Gravity.CENTER);
+                  root.addView(title);
+
+                  status = new TextView(this);
+                  status.setText("Ready");
+                  status.setTextSize(16);
+                  root.addView(status);
+
+                  Button scan = new Button(this);
+                  scan.setText("SCAN LEDDMX");
+                  scan.setOnClickListener(v -> startScan());
+                  root.addView(scan);
+
+                  deviceList = new LinearLayout(this);
+                  deviceList.setOrientation(LinearLayout.VERTICAL);
+                  root.addView(deviceList);
+
+                  TextView modeTitle = new TextView(this);
+                  modeTitle.setText("MODES 171 - 210");
+                  modeTitle.setTextSize(18);
+                  root.addView(modeTitle);
+
+                  LinearLayout modes = new LinearLayout(this);
+                  modes.setOrientation(LinearLayout.VERTICAL);
+
+                  for (int start = 171; start <= 210; start += 5) {
+
+                      LinearLayout row = new LinearLayout(this);
+
+                      for (int mode = start; mode < start + 5 && mode <= 210; mode++) {
+
+                          final int id = mode;
+
+                          Button b = new Button(this);
+                          b.setText(String.valueOf(id));
+                          b.setOnClickListener(v -> sendMode(id));
+
+                          row.addView(
+                                  b,
+                                  new LinearLayout.LayoutParams(
+                                          0,
+                                          LinearLayout.LayoutParams.WRAP_CONTENT,
+                                          1
+                                  )
+                          );
+                      }
+
+                      modes.addView(row);
+                  }
+
+                  root.addView(modes);
+
+                  TextView rawTitle = new TextView(this);
+                  rawTitle.setText("RAW HEX");
+                  rawTitle.setTextSize(18);
+                  root.addView(rawTitle);
+
+                  hexInput = new EditText(this);
+                  hexInput.setHint("7B FF 03 AB FF FF FF FF BF");
+                  root.addView(hexInput);
+
+                  Button sendHex = new Button(this);
+                  sendHex.setText("SEND HEX");
+                  sendHex.setOnClickListener(v -> sendRaw());
+                  root.addView(sendHex);
+
+                  Button clear = new Button(this);
+                  clear.setText("CLEAR LOG");
+                  clear.setOnClickListener(v -> log.setText(""));
+                  root.addView(clear);
+
+                  log = new TextView(this);
+                  log.setTextSize(13);
+                  root.addView(log);
+
+                  scroll.addView(root);
+                  setContentView(scroll);
+              }
+
+              private void requestBlePermission() {
+
+                  if (android.os.Build.VERSION.SDK_INT >= 31) {
+
+                      if (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN)
+                              != PackageManager.PERMISSION_GRANTED
+                              || checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)
+                              != PackageManager.PERMISSION_GRANTED) {
+
+                          requestPermissions(
+                                  new String[]{
+                                          Manifest.permission.BLUETOOTH_SCAN,
+                                          Manifest.permission.BLUETOOTH_CONNECT
+                                  },
+                                  100
+                          );
+                      }
+                  }
+              }
+
+              private void startScan() {
+
+                  if (adapter == null) {
+                      status.setText("Bluetooth unavailable");
+                      return;
+                  }
+
+                  scanner = adapter.getBluetoothLeScanner();
+
+                  if (scanner == null) {
+                      status.setText("BLE scanner unavailable");
+                      return;
+                  }
+
+                  devices.clear();
+                  deviceList.removeAllViews();
+
+                  status.setText("Scanning...");
+
+                  try {
+                      scanner.startScan(scanCallback);
+
+                      handler.postDelayed(() -> {
+                          try {
+                              scanner.stopScan(scanCallback);
+                          } catch (Exception ignored) {
+                          }
+
+                          status.setText("Scan finished");
+                      }, 10000);
+
+                  } catch (SecurityException e) {
+                      appendLog("Bluetooth permission denied");
+                  }
+              }
+
+              private void addDeviceButton(BluetoothDevice device) {
+
+                  Button b = new Button(this);
+
+                  b.setText(device.getName() + "\n" + device.getAddress());
+
+                  b.setOnClickListener(v -> connect(device));
+
+                  deviceList.addView(b);
+              }
+
+              private void connect(BluetoothDevice device) {
+
+                  try {
+
+                      if (gatt != null) {
+                          gatt.close();
+                          gatt = null;
+                      }
+
+                      status.setText("Connecting...");
+
+                      gatt = device.connectGatt(
+                              this,
+                              false,
+                              gattCallback,
+                              BluetoothDevice.TRANSPORT_LE
+                      );
+
+                  } catch (SecurityException e) {
+                      appendLog("Bluetooth permission denied");
+                  }
+              }
+
+              private void enableNotifications(
+                      BluetoothGatt g,
+                      BluetoothGattCharacteristic characteristic) {
+
+                  try {
+
+                      g.setCharacteristicNotification(characteristic, true);
+
+                      BluetoothGattDescriptor descriptor =
+                              characteristic.getDescriptor(
+                                      UUID.fromString(
+                                              "00002902-0000-1000-8000-00805F9B34FB"
+                                      )
+                              );
+
+                      if (descriptor != null) {
+                          descriptor.setValue(
+                                  BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                          );
+                          g.writeDescriptor(descriptor);
+                      }
+
+                  } catch (SecurityException e) {
+                      appendLog("Notification permission denied");
+                  }
+              }
+
+              private void sendMode(int mode) {
+
+                  byte[] packet = new byte[]{
+                          0x7B,
+                          (byte) 0xFF,
+                          0x03,
+                          (byte) mode,
+                          (byte) 0xFF,
+                          (byte) 0xFF,
+                          (byte) 0xFF,
+                          (byte) 0xFF,
+                          (byte) 0xBF
+                  };
+
+                  send(packet);
+              }
+
+              private void sendRaw() {
+
+                  String text = hexInput.getText().toString().trim();
+
+                  if (text.isEmpty()) {
+                      return;
+                  }
+
+                  try {
+
+                      String[] parts = text.replace(",", " ").split("\\s+");
+
+                      byte[] data = new byte[parts.length];
+
+                      for (int i = 0; i < parts.length; i++) {
+                          data[i] = (byte) Integer.parseInt(parts[i], 16);
+                      }
+
+                      send(data);
+
+                  } catch (Exception e) {
+                      appendLog("Invalid HEX");
+                  }
+              }
+
+              private void send(byte[] data) {
+
+                  if (gatt == null || writeChar == null) {
+                      appendLog("Not connected / FFE1 unavailable");
+                      return;
+                  }
+
+                  try {
+
+                      writeChar.setValue(data);
+
+                      boolean result = gatt.writeCharacteristic(writeChar);
+
+                      appendLog(
+                              "TX " + bytesToHex(data)
+                                      + " [" + result + "]"
+                      );
+
+                  } catch (SecurityException e) {
+                      appendLog("Bluetooth permission denied");
+                  }
+              }
+
+              private void appendLog(String text) {
+
+                  if (log == null) {
+                      return;
+                  }
+
+                  log.append(text + "\n");
+              }
+
+              private String bytesToHex(byte[] data) {
+
+                  StringBuilder sb = new StringBuilder();
+
+                  for (byte b : data) {
+                      sb.append(String.format(
+                              Locale.US,
+                              "%02X ",
+                              b & 0xFF
+                      ));
+                  }
+
+                  return sb.toString().trim();
+              }
+
+              @Override
+              protected void onDestroy() {
+
+                  try {
+                      if (scanner != null) {
+                          scanner.stopScan(scanCallback);
+                      }
+                  } catch (Exception ignored) {
+                  }
+
+                  if (gatt != null) {
+                      try {
+                          gatt.close();
+                      } catch (Exception ignored) {
+                      }
+                      gatt = null;
+                  }
+
+                  super.onDestroy();
+              }
+          }
+          EOF
+
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-
-      - name: Extract and Fix Project
-        run: |
-          rm -rf project
-          mkdir project
-          unzip -q LEDDMX_Android_Final_PHONE_BUILD.zip -d project
-          
-          # Cari file MainActivity.java dan tambal otomatis argumen getService yang error
-          MAIN_FILE=$(find project -name "MainActivity.java")
-          if [ -f "$MAIN_FILE" ]; then
-            echo "Patching MainActivity.java..."
-            # Menyesuaikan pemanggilan gatt.getService agar sesuai dengan parameter BluetoothGatt
-            sed -i 's/gatt.getService(/gatt.getService(/g' "$MAIN_FILE"
-            
-            # Cek baris yang mengandung getService untuk memastikan
-            grep -n "getService" "$MAIN_FILE" || true
-          fi
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -43,7 +620,13 @@ jobs:
 
       - name: Build APK
         working-directory: project
-        run: gradle --no-daemon assembleDebug
+        run: |
+          gradle --no-daemon clean assembleDebug
+
+      - name: Verify APK
+        run: |
+          test -f project/app/build/outputs/apk/debug/app-debug.apk
+          ls -lh project/app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
