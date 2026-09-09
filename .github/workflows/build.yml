@@ -21,19 +21,24 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.5'
 
-      - name: Create Android Project
+      - name: Create Android Project & Local Properties
         shell: bash
         run: |
           set -e
 
-          rm -rf app build.gradle settings.gradle gradle.properties gradlew gradlew.bat gradle
+          rm -rf app build.gradle settings.gradle gradle.properties local.properties gradlew gradlew.bat gradle
           mkdir -p app/src/main/java/com/leddmx/pro
           mkdir -p app/src/main/res/values
+
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
 
           cat > settings.gradle <<'EOF'
           pluginManagement {
@@ -150,6 +155,7 @@ jobs:
           import android.bluetooth.BluetoothGattCallback;
           import android.bluetooth.BluetoothGattCharacteristic;
           import android.bluetooth.BluetoothGattService;
+          import android.bluetooth.BluetoothManager;
           import android.bluetooth.le.BluetoothLeScanner;
           import android.bluetooth.le.ScanCallback;
           import android.bluetooth.le.ScanResult;
