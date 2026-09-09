@@ -43,7 +43,7 @@ jobs:
 
           cat > project/build.gradle <<'EOF'
           plugins {
-              id 'com.android.application' version '8.6.1' apply false
+              id 'com.android.application' version '8.2.0' apply false
           }
           EOF
 
@@ -59,14 +59,14 @@ jobs:
 
           android {
               namespace 'com.leddmx.finalapp'
-              compileSdk 35
+              compileSdk 34
 
               defaultConfig {
                   applicationId 'com.leddmx.finalapp'
-                  minSdk 23
-                  targetSdk 35
+                  minSdk 21
+                  targetSdk 34
                   versionCode 1
-                  versionName '3.3'
+                  versionName '3.4'
               }
           }
           EOF
@@ -131,7 +131,7 @@ jobs:
                   try {
                       writeChar.setValue(data);
                       gatt.writeCharacteristic(writeChar);
-                  } catch (SecurityException ignored) {}
+                  } catch (Exception ignored) {}
               }
           }
           EOF
@@ -601,7 +601,7 @@ jobs:
                               }
                           } catch (Exception ignored) {}
                       }, 10000);
-                  } catch (SecurityException ignored) {}
+                  } catch (Exception ignored) {}
               }
 
               private void addDeviceButton(BluetoothDevice device, String name) {
@@ -611,7 +611,7 @@ jobs:
                   b.setTextColor(Color.WHITE);
                   b.setOnClickListener(v -> {
                       if (ble.gatt != null) ble.gatt.close();
-                      try { device.connectGatt(this, false, gattCallback, BluetoothDevice.TRANSPORT_LE); } catch (SecurityException ignored) {}
+                      try { device.connectGatt(MainActivity.this, false, gattCallback, BluetoothDevice.TRANSPORT_LE); } catch (Exception ignored) {}
                   });
                   deviceList.addView(b);
               }
@@ -627,7 +627,7 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.10.2'
+          gradle-version: '8.5'
 
       - name: Build APK
         working-directory: project
