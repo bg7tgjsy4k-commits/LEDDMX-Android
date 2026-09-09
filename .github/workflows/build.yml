@@ -295,7 +295,7 @@ jobs:
                   root.setPadding(20, 20, 20, 20);
 
                   TextView title = new TextView(this);
-                  title.setText("LEDDMX Bluetooth Controller");
+                  title.setText("LEDDMX Controller");
                   title.setTextSize(22);
                   title.setGravity(Gravity.CENTER);
                   root.addView(title);
@@ -313,6 +313,32 @@ jobs:
                   deviceList = new LinearLayout(this);
                   deviceList.setOrientation(LinearLayout.VERTICAL);
                   root.addView(deviceList);
+
+                  // BAGIAN TEST COMMAND MISTERIUS
+                  TextView testTitle = new TextView(this);
+                  testTitle.setText("TEST MYSTERY COMMANDS");
+                  testTitle.setTextSize(18);
+                  root.addView(testTitle);
+
+                  Button btnCmd02_35 = new Button(this);
+                  btnCmd02_35.setText("Test Cmd 0x02 (35 FF 00...)");
+                  btnCmd02_35.setOnClickListener(v -> sendCustomPacket(new byte[]{0x7B, (byte)0xFF, 0x02, 0x35, (byte)0xFF, 0x00, (byte)0xFF, (byte)0xFF, (byte)0xBF}));
+                  root.addView(btnCmd02_35);
+
+                  Button btnCmd02_47 = new Button(this);
+                  btnCmd02_47.setText("Test Cmd 0x02 (47 FF 00...)");
+                  btnCmd02_47.setOnClickListener(v -> sendCustomPacket(new byte[]{0x7B, (byte)0xFF, 0x02, 0x47, (byte)0xFF, 0x00, (byte)0xFF, (byte)0xFF, (byte)0xBF}));
+                  root.addView(btnCmd02_47);
+
+                  Button btnCmd07 = new Button(this);
+                  btnCmd07.setText("Test Cmd 0x07 (00 00 02 02...)");
+                  btnCmd07.setOnClickListener(v -> sendCustomPacket(new byte[]{0x7B, (byte)0xFF, 0x07, 0x00, 0x00, 0x02, 0x02, (byte)0xBF}));
+                  root.addView(btnCmd07);
+
+                  Button btnCmd13 = new Button(this);
+                  btnCmd13.setText("Test Cmd 0x13 (Save/NVM?)");
+                  btnCmd13.setOnClickListener(v -> sendCustomPacket(new byte[]{0x7B, (byte)0xFF, 0x13, (byte)0xFF, (byte)0xFF, (byte)0xFF, (byte)0xFF, (byte)0xFF, (byte)0xBF}));
+                  root.addView(btnCmd13);
 
                   TextView modeTitle = new TextView(this);
                   modeTitle.setText("MODES 171 - 210");
@@ -494,6 +520,10 @@ jobs:
                           (byte) 0xFF,
                           (byte) 0xBF
                   };
+                  send(packet);
+              }
+
+              private void sendCustomPacket(byte[] packet) {
                   send(packet);
               }
 
