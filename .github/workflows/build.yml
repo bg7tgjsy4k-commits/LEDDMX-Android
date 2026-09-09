@@ -1,4 +1,4 @@
-name: Build LEDDMX AI Pro Master
+name: Build LEDDMX AI Pro Dual Channel
 
 on:
   workflow_dispatch:
@@ -29,7 +29,7 @@ jobs:
         with:
           gradle-version: '8.5'
 
-      - name: Create Android Project & Master Source Code
+      - name: Create Android Project & Dual Channel Source Code
         shell: bash
         run: |
           set -e
@@ -82,7 +82,7 @@ jobs:
                   minSdk 21
                   targetSdk 34
                   versionCode 1
-                  versionName "3.0"
+                  versionName "5.0"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_1_8
@@ -93,7 +93,7 @@ jobs:
 
           cat > app/src/main/res/values/strings.xml <<'EOF'
           <resources>
-              <string name="app_name">LEDDMX AI Pro Master</string>
+              <string name="app_name">LEDDMX AI Pro Dual</string>
           </resources>
           EOF
 
@@ -138,8 +138,8 @@ jobs:
               public int lastUsedMode = 171;
               public int brightness = 100;
               public int speed = 350;
-              public String lang = "id"; // id / en
-              public String modulePassword = ""; // secured lock
+              public String lang = "id";
+              public String modulePassword = "";
 
               public void sendPacket(byte[] data) {
                   if (gatt == null || writeChar == null) return;
@@ -168,7 +168,6 @@ jobs:
           import android.content.Context;
           import android.content.SharedPreferences;
           import android.graphics.Color;
-          import android.graphics.drawable.GradientDrawable;
           import android.os.Bundle;
           import android.os.Handler;
           import android.text.Editable;
@@ -199,20 +198,24 @@ jobs:
               private final ArrayList<Frame> frames = new ArrayList<>();
               private int selectedSlot = 171;
               private boolean playing = false;
-              private TextView previewScreen;
               
-              // Active painting color for the 75-LED matrix
-              private int brushColor = Color.RED;
+              private int selectedLampTarget = 0; // 0 = Both, 1 = Lampu 1 (Kiri), 2 = Lampu 2 (Kanan)
+              private View lamp1PreviewBox, lamp2PreviewBox;
 
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-                  prefs = getSharedPreferences("leddmx_master", MODE_PRIVATE);
+                  prefs = getSharedPreferences("leddmx_dual", MODE_PRIVATE);
                   BluetoothService.getInstance().lang = prefs.getString("lang", "id");
                   BluetoothService.getInstance().modulePassword = prefs.getString("mod_pass", "");
 
                   BluetoothManager bm = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
                   if (bm != null) bluetoothAdapter = bm.getAdapter();
+                  
+                  if (frames.isEmpty()) {
+                      frames.add(new Frame(Color.RED, Color.BLUE, 300));
+                  }
+
                   buildRoot();
                   showHome();
                   if (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
@@ -232,7 +235,7 @@ jobs:
                   LinearLayout top = new LinearLayout(this);
                   top.setGravity(Gravity.CENTER_VERTICAL);
                   top.setPadding(24,18,24,18);
-                  TextView title = text("LEDDMX MASTER", 20);
+                  TextView title = text("LEDDMX DUAL PRO", 20);
                   title.setTextColor(Color.parseColor("#00E5FF"));
                   top.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
                   Button connect = button("SCAN");
@@ -281,7 +284,7 @@ jobs:
                   currentMode = text(t("MODE AKTIF: ", "ACTIVE MODE: ") + currentModeNumber, 18);
                   content.addView(currentMode);
 
-                  Button on = button(t("POWER ON (NYALAKAN)", "POWER ON (RESTORE MODE)"));
+                  Button on = button(t("POWER ON (NYALAKAN)", "POWER ON"));
                   on.setOnClickListener(v -> sendMode(currentModeNumber));
                   content.addView(on);
 
@@ -312,7 +315,7 @@ jobs:
                   content.addView(text("Speed: " + BluetoothService.getInstance().speed + "ms", 12));
                   content.addView(spd);
 
-                  Button custom = button(t("BUKA STUDIO CUSTOM (75 LED MATRIX)", "OPEN CUSTOM MATRIX STUDIO"));
+                  Button custom = button(t("BUKA STUDIO CUSTOM (LAMPU 1 & 2)", "OPEN DUAL LAMP CUSTOM STUDIO"));
                   custom.setOnClickListener(v -> showCustom());
                   content.addView(custom);
 
@@ -364,7 +367,7 @@ jobs:
 
               private void showCustom() {
                   clearContent();
-                  content.addView(text(t("STUDIO KUSTOM MATRIKS 75 LED", "75 LED MATRIX CUSTOM STUDIO"), 24));
+                  content.addView(text(t("STUDIO CUSTOM LAMPU 1 (KIRI) & 2 (KANAN)", "DUAL LAMP CUSTOM STUDIO"), 22));
                   content.addView(text(t("Pilih Slot Memori (171 - 210):", "Select Memory Slot (171 - 210):"), 12));
 
                   Spinner slot = new Spinner(this);
@@ -385,7 +388,7 @@ jobs:
                   LinearLayout editor = new LinearLayout(this);
                   editor.setOrientation(LinearLayout.VERTICAL);
                   content.addView(editor);
-                  loadSlot();
+                  
                   rebuildEditor(editor);
               }
 
@@ -394,7 +397,7 @@ jobs:
 
                   Button add = button(t("+ TAMBAH FRAME", "+ ADD FRAME"));
                   add.setOnClickListener(v -> {
-                      frames.add(new Frame());
+                      frames.add(new Frame(Color.RED, Color.BLUE, 300));
                       rebuildEditor(editor);
                   });
                   editor.addView(add);
@@ -402,59 +405,77 @@ jobs:
                   for (int i=0; i<frames.size(); i++) {
                       final int index = i;
                       final Frame f = frames.get(i);
-                      LinearLayout row = new LinearLayout(this);
-                      row.setOrientation(LinearLayout.VERTICAL);
-                      row.setPadding(0, 10, 0, 10);
-                      row.addView(text(t("FRAME " + (i+1) + " (Matriks 15x5 LED)", "FRAME " + (i+1) + " (15x5 LED Matrix)"), 14));
+                      
+                      LinearLayout frameCard = new LinearLayout(this);
+                      frameCard.setOrientation(LinearLayout.VERTICAL);
+                      frameCard.setPadding(12, 16, 12, 16);
+                      frameCard.setBackgroundColor(Color.parseColor("#1E222B"));
 
-                      // Color Palette selection buttons (Shows actual colors, no raw codes)
+                      frameCard.addView(text(t("FRAME " + (i+1), "FRAME " + (i+1)), 16));
+
+                      // Lamp Target Selector: [ Lampu 1 (Kiri) ] [ Lampu 2 (Kanan) ] [ Dua-duanya ]
+                      frameCard.addView(text(t("PILIH LAMPU YANG INGIN DI-SETTING:", "SELECT TARGET LAMP TO EDIT:"), 12));
+                      LinearLayout targetLayout = new LinearLayout(this);
+                      targetLayout.setOrientation(LinearLayout.HORIZONTAL);
+                      
+                      Button bTarget1 = button(t("LAMPU 1 (KIRI)", "LAMP 1 (LEFT)"));
+                      Button bTarget2 = button(t("LAMPU 2 (KANAN)", "LAMP 2 (RIGHT)"));
+                      Button bTargetBoth = button(t("DUA-DUANYA", "BOTH LAMPS"));
+
+                      bTarget1.setOnClickListener(v -> { selectedLampTarget = 1; rebuildEditor(editor); });
+                      bTarget2.setOnClickListener(v -> { selectedLampTarget = 2; rebuildEditor(editor); });
+                      bTargetBoth.setOnClickListener(v -> { selectedLampTarget = 0; rebuildEditor(editor); });
+
+                      if (selectedLampTarget == 1) bTarget1.setBackgroundColor(Color.parseColor("#00E5FF"));
+                      else if (selectedLampTarget == 2) bTarget2.setBackgroundColor(Color.parseColor("#00E5FF"));
+                      else bTargetBoth.setBackgroundColor(Color.parseColor("#00E5FF"));
+
+                      targetLayout.addView(bTarget1, new LinearLayout.LayoutParams(0, -2, 1));
+                      targetLayout.addView(bTarget2, new LinearLayout.LayoutParams(0, -2, 1));
+                      targetLayout.addView(bTargetBoth, new LinearLayout.LayoutParams(0, -2, 1));
+                      frameCard.addView(targetLayout);
+
+                      // Visual boxes showing current colors of Lamp 1 & Lamp 2
+                      LinearLayout previewRow = new LinearLayout(this);
+                      previewRow.setOrientation(LinearLayout.HORIZONTAL);
+                      previewRow.setPadding(0, 10, 0, 10);
+
+                      TextView box1 = new TextView(this);
+                      box1.setText(t("LAMPU 1 (KIRI)", "LAMP 1 (LEFT)"));
+                      box1.setGravity(Gravity.CENTER);
+                      box1.setTextColor(Color.WHITE);
+                      box1.setBackgroundColor(f.lamp1Color);
+                      box1.setHeight(100);
+
+                      TextView box2 = new TextView(this);
+                      box2.setText(t("LAMPU 2 (KANAN)", "LAMP 2 (RIGHT)"));
+                      box2.setGravity(Gravity.CENTER);
+                      box2.setTextColor(Color.WHITE);
+                      box2.setBackgroundColor(f.lamp2Color);
+                      box2.setHeight(100);
+
+                      previewRow.addView(box1, new LinearLayout.LayoutParams(0, -1, 1));
+                      previewRow.addView(box2, new LinearLayout.LayoutParams(0, -1, 1));
+                      frameCard.addView(previewRow);
+
+                      // Color Palette for Target Lamp Selection
+                      frameCard.addView(text(t("PILIH WARNA:", "PICK COLOR:"), 12));
                       LinearLayout palLayout = new LinearLayout(this);
                       palLayout.setOrientation(LinearLayout.HORIZONTAL);
                       int[] paletteColors = {Color.RED, Color.GREEN, Color.BLUE, Color.YELLOW, Color.CYAN, Color.MAGENTA, Color.WHITE, Color.BLACK};
-                      String[] colorNamesId = {"Merah", "Hijau", "Biru", "Kuning", "Cyan", "Magenta", "Putih", "Mati"};
-                      String[] colorNamesEn = {"Red", "Green", "Blue", "Yellow", "Cyan", "Magenta", "White", "Off"};
                       
-                      for (int c=0; c<paletteColors.length; c++) {
-                          final int col = paletteColors[c];
+                      for (int col : paletteColors) {
                           Button pBtn = button("");
                           pBtn.setBackgroundColor(col);
-                          pBtn.setMinWidth(45);
-                          if (brushColor == col) {
-                              pBtn.setText("✔");
-                              pBtn.setTextColor(Color.BLACK);
-                          }
-                          final int finalC = c;
                           pBtn.setOnClickListener(v -> {
-                              brushColor = col;
+                              if (selectedLampTarget == 1) f.lamp1Color = col;
+                              else if (selectedLampTarget == 2) f.lamp2Color = col;
+                              else { f.lamp1Color = col; f.lamp2Color = col; }
                               rebuildEditor(editor);
                           });
                           palLayout.addView(pBtn, new LinearLayout.LayoutParams(0, 70, 1));
                       }
-                      editor.addView(palLayout);
-                      editor.addView(text(t("Ketuk kotak warna di atas untuk memilih kuas, lalu ketuk lampu LED di bawah untuk mewarnai:", "Tap color above to pick brush, then tap LED dots below to paint:"), 11));
-
-                      // 15x5 LED Matrix Display Grid
-                      GridLayout matrixGrid = new GridLayout(this);
-                      matrixGrid.setColumnCount(15);
-                      for (int r=0; r<5; r++) {
-                          for (int c=0; c<15; c++) {
-                              final int ledIndex = r * 15 + c;
-                              Button led = new Button(this);
-                              led.setBackgroundColor(f.leds[ledIndex]);
-                              led.setMinWidth(0); led.setMinHeight(0);
-                              led.setMinimumWidth(35); led.setMinimumHeight(45);
-                              GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
-                              lp.width = 42; lp.height = 48;
-                              lp.setMargins(2,2,2,2);
-                              
-                              led.setOnClickListener(v -> {
-                                  f.leds[ledIndex] = brushColor;
-                                  led.setBackgroundColor(brushColor);
-                              });
-                              matrixGrid.addView(led, lp);
-                          }
-                      }
-                      editor.addView(matrixGrid);
+                      frameCard.addView(palLayout);
 
                       // Frame Duration
                       SeekBar dur = new SeekBar(this);
@@ -465,18 +486,20 @@ jobs:
                           public void onStartTrackingTouch(SeekBar s) {}
                           public void onStopTrackingTouch(SeekBar s) {}
                       });
-                      editor.addView(text(t("Durasi Frame: ", "Frame Duration: ") + f.duration + " ms", 11));
-                      editor.addView(dur);
+                      frameCard.addView(text(t("Durasi Frame: ", "Frame Duration: ") + f.duration + " ms", 11));
+                      frameCard.addView(dur);
 
                       Button del = button(t("❌ HAPUS FRAME INI", "❌ DELETE THIS FRAME"));
                       del.setOnClickListener(v -> {
                           frames.remove(index);
                           rebuildEditor(editor);
                       });
-                      editor.addView(del);
+                      frameCard.addView(del);
+
+                      editor.addView(frameCard);
                   }
 
-                  Button preview = button(t("▶ PREVIEW ANIMASI MATRIKS", "▶ PREVIEW MATRIX ANIMATION"));
+                  Button preview = button(t("▶ PREVIEW ANIMASI DUAL LAMPU", "▶ PREVIEW DUAL LAMP ANIMATION"));
                   preview.setOnClickListener(v -> showPreview());
                   editor.addView(preview);
 
@@ -491,12 +514,26 @@ jobs:
 
               private void showPreview() {
                   clearContent();
-                  content.addView(text(t("PREVIEW ANIMASI MATRIKS", "MATRIX ANIMATION PREVIEW"), 24));
+                  content.addView(text(t("PREVIEW ANIMASI DUAL LAMPU", "DUAL LAMP ANIMATION PREVIEW"), 24));
 
-                  previewScreen = text(t("LAYAR PREVIEW", "PREVIEW SCREEN"), 24);
-                  previewScreen.setGravity(Gravity.CENTER);
-                  previewScreen.setMinimumHeight(300);
-                  content.addView(previewScreen);
+                  LinearLayout previewBoxContainer = new LinearLayout(this);
+                  previewBoxContainer.setOrientation(LinearLayout.HORIZONTAL);
+                  previewBoxContainer.setPadding(10, 20, 10, 20);
+
+                  lamp1PreviewBox = new View(this);
+                  lamp1PreviewBox.setBackgroundColor(Color.RED);
+                  
+                  lamp2PreviewBox = new View(this);
+                  lamp2PreviewBox.setBackgroundColor(Color.BLUE);
+
+                  LinearLayout.LayoutParams lp1 = new LinearLayout.LayoutParams(0, 250, 1);
+                  lp1.setMargins(10, 10, 10, 10);
+                  LinearLayout.LayoutParams lp2 = new LinearLayout.LayoutParams(0, 250, 1);
+                  lp2.setMargins(10, 10, 10, 10);
+
+                  previewBoxContainer.addView(lamp1PreviewBox, lp1);
+                  previewBoxContainer.addView(lamp2PreviewBox, lp2);
+                  content.addView(previewBoxContainer);
 
                   Button play = button("▶ PLAY");
                   play.setOnClickListener(v -> startPreviewLoop());
@@ -521,18 +558,10 @@ jobs:
                       public void run() {
                           if (!playing || frames.isEmpty()) return;
                           Frame f = frames.get(idx % frames.size());
-                          // Calculate average color for screen preview
-                          int sumR = 0, sumG = 0, sumB = 0;
-                          for (int col : f.leds) {
-                              sumR += Color.red(col);
-                              sumG += Color.green(col);
-                              sumB += Color.blue(col);
-                          }
-                          int avgR = sumR / 75; int avgG = sumG / 75; int avgB = sumB / 75;
-                          if (previewScreen != null) {
-                              previewScreen.setBackgroundColor(Color.rgb(avgR, avgG, avgB));
-                              previewScreen.setText(t("FRAME ", "FRAME ") + ((idx % frames.size()) + 1));
-                          }
+                          
+                          if (lamp1PreviewBox != null) lamp1PreviewBox.setBackgroundColor(f.lamp1Color);
+                          if (lamp2PreviewBox != null) lamp2PreviewBox.setBackgroundColor(f.lamp2Color);
+                          
                           idx++;
                           handler.postDelayed(this, Math.max(50, f.duration));
                       }
@@ -542,19 +571,16 @@ jobs:
               private void showAI() {
                   clearContent();
                   content.addView(text("AI ANIMATION GENERATOR", 24));
-                  content.addView(text(t("Ketik perintah pola lampu matriks:", "Type matrix animation prompt:"), 13));
+                  content.addView(text(t("Ketik perintah animasi (contoh: 'merah biru strobo', 'kiri hijau kanan kuning'):", "Type animation prompt:"), 13));
                   final EditText prompt = edit("");
                   content.addView(prompt);
 
-                  Button gen = button(t("GENERATE POLA OTOMATIS", "GENERATE AUTOMATIC PATTERN"));
+                  Button gen = button(t("GENERATE ANIMASI OTOMATIS", "GENERATE AUTOMATIC ANIMATION"));
                   gen.setOnClickListener(v -> {
                       frames.clear();
-                      Frame f = new Frame();
-                      for (int i=0; i<75; i++) {
-                          f.leds[i] = (i % 2 == 0) ? Color.RED : Color.BLUE;
-                      }
-                      frames.add(f);
-                      Toast.makeText(this, t("Pola AI Berhasil Dibuat!", "AI Pattern Generated Successfully!"), Toast.LENGTH_SHORT).show();
+                      frames.add(new Frame(Color.RED, Color.BLUE, 200));
+                      frames.add(new Frame(Color.BLUE, Color.RED, 200));
+                      Toast.makeText(this, t("Animasi AI Berhasil Dibuat!", "AI Animation Generated!"), Toast.LENGTH_SHORT).show();
                       showCustom();
                   });
                   content.addView(gen);
@@ -584,7 +610,6 @@ jobs:
                   content.addView(langLayout);
 
                   content.addView(text(t("PASSWORD PENGUNCI MODUL BLUETOOTH", "BLUETOOTH MODULE LOCK PASSWORD"), 14));
-                  content.addView(text(t("Atur password agar tidak sembarangan orang bisa merubah lampu:", "Set password to prevent unauthorized access:"), 11));
                   final EditText passInput = edit(BluetoothService.getInstance().modulePassword);
                   passInput.setHint(t("Ketik PIN / Password...", "Enter PIN / Password..."));
                   content.addView(passInput);
@@ -606,33 +631,25 @@ jobs:
               private void saveSlot() {
                   StringBuilder sb = new StringBuilder();
                   for (Frame f : frames) {
-                      for (int c : f.leds) {
-                          sb.append(c).append(",");
-                      }
-                      sb.append(f.duration).append(";");
+                      sb.append(f.lamp1Color).append(",").append(f.lamp2Color).append(",").append(f.duration).append(";");
                   }
-                  prefs.edit().putString("matrix_slot_" + selectedSlot, sb.toString()).apply();
+                  prefs.edit().putString("dual_slot_" + selectedSlot, sb.toString()).apply();
                   Toast.makeText(this, t("Slot " + selectedSlot + " Tersimpan di HP!", "Slot " + selectedSlot + " Saved to Phone!"), Toast.LENGTH_SHORT).show();
               }
 
               private void loadSlot() {
                   frames.clear();
-                  String s = prefs.getString("matrix_slot_" + selectedSlot, "");
+                  String s = prefs.getString("dual_slot_" + selectedSlot, "");
                   if (s.isEmpty()) {
-                      frames.add(new Frame());
+                      frames.add(new Frame(Color.RED, Color.BLUE, 300));
                       return;
                   }
                   String[] rows = s.split(";");
                   for (String r : rows) {
                       try {
                           String[] p = r.split(",");
-                          if (p.length >= 76) {
-                              Frame f = new Frame();
-                              for (int i=0; i<75; i++) {
-                                  f.leds[i] = Integer.parseInt(p[i]);
-                              }
-                              f.duration = Integer.parseInt(p[75]);
-                              frames.add(f);
+                          if (p.length >= 3) {
+                              frames.add(new Frame(Integer.parseInt(p[0]), Integer.parseInt(p[1]), Integer.parseInt(p[2])));
                           }
                       } catch (Exception ignored) {}
                   }
@@ -646,23 +663,12 @@ jobs:
                       public void run() {
                           if (!playing || frames.isEmpty()) return;
                           Frame f = frames.get(idx % frames.size());
-                          // Send average color packet
-                          int sumR = 0, sumG = 0, sumB = 0;
-                          for (int col : f.leds) {
-                              sumR += Color.red(col);
-                              sumG += Color.green(col);
-                              sumB += Color.blue(col);
-                          }
-                          int bright = BluetoothService.getInstance().brightness;
-                          int r = (sumR / 75) * bright / 100;
-                          int g = (sumG / 75) * bright / 100;
-                          int b = (sumB / 75) * bright / 100;
-                          sendColor(r, g, b);
+                          sendDualColor(f.lamp1Color, f.lamp2Color);
                           idx++;
                           handler.postDelayed(this, Math.max(50, f.duration));
                       }
                   });
-                  Toast.makeText(this, t("Mengirim Pola ke Modul LED...", "Sending Pattern to LED Module..."), Toast.LENGTH_SHORT).show();
+                  Toast.makeText(this, t("Mengirim Pola Dual Lampu ke Modul...", "Sending Dual Lamp Pattern to Module..."), Toast.LENGTH_SHORT).show();
               }
 
               private void stopPreview() {
@@ -685,8 +691,29 @@ jobs:
                   Toast.makeText(this, "POWER OFF", Toast.LENGTH_SHORT).show();
               }
 
-              private void sendColor(int r, int g, int b) {
-                  byte[] packet = {0x7B, (byte)0xFF, 0x07, (byte)Math.max(0,Math.min(255,r)), (byte)Math.max(0,Math.min(255,g)), (byte)Math.max(0,Math.min(255,b)), (byte)0xBF};
+              private void sendDualColor(int col1, int col2) {
+                  int bright = BluetoothService.getInstance().brightness;
+                  int r1 = (Color.red(col1) * bright) / 100;
+                  int g1 = (Color.green(col1) * bright) / 100;
+                  int b1 = (Color.blue(col1) * bright) / 100;
+
+                  int r2 = (Color.red(col2) * bright) / 100;
+                  int g2 = (Color.green(col2) * bright) / 100;
+                  int b2 = (Color.blue(col2) * bright) / 100;
+
+                  // Dual Channel Packet Command 0x08 (Lamp 1 Left & Lamp 2 Right)
+                  byte[] packet = {
+                      (byte)0x7B,
+                      (byte)0xFF,
+                      (byte)0x08, 
+                      (byte)Math.max(0,Math.min(255,r1)),
+                      (byte)Math.max(0,Math.min(255,g1)),
+                      (byte)Math.max(0,Math.min(255,b1)),
+                      (byte)Math.max(0,Math.min(255,r2)),
+                      (byte)Math.max(0,Math.min(255,g2)),
+                      (byte)Math.max(0,Math.min(255,b2)),
+                      (byte)0xBF
+                  };
                   BluetoothService.getInstance().sendPacket(packet);
               }
 
@@ -773,10 +800,13 @@ jobs:
               }
 
               private static class Frame {
-                  int[] leds = new int[75]; // 15 columns x 5 rows = 75 LEDs
-                  int duration = 300;
-                  Frame() {
-                      for (int i=0; i<75; i++) leds[i] = Color.BLACK;
+                  int lamp1Color;
+                  int lamp2Color;
+                  int duration;
+                  Frame(int l1, int l2, int dur) {
+                      this.lamp1Color = l1;
+                      this.lamp2Color = l2;
+                      this.duration = dur;
                   }
               }
 
@@ -794,6 +824,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: LEDDMX-AI-Pro-Master
+          name: LEDDMX-AI-Pro-Dual
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
