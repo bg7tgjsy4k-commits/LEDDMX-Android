@@ -1,4 +1,4 @@
-name: Build LEDDMX Motion Studio v8
+name: Build LEDDMX Motion Studio v9
 
 on:
   workflow_dispatch:
@@ -29,7 +29,7 @@ jobs:
         with:
           gradle-version: '8.5'
 
-      - name: Create Android Project & BLE Fix Source Code
+      - name: Create Android Project & Stable Source Code
         shell: bash
         run: |
           set -e
@@ -66,8 +66,9 @@ jobs:
           EOF
 
           cat > gradle.properties <<'EOF'
-          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          org.gradle.jvmargs=-Xmx1536m -Dfile.encoding=UTF-8
           android.useAndroidX=true
+          org.gradle.parallel=false
           EOF
 
           cat > app/build.gradle <<'EOF'
@@ -82,7 +83,7 @@ jobs:
                   minSdk 21
                   targetSdk 34
                   versionCode 1
-                  versionName "8.0"
+                  versionName "9.0"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_1_8
@@ -93,7 +94,7 @@ jobs:
 
           cat > app/src/main/res/values/strings.xml <<'EOF'
           <resources>
-              <string name="app_name">LEDDMX Motion v8</string>
+              <string name="app_name">LEDDMX Motion v9</string>
           </resources>
           EOF
 
@@ -209,7 +210,7 @@ jobs:
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-                  prefs = getSharedPreferences("leddmx_motion_v8", MODE_PRIVATE);
+                  prefs = getSharedPreferences("leddmx_motion_v9", MODE_PRIVATE);
                   BluetoothService.getInstance().lang = prefs.getString("lang", "id");
                   BluetoothService.getInstance().modulePassword = prefs.getString("mod_pass", "");
 
@@ -246,7 +247,7 @@ jobs:
                   LinearLayout top = new LinearLayout(this);
                   top.setGravity(Gravity.CENTER_VERTICAL);
                   top.setPadding(24,18,24,18);
-                  TextView title = text("LEDDMX MOTION v8", 18);
+                  TextView title = text("LEDDMX MOTION v9", 18);
                   title.setTextColor(Color.parseColor("#00E5FF"));
                   top.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
                   Button connect = button("SCAN");
@@ -389,9 +390,9 @@ jobs:
                   
                   LinearLayout r1 = new LinearLayout(this);
                   r1.setOrientation(LinearLayout.HORIZONTAL);
-                  Button pRun = button(t("🏃 RUNNING (ALIRAN)", "🏃 RUNNING FLOW"));
+                  Button pRun = button(t("🏃 RUNNING", "🏃 RUNNING"));
                   pRun.setOnClickListener(v -> { loadMotionPreset("running"); rebuildEditor((LinearLayout) content.getChildAt(content.getChildCount()-1)); });
-                  Button pBelang = button(t("⚡ BELANG SILANG", "⚡ CROSS STRIPE"));
+                  Button pBelang = button(t("⚡ BELANG", "⚡ STRIPE"));
                   pBelang.setOnClickListener(v -> { loadMotionPreset("belang"); rebuildEditor((LinearLayout) content.getChildAt(content.getChildCount()-1)); });
                   r1.addView(pRun, new LinearLayout.LayoutParams(0, -2, 1));
                   r1.addView(pBelang, new LinearLayout.LayoutParams(0, -2, 1));
@@ -399,9 +400,9 @@ jobs:
 
                   LinearLayout r2 = new LinearLayout(this);
                   r2.setOrientation(LinearLayout.HORIZONTAL);
-                  Button pStrobe = button(t("🚨 STROBO PATROLI", "🚨 PATROL STROBE"));
+                  Button pStrobe = button(t("🚨 STROBO", "🚨 STROBE"));
                   pStrobe.setOnClickListener(v -> { loadMotionPreset("strobo"); rebuildEditor((LinearLayout) content.getChildAt(content.getChildCount()-1)); });
-                  Button pBreath = button(t("🌊 FADE BREATHING", "🌊 FADE BREATHING"));
+                  Button pBreath = button(t("🌊 FADE", "🌊 FADE"));
                   pBreath.setOnClickListener(v -> { loadMotionPreset("fade"); rebuildEditor((LinearLayout) content.getChildAt(content.getChildCount()-1)); });
                   r2.addView(pStrobe, new LinearLayout.LayoutParams(0, -2, 1));
                   r2.addView(pBreath, new LinearLayout.LayoutParams(0, -2, 1));
@@ -418,7 +419,7 @@ jobs:
               private void rebuildEditor(final LinearLayout editor) {
                   editor.removeAllViews();
 
-                  Button add = button(t("+ TAMBAH FRAME BARU", "+ ADD NEW FRAME"));
+                  Button add = button(t("+ TAMBAH FRAME", "+ ADD FRAME"));
                   add.setOnClickListener(v -> {
                       frames.add(new Frame(Color.RED, Color.BLUE, 200));
                       rebuildEditor(editor);
@@ -436,7 +437,7 @@ jobs:
 
                       frameCard.addView(text(t("FRAME URUTAN " + (i+1), "FRAME STEP " + (i+1)), 16));
 
-                      frameCard.addView(text(t("Pilih Bagian Lampu yang Mau Diwarnai:", "Select Target Lamp:"), 11));
+                      frameCard.addView(text(t("Pilih Bagian Lampu:", "Select Target Lamp:"), 11));
                       LinearLayout targetLayout = new LinearLayout(this);
                       targetLayout.setOrientation(LinearLayout.HORIZONTAL);
                       
@@ -461,9 +462,9 @@ jobs:
                       boxRow.setOrientation(LinearLayout.HORIZONTAL);
                       boxRow.setPadding(0, 8, 0, 8);
                       TextView tBox1 = new TextView(this);
-                      tBox1.setText(t("KIRI", "LEFT")); tBox1.setGravity(Gravity.CENTER); tBox1.setTextColor(Color.WHITE); tBox1.setBackgroundColor(f.lamp1Color); tBox1.setHeight(80);
+                      tBox1.setText(t("KIRI", "LEFT")); tBox1.setGravity(Gravity.CENTER); tBox1.setTextColor(Color.WHITE); tBox1.setBackgroundColor(f.lamp1Color); tBox1.setHeight(70);
                       TextView tBox2 = new TextView(this);
-                      tBox2.setText(t("KANAN", "RIGHT")); tBox2.setGravity(Gravity.CENTER); tBox2.setTextColor(Color.WHITE); tBox2.setBackgroundColor(f.lamp2Color); tBox2.setHeight(80);
+                      tBox2.setText(t("KANAN", "RIGHT")); tBox2.setGravity(Gravity.CENTER); tBox2.setTextColor(Color.WHITE); tBox2.setBackgroundColor(f.lamp2Color); tBox2.setHeight(70);
                       boxRow.addView(tBox1, new LinearLayout.LayoutParams(0, -1, 1));
                       boxRow.addView(tBox2, new LinearLayout.LayoutParams(0, -1, 1));
                       frameCard.addView(boxRow);
@@ -480,7 +481,7 @@ jobs:
                               else { f.lamp1Color = col; f.lamp2Color = col; }
                               rebuildEditor(editor);
                           });
-                          palLayout.addView(pBtn, new LinearLayout.LayoutParams(0, 60, 1));
+                          palLayout.addView(pBtn, new LinearLayout.LayoutParams(0, 50, 1));
                       }
                       frameCard.addView(palLayout);
 
@@ -495,7 +496,7 @@ jobs:
                       frameCard.addView(text(t("Durasi: ", "Duration: ") + f.duration + " ms", 11));
                       frameCard.addView(dur);
 
-                      Button del = button(t("❌ HAPUS FRAME", "❌ DELETE FRAME"));
+                      Button del = button(t("❌ HAPUS", "❌ DELETE"));
                       del.setOnClickListener(v -> {
                           frames.remove(index);
                           rebuildEditor(editor);
@@ -505,15 +506,15 @@ jobs:
                       editor.addView(frameCard);
                   }
 
-                  Button preview = button(t("▶ PREVIEW ANIMASI GERAK", "▶ PREVIEW MOTION ANIMATION"));
+                  Button preview = button(t("▶ PREVIEW", "▶ PREVIEW"));
                   preview.setOnClickListener(v -> showPreview());
                   editor.addView(preview);
 
-                  Button save = button(t("💾 SIMPAN KE SLOT " + selectedSlot, "💾 SAVE TO SLOT " + selectedSlot));
+                  Button save = button(t("💾 SIMPAN SLOT " + selectedSlot, "💾 SAVE SLOT " + selectedSlot));
                   save.setOnClickListener(v -> saveSlot());
                   editor.addView(save);
 
-                  Button test = button(t("⚡ KIRIM KE MODUL / TEST LIVE", "⚡ SEND TO MODULE / TEST LIVE"));
+                  Button test = button(t("⚡ KIRIM KE MODUL", "⚡ SEND TO MODULE"));
                   test.setOnClickListener(v -> testFrames());
                   editor.addView(test);
               }
@@ -545,7 +546,7 @@ jobs:
 
               private void showPreview() {
                   clearContent();
-                  content.addView(text(t("PREVIEW ANIMASI GERAK LAMPU", "MOTION ANIMATION PREVIEW"), 24));
+                  content.addView(text(t("PREVIEW ANIMASI", "MOTION PREVIEW"), 24));
 
                   LinearLayout container = new LinearLayout(this);
                   container.setOrientation(LinearLayout.HORIZONTAL);
@@ -556,9 +557,9 @@ jobs:
                   lamp2PreviewBox = new View(this);
                   lamp2PreviewBox.setBackgroundColor(Color.BLUE);
 
-                  LinearLayout.LayoutParams lp1 = new LinearLayout.LayoutParams(0, 280, 1);
+                  LinearLayout.LayoutParams lp1 = new LinearLayout.LayoutParams(0, 250, 1);
                   lp1.setMargins(15, 10, 15, 10);
-                  LinearLayout.LayoutParams lp2 = new LinearLayout.LayoutParams(0, 280, 1);
+                  LinearLayout.LayoutParams lp2 = new LinearLayout.LayoutParams(0, 250, 1);
                   lp2.setMargins(15, 10, 15, 10);
 
                   container.addView(lamp1PreviewBox, lp1);
@@ -573,7 +574,7 @@ jobs:
                   pause.setOnClickListener(v -> stopPreview());
                   content.addView(pause);
 
-                  Button back = button(t("KEMBALI KE STUDIO", "BACK TO STUDIO"));
+                  Button back = button(t("KEMBALI", "BACK"));
                   back.setOnClickListener(v -> showCustom());
                   content.addView(back);
 
@@ -598,15 +599,14 @@ jobs:
 
               private void showAI() {
                   clearContent();
-                  content.addView(text("AI ANIMATION GENERATOR", 24));
-                  content.addView(text(t("Ketik perintah animasi:", "Type prompt:"), 13));
+                  content.addView(text("AI ANIMATION", 24));
                   final EditText prompt = edit("");
                   content.addView(prompt);
 
-                  Button gen = button(t("GENERATE DENGAN AI", "GENERATE"));
+                  Button gen = button(t("GENERATE", "GENERATE"));
                   gen.setOnClickListener(v -> {
                       loadMotionPreset("running");
-                      Toast.makeText(this, t("Animasi AI Berhasil!", "AI Generated!"), Toast.LENGTH_SHORT).show();
+                      Toast.makeText(this, t("Berhasil!", "Generated!"), Toast.LENGTH_SHORT).show();
                       showCustom();
                   });
                   content.addView(gen);
@@ -614,18 +614,17 @@ jobs:
 
               private void showSettings() {
                   clearContent();
-                  content.addView(text(t("PENGATURAN & KEAMANAN", "SETTINGS & SECURITY"), 24));
+                  content.addView(text(t("PENGATURAN", "SETTINGS"), 24));
 
-                  content.addView(text(t("Pilih Bahasa Aplikasi / Language:", "Language:"), 14));
                   LinearLayout langLayout = new LinearLayout(this);
                   langLayout.setOrientation(LinearLayout.HORIZONTAL);
-                  Button btnId = button("🇮🇩 INDONESIA");
+                  Button btnId = button("🇮🇩 ID");
                   btnId.setOnClickListener(v -> {
                       BluetoothService.getInstance().lang = "id";
                       prefs.edit().putString("lang", "id").apply();
                       showSettings();
                   });
-                  Button btnEn = button("🇬🇧 ENGLISH");
+                  Button btnEn = button("🇬🇧 EN");
                   btnEn.setOnClickListener(v -> {
                       BluetoothService.getInstance().lang = "en";
                       prefs.edit().putString("lang", "en").apply();
@@ -635,9 +634,8 @@ jobs:
                   langLayout.addView(btnEn, new LinearLayout.LayoutParams(0, -2, 1));
                   content.addView(langLayout);
 
-                  content.addView(text(t("PASSWORD PENGUNCI MODUL BLUETOOTH", "BLUETOOTH MODULE PASSWORD"), 14));
                   final EditText passInput = edit(BluetoothService.getInstance().modulePassword);
-                  passInput.setHint(t("Ketik PIN...", "Enter PIN..."));
+                  passInput.setHint(t("PIN Modul...", "Module PIN..."));
                   content.addView(passInput);
 
                   Button savePass = button(t("💾 SIMPAN PASSWORD", "SAVE PASSWORD"));
@@ -645,25 +643,24 @@ jobs:
                       String p = passInput.getText().toString();
                       BluetoothService.getInstance().modulePassword = p;
                       prefs.edit().putString("mod_pass", p).apply();
-                      Toast.makeText(this, t("Password Tersimpan!", "Saved!"), Toast.LENGTH_SHORT).show();
+                      Toast.makeText(this, t("Tersimpan!", "Saved!"), Toast.LENGTH_SHORT).show();
                   });
                   content.addView(savePass);
 
-                  Button reconnect = button(t("SCAN & KONEKSI BLUETOOTH", "SCAN & CONNECT BLUETOOTH"));
+                  Button reconnect = button(t("SCAN BLUETOOTH", "SCAN BLUETOOTH"));
                   reconnect.setOnClickListener(v -> showScanDialog());
                   content.addView(reconnect);
               }
 
               private void showScanDialog() {
                   clearContent();
-                  content.addView(text(t("PENCARIAN PERANGKAT BLUETOOTH", "SCANNING BLUETOOTH DEVICES"), 22));
-                  content.addView(text(t("Pilih modul LEDDMX kamu dari daftar di bawah:", "Select your LEDDMX module below:"), 12));
+                  content.addView(text(t("SCAN BLUETOOTH", "SCAN BLUETOOTH"), 22));
 
                   scanDeviceListLayout = new LinearLayout(this);
                   scanDeviceListLayout.setOrientation(LinearLayout.VERTICAL);
                   content.addView(scanDeviceListLayout);
 
-                  Button scanBtn = button(t("🔍 MULAI SCAN ULANG", "🔍 START RESCAN"));
+                  Button scanBtn = button(t("🔍 SCAN ULANG", "🔍 RESCAN"));
                   scanBtn.setOnClickListener(v -> startBleScan());
                   content.addView(scanBtn);
 
@@ -681,13 +678,12 @@ jobs:
 
                   foundDevices.clear();
                   if (scanDeviceListLayout != null) scanDeviceListLayout.removeAllViews();
-                  status.setText(t("MENCARI PERANGKAT BLE...", "SCANNING BLE..."));
+                  status.setText(t("MENCARI...", "SEARCHING..."));
 
                   try {
                       scanner.startScan(scanCallback);
                       handler.postDelayed(() -> {
                           try { if (scanner != null) scanner.stopScan(scanCallback); } catch (Exception ignored) {}
-                          status.setText(t("SCAN SELESAI", "SCAN COMPLETED"));
                       }, 10000);
                   } catch (Exception ignored) {}
               }
@@ -697,7 +693,7 @@ jobs:
                       BluetoothDevice d = result.getDevice();
                       if (!foundDevices.contains(d)) {
                           foundDevices.add(d);
-                          String name = "Unknown Device";
+                          String name = "LEDDMX Device";
                           try {
                               if (d.getName() != null) name = d.getName();
                           } catch (SecurityException ignored) {}
@@ -728,14 +724,14 @@ jobs:
                   public void onConnectionStateChange(final BluetoothGatt g, int statusVal, final int newState) {
                       runOnUiThread(() -> {
                           if (newState == BluetoothGatt.STATE_CONNECTED) {
-                              status.setText("CONNECTED / TERHUBUNG");
+                              status.setText("CONNECTED");
                               BluetoothService.getInstance().gatt = g;
                               BluetoothService.getInstance().isConnected = true;
                               g.discoverServices();
-                              Toast.makeText(MainActivity.this, t("Berhasil Terhubung ke Modul!", "Successfully Connected!"), Toast.LENGTH_SHORT).show();
+                              Toast.makeText(MainActivity.this, t("Terhubung!", "Connected!"), Toast.LENGTH_SHORT).show();
                               showHome();
                           } else {
-                              status.setText("DISCONNECTED / TERPUTUS");
+                              status.setText("DISCONNECTED");
                               BluetoothService.getInstance().isConnected = false;
                               BluetoothService.getInstance().gatt = null;
                               BluetoothService.getInstance().writeChar = null;
@@ -745,8 +741,7 @@ jobs:
                   public void onServicesDiscovered(BluetoothGatt g, int statusVal) {
                       for (BluetoothGattService s : g.getServices()) {
                           for (BluetoothGattCharacteristic c : s.getCharacteristics()) {
-                              if (c.getUuid().toString().toLowerCase(Locale.US).contains("ffe1") ||
-                                  (c.getProperties() & (BluetoothGattCharacteristic.PROPERTY_WRITE | BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE)) > 0) {
+                              if ((c.getProperties() & (BluetoothGattCharacteristic.PROPERTY_WRITE | BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE)) > 0) {
                                   BluetoothService.getInstance().writeChar = c;
                               }
                           }
@@ -759,13 +754,13 @@ jobs:
                   for (Frame f : frames) {
                       sb.append(f.lamp1Color).append(",").append(f.lamp2Color).append(",").append(f.duration).append(";");
                   }
-                  prefs.edit().putString("motion_v8_slot_" + selectedSlot, sb.toString()).apply();
-                  Toast.makeText(this, t("Slot " + selectedSlot + " Tersimpan!", "Slot " + selectedSlot + " Saved!"), Toast.LENGTH_SHORT).show();
+                  prefs.edit().putString("motion_v9_slot_" + selectedSlot, sb.toString()).apply();
+                  Toast.makeText(this, t("Slot " + selectedSlot + " Tersimpan!", "Saved!"), Toast.LENGTH_SHORT).show();
               }
 
               private void loadSlot() {
                   frames.clear();
-                  String s = prefs.getString("motion_v8_slot_" + selectedSlot, "");
+                  String s = prefs.getString("motion_v9_slot_" + selectedSlot, "");
                   if (s.isEmpty()) {
                       loadMotionPreset("running");
                       return;
@@ -887,11 +882,11 @@ jobs:
           EOF
 
       - name: Build Debug APK
-        run: gradle --no-daemon clean assembleDebug --stacktrace
+        run: gradle --no-daemon clean assembleDebug --max-workers=1 --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: LEDDMX-Motion-Studio-v8
+          name: LEDDMX-Motion-Studio-v9
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
