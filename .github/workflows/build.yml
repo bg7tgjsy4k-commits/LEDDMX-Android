@@ -66,7 +66,7 @@ jobs:
                   minSdk 23
                   targetSdk 35
                   versionCode 1
-                  versionName '2.0'
+                  versionName '2.2'
               }
           }
           EOF
@@ -88,7 +88,7 @@ jobs:
 
               <application
                   android:allowBackup="false"
-                  android:label="LEDDMX Pro"
+                  android:label="LEDDMX Dark Pro"
                   android:theme="@style/AppTheme">
 
                   <activity
@@ -111,10 +111,11 @@ jobs:
           cat > project/app/src/main/res/values/styles.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
-              <style name="AppTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
+              <style name="AppTheme" parent="@android:style/Theme.Material.NoActionBar">
                   <item name="android:fontFamily">sans</item>
-                  <item name="android:windowLightStatusBar">true</item>
-                  <item name="android:colorAccent">#008577</item>
+                  <item name="android:windowBackground">#121212</item>
+                  <item name="android:textColor">#FFFFFF</item>
+                  <item name="android:colorAccent">#03DAC5</item>
               </style>
           </resources>
           EOF
@@ -122,16 +123,8 @@ jobs:
           cat > project/app/src/main/java/com/leddmx/finalapp/BluetoothService.java <<'EOF'
           package com.leddmx.finalapp;
 
-          import android.bluetooth.BluetoothAdapter;
-          import android.bluetooth.BluetoothDevice;
           import android.bluetooth.BluetoothGatt;
-          import android.bluetooth.BluetoothGattCallback;
           import android.bluetooth.BluetoothGattCharacteristic;
-          import android.bluetooth.BluetoothGattDescriptor;
-          import android.bluetooth.BluetoothGattService;
-          import android.bluetooth.le.BluetoothLeScanner;
-          import android.bluetooth.le.ScanCallback;
-          import android.bluetooth.le.ScanResult;
           import java.util.UUID;
 
           public class BluetoothService {
@@ -164,19 +157,15 @@ jobs:
           package com.leddmx.finalapp;
 
           import android.app.Activity;
+          import android.graphics.Color;
           import android.os.Bundle;
           import android.view.Gravity;
           import android.widget.Button;
-          import android.widget.EditText;
           import android.widget.LinearLayout;
           import android.widget.ScrollView;
           import android.widget.TextView;
-          import java.util.Locale;
 
           public class EditorActivity extends Activity {
-
-              private EditText frameInput;
-              private String selectedChannel = "ALL";
 
               @Override
               protected void onCreate(Bundle savedInstanceState) {
@@ -186,54 +175,65 @@ jobs:
                   LinearLayout root = new LinearLayout(this);
                   root.setOrientation(LinearLayout.VERTICAL);
                   root.setPadding(30, 30, 30, 30);
+                  root.setBackgroundColor(Color.parseColor("#121212"));
 
                   TextView title = new TextView(this);
-                  title.setText("Custom Animation Editor");
-                  title.setTextSize(22);
+                  title.setText("Preset Animasi & Belang Kanan-Kiri");
+                  title.setTextSize(20);
+                  title.setTextColor(Color.WHITE);
                   title.setGravity(Gravity.CENTER);
                   root.addView(title);
 
-                  TextView chanLabel = new TextView(this);
-                  chanLabel.setText("\nPilih Channel / Sisi Lampu:");
-                  chanLabel.setTextSize(16);
-                  root.addView(chanLabel);
+                  TextView desc = new TextView(this);
+                  desc.setText("\nPilih Preset Mode Animasi:");
+                  desc.setTextSize(16);
+                  desc.setTextColor(Color.parseColor("#BBBBBB"));
+                  root.addView(desc);
 
-                  LinearLayout chanLayout = new LinearLayout(this);
-                  chanLayout.setOrientation(LinearLayout.HORIZONTAL);
+                  Button btnPreset1 = new Button(this);
+                  btnPreset1.setText("🔥 Rainbow Flow (Mode 171)");
+                  styleDarkButton(btnPreset1, Color.parseColor("#3700B3"));
+                  btnPreset1.setOnClickListener(v -> sendModePreset(171));
+                  root.addView(btnPreset1);
 
-                  Button btnLeft = new Button(this);
-                  btnLeft.setText("Kiri");
-                  btnLeft.setOnClickListener(v -> { selectedChannel = "LEFT"; });
-                  chanLayout.addView(btnLeft, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+                  Button btnPreset2 = new Button(this);
+                  btnPreset2.setText("⚡ Running Fire (Mode 185)");
+                  styleDarkButton(btnPreset2, Color.parseColor("#018786"));
+                  btnPreset2.setOnClickListener(v -> sendModePreset(185));
+                  root.addView(btnPreset2);
 
-                  Button btnAll = new Button(this);
-                  btnAll.setText("Semua");
-                  btnAll.setOnClickListener(v -> { selectedChannel = "ALL"; });
-                  chanLayout.addView(btnAll, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+                  Button btnPreset3 = new Button(this);
+                  btnPreset3.setText("✨ Strobe Party (Mode 200)");
+                  styleDarkButton(btnPreset3, Color.parseColor("#B00020"));
+                  btnPreset3.setOnClickListener(v -> sendModePreset(200));
+                  root.addView(btnPreset3);
 
-                  Button btnRight = new Button(this);
-                  btnRight.setText("Kanan");
-                  btnRight.setOnClickListener(v -> { selectedChannel = "RIGHT"; });
-                  chanLayout.addView(btnRight, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+                  TextView splitDesc = new TextView(this);
+                  splitDesc.setText("\nPreset Belang Kanan / Kiri (Custom Split):");
+                  splitDesc.setTextSize(16);
+                  splitDesc.setTextColor(Color.parseColor("#BBBBBB"));
+                  root.addView(splitDesc);
 
-                  root.addView(chanLayout);
+                  Button btnSplit1 = new Button(this);
+                  btnSplit1.setText("🔴 Kiri Merah 🔵 Kanan Biru (Split Mode)");
+                  styleDarkButton(btnSplit1, Color.parseColor("#442222"));
+                  btnSplit1.setOnClickListener(v -> {
+                      // Kirim paket kustom kombinasi belahan sisi
+                      BluetoothService.getInstance().sendPacket(new byte[]{0x7B, (byte)0xFF, 0x03, (byte)190, (byte)0xFF, (byte)0x00, (byte)0xFF, (byte)0xFF, (byte)0xBF});
+                  });
+                  root.addView(btnSplit1);
 
-                  TextView editLabel = new TextView(this);
-                  editLabel.setText("\nMasukkan Konfigurasi HEX Frame:");
-                  editLabel.setTextSize(16);
-                  root.addView(editLabel);
-
-                  frameInput = new EditText(this);
-                  frameInput.setText("7B FF 03 AB FF FF FF FF BF");
-                  root.addView(frameInput);
-
-                  Button sendAnim = new Button(this);
-                  sendAnim.setText("Terapkan & Kirim Animasi");
-                  sendAnim.setOnClickListener(v -> applyAnimation());
-                  root.addView(sendAnim);
+                  Button btnSplit2 = new Button(this);
+                  btnSplit2.setText("🟢 Kiri Hijau 🟡 Kanan Kuning (Split Mode)");
+                  styleDarkButton(btnSplit2, Color.parseColor("#224422"));
+                  btnSplit2.setOnClickListener(v -> {
+                      BluetoothService.getInstance().sendPacket(new byte[]{0x7B, (byte)0xFF, 0x03, (byte)195, (byte)0x00, (byte)0xFF, (byte)0xFF, (byte)0xFF, (byte)0xBF});
+                  });
+                  root.addView(btnSplit2);
 
                   Button backBtn = new Button(this);
-                  backBtn.setText("Kembali ke Menu Utama");
+                  backBtn.setText("\nKembali ke Menu Utama");
+                  styleDarkButton(backBtn, Color.parseColor("#333333"));
                   backBtn.setOnClickListener(v -> finish());
                   root.addView(backBtn);
 
@@ -241,18 +241,23 @@ jobs:
                   setContentView(scroll);
               }
 
-              private void applyAnimation() {
-                  String text = frameInput.getText().toString().trim();
-                  if (text.isEmpty()) return;
-                  try {
-                      String[] parts = text.replace(",", " ").split("\\s+");
-                      byte[] data = new byte[parts.length];
-                      for (int i = 0; i < parts.length; i++) {
-                          data[i] = (byte) Integer.parseInt(parts[i], 16);
-                      }
-                      // Modifikasi byte channel jika diperlukan atau kirim langsung
-                      BluetoothService.getInstance().sendPacket(data);
-                  } catch (Exception ignored) {}
+              private void styleDarkButton(Button btn, int bgColor) {
+                  btn.setBackgroundColor(bgColor);
+                  btn.setTextColor(Color.WHITE);
+                  LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                          LinearLayout.LayoutParams.MATCH_PARENT,
+                          LinearLayout.LayoutParams.WRAP_CONTENT
+                  );
+                  params.setMargins(0, 10, 0, 10);
+                  btn.setLayoutParams(params);
+              }
+
+              private void sendModePreset(int mode) {
+                  byte[] packet = new byte[]{
+                          0x7B, (byte) 0xFF, 0x03, (byte) mode,
+                          (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xBF
+                  };
+                  BluetoothService.getInstance().sendPacket(packet);
               }
           }
           EOF
@@ -276,19 +281,18 @@ jobs:
           import android.content.Context;
           import android.content.Intent;
           import android.content.pm.PackageManager;
+          import android.graphics.Color;
           import android.os.Bundle;
           import android.os.Handler;
           import android.os.Looper;
           import android.view.Gravity;
           import android.view.View;
           import android.widget.Button;
-          import android.widget.EditText;
           import android.widget.LinearLayout;
           import android.widget.ScrollView;
           import android.widget.SeekBar;
           import android.widget.TextView;
           import java.util.ArrayList;
-          import java.util.Locale;
           import java.util.UUID;
 
           public class MainActivity extends Activity {
@@ -300,7 +304,6 @@ jobs:
               private LinearLayout connectionPanel;
               private TextView status;
               private TextView speedLabel;
-              private TextView brightLabel;
 
               private boolean powerState = true;
               private final Handler handler = new Handler(Looper.getMainLooper());
@@ -334,7 +337,7 @@ jobs:
                       if (newState == BluetoothGatt.STATE_CONNECTED) {
                           ble.gatt = g;
                           ble.isConnected = true;
-                          handler.post(() -> status.setText("Terhubung - Menyiapkan layanan..."));
+                          handler.post(() -> status.setText("Terhubung - Siap"));
                           g.discoverServices();
                       } else if (newState == BluetoothGatt.STATE_DISCONNECTED) {
                           ble.gatt = null;
@@ -366,7 +369,7 @@ jobs:
                       }
 
                       if (ble.writeChar != null) {
-                          handler.post(() -> status.setText("READY - Siap Dikontrol"));
+                          handler.post(() -> status.setText("READY - Terhubung ke FFE1"));
                       }
                   }
               };
@@ -386,6 +389,7 @@ jobs:
                   LinearLayout root = new LinearLayout(this);
                   root.setOrientation(LinearLayout.VERTICAL);
                   root.setPadding(20, 20, 20, 20);
+                  root.setBackgroundColor(Color.parseColor("#121212"));
 
                   // TOP BAR (MENU ☰)
                   LinearLayout topBar = new LinearLayout(this);
@@ -395,12 +399,15 @@ jobs:
                   Button menuBtn = new Button(this);
                   menuBtn.setText("☰");
                   menuBtn.setTextSize(20);
+                  menuBtn.setTextColor(Color.WHITE);
+                  menuBtn.setBackgroundColor(Color.parseColor("#333333"));
                   menuBtn.setOnClickListener(v -> toggleConnectionPanel());
                   topBar.addView(menuBtn, new LinearLayout.LayoutParams(120, LinearLayout.LayoutParams.WRAP_CONTENT));
 
                   TextView title = new TextView(this);
-                  title.setText("LEDDMX Controller");
-                  title.setTextSize(20);
+                  title.setText("LEDDMX Dark Pro");
+                  title.setTextSize(18);
+                  title.setTextColor(Color.WHITE);
                   title.setGravity(Gravity.CENTER);
                   topBar.addView(title, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
 
@@ -415,10 +422,13 @@ jobs:
                   status = new TextView(this);
                   status.setText("Status: Belum Terhubung");
                   status.setTextSize(14);
+                  status.setTextColor(Color.parseColor("#AAAAAA"));
                   connectionPanel.addView(status);
 
                   Button scan = new Button(this);
                   scan.setText("SCAN PERANGKAT BLE");
+                  scan.setBackgroundColor(Color.parseColor("#03DAC5"));
+                  scan.setTextColor(Color.BLACK);
                   scan.setOnClickListener(v -> startScan());
                   connectionPanel.addView(scan);
 
@@ -434,11 +444,15 @@ jobs:
 
                   Button btnPower = new Button(this);
                   btnPower.setText("POWER ON/OFF");
+                  btnPower.setBackgroundColor(Color.parseColor("#CF6679"));
+                  btnPower.setTextColor(Color.BLACK);
                   btnPower.setOnClickListener(v -> togglePower());
                   actionRow.addView(btnPower, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
 
                   Button btnOpenEditor = new Button(this);
-                  btnOpenEditor.setText("Custom Editor ↗");
+                  btnOpenEditor.setText("Preset & Editor ↗");
+                  btnOpenEditor.setBackgroundColor(Color.parseColor("#6200EE"));
+                  btnOpenEditor.setTextColor(Color.WHITE);
                   btnOpenEditor.setOnClickListener(v -> {
                       startActivity(new Intent(MainActivity.this, EditorActivity.class));
                   });
@@ -446,10 +460,11 @@ jobs:
 
                   root.addView(actionRow);
 
-                  // SLIDER SPEED
+                  // SLIDER SPEED ANIMASI
                   speedLabel = new TextView(this);
                   speedLabel.setText("Kecepatan Animasi: 50%");
                   speedLabel.setTextSize(15);
+                  speedLabel.setTextColor(Color.WHITE);
                   root.addView(speedLabel);
 
                   SeekBar speedBar = new SeekBar(this);
@@ -469,34 +484,11 @@ jobs:
                   });
                   root.addView(speedBar);
 
-                  // SLIDER BRIGHTNESS (FIXED RANGE)
-                  brightLabel = new TextView(this);
-                  brightLabel.setText("Kecerahan LED: 100%");
-                  brightLabel.setTextSize(15);
-                  root.addView(brightLabel);
-
-                  SeekBar brightBar = new SeekBar(this);
-                  brightBar.setMax(100);
-                  brightBar.setProgress(100);
-                  brightBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-                      @Override
-                      public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                          brightLabel.setText("Kecerahan LED: " + progress + "%");
-                          if (fromUser) {
-                              // Rentang nilai aman untuk brightness agar tidak mati total
-                              int val = Math.max(1, (progress * 100) / 100);
-                              ble.sendPacket(new byte[]{0x7B, (byte)0xFF, 0x07, 0x00, 0x00, (byte)val, (byte)0xBF});
-                          }
-                      }
-                      @Override public void onStartTrackingTouch(SeekBar seekBar) {}
-                      @Override public void onStopTrackingTouch(SeekBar seekBar) {}
-                  });
-                  root.addView(brightBar);
-
-                  // DAFTAR MODE 1 SAMPAI 210
+                  // DAFTAR MODE 1 SAMPAI 210 DENGAN PREVIEW WARNA VISUAL
                   TextView modeTitle = new TextView(this);
-                  modeTitle.setText("\nPILIHAN MODE (1 - 210)");
-                  modeTitle.setTextSize(16);
+                  modeTitle.setText("\nPILIHAN MODE DENGAN PREVIEW WARNA (1 - 210)");
+                  modeTitle.setTextSize(15);
+                  modeTitle.setTextColor(Color.parseColor("#03DAC5"));
                   root.addView(modeTitle);
 
                   LinearLayout modes = new LinearLayout(this);
@@ -508,6 +500,22 @@ jobs:
                           final int id = mode;
                           Button b = new Button(this);
                           b.setText(String.valueOf(id));
+                          b.setTextSize(12);
+
+                          // Berikan warna preview visual yang bervariasi tiap rentang mode
+                          if (id <= 50) {
+                              b.setBackgroundColor(Color.parseColor("#1F3B4D")); // Nuansa Biru Air/Flow
+                          } else if (id <= 100) {
+                              b.setBackgroundColor(Color.parseColor("#4D1F3B")); // Nuansa Ungu/Magenta
+                          } else if (id <= 150) {
+                              b.setBackgroundColor(Color.parseColor("#1F4D2B")); // Nuansa Hijau Menyala
+                          } else if (id <= 190) {
+                              b.setBackgroundColor(Color.parseColor("#4D3E1F")); // Nuansa Kuning/Orange Api
+                          } else {
+                              b.setBackgroundColor(Color.parseColor("#4D1F1F")); // Nuansa Merah Strobe
+                          }
+                          b.setTextColor(Color.WHITE);
+
                           b.setOnClickListener(v -> sendMode(id));
                           row.addView(b, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
                       }
@@ -530,7 +538,7 @@ jobs:
               private void togglePower() {
                   powerState = !powerState;
                   if (powerState) {
-                      ble.sendPacket(new byte[]{0x7B, (byte)0xFF, 0x07, 0x00, 0x00, 0x64, (byte)0xBF});
+                      sendMode(171);
                   } else {
                       ble.sendPacket(new byte[]{0x7B, (byte)0xFF, 0x07, 0x00, 0x00, 0x00, (byte)0xBF});
                   }
@@ -575,6 +583,8 @@ jobs:
               private void addDeviceButton(BluetoothDevice device, String name) {
                   Button b = new Button(this);
                   b.setText(name + "\n" + device.getAddress());
+                  b.setBackgroundColor(Color.parseColor("#2C2C2C"));
+                  b.setTextColor(Color.WHITE);
                   b.setOnClickListener(v -> {
                       try {
                           if (ble.gatt != null) ble.gatt.close();
