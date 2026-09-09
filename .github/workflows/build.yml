@@ -1,4 +1,4 @@
-name: Build LEDDMX Pro Motion Studio v7
+name: Build LEDDMX Motion Studio v8
 
 on:
   workflow_dispatch:
@@ -29,7 +29,7 @@ jobs:
         with:
           gradle-version: '8.5'
 
-      - name: Create Android Project & Motion Studio v7 Source Code
+      - name: Create Android Project & BLE Fix Source Code
         shell: bash
         run: |
           set -e
@@ -82,7 +82,7 @@ jobs:
                   minSdk 21
                   targetSdk 34
                   versionCode 1
-                  versionName "7.0"
+                  versionName "8.0"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_1_8
@@ -93,7 +93,7 @@ jobs:
 
           cat > app/src/main/res/values/strings.xml <<'EOF'
           <resources>
-              <string name="app_name">LEDDMX Motion Studio v7</string>
+              <string name="app_name">LEDDMX Motion v8</string>
           </resources>
           EOF
 
@@ -103,6 +103,8 @@ jobs:
               <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
               <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
               <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
+              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+              <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
               <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
               <application
                   android:allowBackup="true"
@@ -201,11 +203,13 @@ jobs:
               
               private int selectedLampTarget = 0; 
               private View lamp1PreviewBox, lamp2PreviewBox;
+              private LinearLayout scanDeviceListLayout;
+              private final ArrayList<BluetoothDevice> foundDevices = new ArrayList<>();
 
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-                  prefs = getSharedPreferences("leddmx_motion_v7", MODE_PRIVATE);
+                  prefs = getSharedPreferences("leddmx_motion_v8", MODE_PRIVATE);
                   BluetoothService.getInstance().lang = prefs.getString("lang", "id");
                   BluetoothService.getInstance().modulePassword = prefs.getString("mod_pass", "");
 
@@ -218,8 +222,15 @@ jobs:
 
                   buildRoot();
                   showHome();
+                  
+                  String[] perms = {
+                      Manifest.permission.BLUETOOTH_SCAN,
+                      Manifest.permission.BLUETOOTH_CONNECT,
+                      Manifest.permission.ACCESS_FINE_LOCATION,
+                      Manifest.permission.ACCESS_COARSE_LOCATION
+                  };
                   if (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                      requestPermissions(new String[]{Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT}, 100);
+                      requestPermissions(perms, 100);
                   }
               }
 
@@ -235,11 +246,11 @@ jobs:
                   LinearLayout top = new LinearLayout(this);
                   top.setGravity(Gravity.CENTER_VERTICAL);
                   top.setPadding(24,18,24,18);
-                  TextView title = text("LEDDMX MOTION v7", 18);
+                  TextView title = text("LEDDMX MOTION v8", 18);
                   title.setTextColor(Color.parseColor("#00E5FF"));
                   top.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
                   Button connect = button("SCAN");
-                  connect.setOnClickListener(v -> scan());
+                  connect.setOnClickListener(v -> showScanDialog());
                   top.addView(connect);
                   root.addView(top);
 
@@ -374,7 +385,6 @@ jobs:
                   });
                   content.addView(slot);
 
-                  // PROFESSIONAL MOTION PRESET BUTTONS (RUNNING, BELANG, STROBO, FADE)
                   content.addView(text(t("PILIH EFEK GERAK ALUR ANIMASI:", "SELECT MOTION ANIMATION PRESETS:"), 12));
                   
                   LinearLayout r1 = new LinearLayout(this);
@@ -426,7 +436,6 @@ jobs:
 
                       frameCard.addView(text(t("FRAME URUTAN " + (i+1), "FRAME STEP " + (i+1)), 16));
 
-                      // Target selector: Lampu 1 Kiri / Lampu 2 Kanan / Keduanya
                       frameCard.addView(text(t("Pilih Bagian Lampu yang Mau Diwarnai:", "Select Target Lamp:"), 11));
                       LinearLayout targetLayout = new LinearLayout(this);
                       targetLayout.setOrientation(LinearLayout.HORIZONTAL);
@@ -448,7 +457,6 @@ jobs:
                       targetLayout.addView(bBoth, new LinearLayout.LayoutParams(0, -2, 1));
                       frameCard.addView(targetLayout);
 
-                      // Visual preview box current frame colors
                       LinearLayout boxRow = new LinearLayout(this);
                       boxRow.setOrientation(LinearLayout.HORIZONTAL);
                       boxRow.setPadding(0, 8, 0, 8);
@@ -460,7 +468,6 @@ jobs:
                       boxRow.addView(tBox2, new LinearLayout.LayoutParams(0, -1, 1));
                       frameCard.addView(boxRow);
 
-                      // Color palette selection
                       LinearLayout palLayout = new LinearLayout(this);
                       palLayout.setOrientation(LinearLayout.HORIZONTAL);
                       int[] paletteColors = {Color.RED, Color.GREEN, Color.BLUE, Color.YELLOW, Color.CYAN, Color.MAGENTA, Color.WHITE, Color.BLACK};
@@ -477,7 +484,6 @@ jobs:
                       }
                       frameCard.addView(palLayout);
 
-                      // Duration slider
                       SeekBar dur = new SeekBar(this);
                       dur.setMax(950);
                       dur.setProgress(Math.max(30, f.duration - 30));
@@ -515,25 +521,21 @@ jobs:
               private void loadMotionPreset(String type) {
                   frames.clear();
                   if (type.equals("running")) {
-                      // 4-step running flow sequence
                       frames.add(new Frame(Color.RED, Color.BLACK, 150));
                       frames.add(new Frame(Color.BLACK, Color.RED, 150));
                       frames.add(new Frame(Color.BLUE, Color.BLACK, 150));
                       frames.add(new Frame(Color.BLACK, Color.BLUE, 150));
                   } else if (type.equals("belang")) {
-                      // 4-step cross stripe sequence
                       frames.add(new Frame(Color.RED, Color.BLUE, 180));
                       frames.add(new Frame(Color.BLUE, Color.RED, 180));
                       frames.add(new Frame(Color.GREEN, Color.YELLOW, 180));
                       frames.add(new Frame(Color.YELLOW, Color.GREEN, 180));
                   } else if (type.equals("strobo")) {
-                      // 4-step patrol strobe sequence
                       frames.add(new Frame(Color.RED, Color.RED, 70));
                       frames.add(new Frame(Color.BLACK, Color.BLACK, 70));
                       frames.add(new Frame(Color.BLUE, Color.BLUE, 70));
                       frames.add(new Frame(Color.BLACK, Color.BLACK, 70));
                   } else if (type.equals("fade")) {
-                      // Smooth multi-step sequence
                       frames.add(new Frame(Color.parseColor("#880000"), Color.parseColor("#000088"), 250));
                       frames.add(new Frame(Color.RED, Color.BLUE, 250));
                       frames.add(new Frame(Color.parseColor("#FF8888"), Color.parseColor("#8888FF"), 250));
@@ -647,23 +649,123 @@ jobs:
                   });
                   content.addView(savePass);
 
-                  Button reconnect = button(t("SCAN & RECONNECT BLE", "SCAN BLE"));
-                  reconnect.setOnClickListener(v -> scan());
+                  Button reconnect = button(t("SCAN & KONEKSI BLUETOOTH", "SCAN & CONNECT BLUETOOTH"));
+                  reconnect.setOnClickListener(v -> showScanDialog());
                   content.addView(reconnect);
               }
+
+              private void showScanDialog() {
+                  clearContent();
+                  content.addView(text(t("PENCARIAN PERANGKAT BLUETOOTH", "SCANNING BLUETOOTH DEVICES"), 22));
+                  content.addView(text(t("Pilih modul LEDDMX kamu dari daftar di bawah:", "Select your LEDDMX module below:"), 12));
+
+                  scanDeviceListLayout = new LinearLayout(this);
+                  scanDeviceListLayout.setOrientation(LinearLayout.VERTICAL);
+                  content.addView(scanDeviceListLayout);
+
+                  Button scanBtn = button(t("🔍 MULAI SCAN ULANG", "🔍 START RESCAN"));
+                  scanBtn.setOnClickListener(v -> startBleScan());
+                  content.addView(scanBtn);
+
+                  Button back = button(t("KEMBALI", "BACK"));
+                  back.setOnClickListener(v -> showHome());
+                  content.addView(back);
+
+                  startBleScan();
+              }
+
+              private void startBleScan() {
+                  if (bluetoothAdapter == null) return;
+                  scanner = bluetoothAdapter.getBluetoothLeScanner();
+                  if (scanner == null) return;
+
+                  foundDevices.clear();
+                  if (scanDeviceListLayout != null) scanDeviceListLayout.removeAllViews();
+                  status.setText(t("MENCARI PERANGKAT BLE...", "SCANNING BLE..."));
+
+                  try {
+                      scanner.startScan(scanCallback);
+                      handler.postDelayed(() -> {
+                          try { if (scanner != null) scanner.stopScan(scanCallback); } catch (Exception ignored) {}
+                          status.setText(t("SCAN SELESAI", "SCAN COMPLETED"));
+                      }, 10000);
+                  } catch (Exception ignored) {}
+              }
+
+              private final ScanCallback scanCallback = new ScanCallback() {
+                  public void onScanResult(int type, ScanResult result) {
+                      BluetoothDevice d = result.getDevice();
+                      if (!foundDevices.contains(d)) {
+                          foundDevices.add(d);
+                          String name = "Unknown Device";
+                          try {
+                              if (d.getName() != null) name = d.getName();
+                          } catch (SecurityException ignored) {}
+
+                          final BluetoothDevice targetDevice = d;
+                          runOnUiThread(() -> {
+                              if (scanDeviceListLayout != null) {
+                                  Button devBtn = button(name + "\n[" + targetDevice.getAddress() + "]");
+                                  devBtn.setOnClickListener(v -> {
+                                      try { if (scanner != null) scanner.stopScan(this); } catch (Exception ignored) {}
+                                      connect(targetDevice);
+                                  });
+                                  scanDeviceListLayout.addView(devBtn, new LinearLayout.LayoutParams(-1, -2));
+                              }
+                          });
+                      }
+                  }
+              };
+
+              private void connect(BluetoothDevice device) {
+                  status.setText(t("MENYAMBUNGKAN...", "CONNECTING..."));
+                  try {
+                      gatt = device.connectGatt(MainActivity.this, false, gattCallback);
+                  } catch (Exception ignored) {}
+              }
+
+              private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
+                  public void onConnectionStateChange(final BluetoothGatt g, int statusVal, final int newState) {
+                      runOnUiThread(() -> {
+                          if (newState == BluetoothGatt.STATE_CONNECTED) {
+                              status.setText("CONNECTED / TERHUBUNG");
+                              BluetoothService.getInstance().gatt = g;
+                              BluetoothService.getInstance().isConnected = true;
+                              g.discoverServices();
+                              Toast.makeText(MainActivity.this, t("Berhasil Terhubung ke Modul!", "Successfully Connected!"), Toast.LENGTH_SHORT).show();
+                              showHome();
+                          } else {
+                              status.setText("DISCONNECTED / TERPUTUS");
+                              BluetoothService.getInstance().isConnected = false;
+                              BluetoothService.getInstance().gatt = null;
+                              BluetoothService.getInstance().writeChar = null;
+                          }
+                      });
+                  }
+                  public void onServicesDiscovered(BluetoothGatt g, int statusVal) {
+                      for (BluetoothGattService s : g.getServices()) {
+                          for (BluetoothGattCharacteristic c : s.getCharacteristics()) {
+                              if (c.getUuid().toString().toLowerCase(Locale.US).contains("ffe1") ||
+                                  (c.getProperties() & (BluetoothGattCharacteristic.PROPERTY_WRITE | BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE)) > 0) {
+                                  BluetoothService.getInstance().writeChar = c;
+                              }
+                          }
+                      }
+                  }
+              };
 
               private void saveSlot() {
                   StringBuilder sb = new StringBuilder();
                   for (Frame f : frames) {
                       sb.append(f.lamp1Color).append(",").append(f.lamp2Color).append(",").append(f.duration).append(";");
                   }
-                  prefs.edit().putString("motion_v7_slot_" + selectedSlot, sb.toString()).apply();
-                  Toast.makeText(this, t("Slot " + selectedSlot + " Tersimpan & Siap Diperintahkan ke Modul!", "Slot " + selectedSlot + " Saved!"), Toast.LENGTH_SHORT).show();
+                  prefs.edit().putString("motion_v8_slot_" + selectedSlot, sb.toString()).apply();
+                  Toast.makeText(this, t("Slot " + selectedSlot + " Tersimpan!", "Slot " + selectedSlot + " Saved!"), Toast.LENGTH_SHORT).show();
               }
 
               private void loadSlot() {
                   frames.clear();
-                  String s = prefs.getString("motion_v7_slot_" + selectedSlot, "");
+                  String s = prefs.getString("motion_v8_slot_" + selectedSlot, "");
                   if (s.isEmpty()) {
                       loadMotionPreset("running");
                       return;
@@ -694,7 +796,7 @@ jobs:
                           handler.postDelayed(this, Math.max(30, f.duration));
                       }
                   });
-                  Toast.makeText(this, t("Memerintahkan Modul untuk Menjalankan Slot " + selectedSlot, "Executing Slot " + selectedSlot), Toast.LENGTH_SHORT).show();
+                  Toast.makeText(this, t("Menjalankan Slot " + selectedSlot, "Executing Slot " + selectedSlot), Toast.LENGTH_SHORT).show();
               }
 
               private void stopPreview() {
@@ -741,65 +843,6 @@ jobs:
                   };
                   BluetoothService.getInstance().sendPacket(packet);
               }
-
-              private void scan() {
-                  if (bluetoothAdapter == null) return;
-                  scanner = bluetoothAdapter.getBluetoothLeScanner();
-                  if (scanner == null) return;
-                  status.setText(t("SCANNING BLE...", "SCANNING BLE..."));
-                  try {
-                      scanner.startScan(scanCallback);
-                      handler.postDelayed(() -> {
-                          try { if (scanner != null) scanner.stopScan(scanCallback); } catch (Exception ignored) {}
-                      }, 10000);
-                  } catch (Exception ignored) {}
-              }
-
-              private final ScanCallback scanCallback = new ScanCallback() {
-                  public void onScanResult(int type, ScanResult result) {
-                      BluetoothDevice d = result.getDevice();
-                      String name = null;
-                      try { name = d.getName(); } catch (Exception ignored) {}
-                      if (name != null && name.contains("LEDDMX")) {
-                          try { scanner.stopScan(this); } catch (Exception ignored) {}
-                          connect(d);
-                      }
-                  }
-              };
-
-              private void connect(BluetoothDevice device) {
-                  status.setText(t("CONNECTING...", "CONNECTING..."));
-                  try {
-                      gatt = device.connectGatt(MainActivity.this, false, gattCallback);
-                  } catch (Exception ignored) {}
-              }
-
-              private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
-                  public void onConnectionStateChange(final BluetoothGatt g, int statusVal, final int newState) {
-                      runOnUiThread(() -> {
-                          if (newState == BluetoothGatt.STATE_CONNECTED) {
-                              status.setText("CONNECTED");
-                              BluetoothService.getInstance().gatt = g;
-                              BluetoothService.getInstance().isConnected = true;
-                              g.discoverServices();
-                          } else {
-                              status.setText("DISCONNECTED");
-                              BluetoothService.getInstance().isConnected = false;
-                              BluetoothService.getInstance().gatt = null;
-                              BluetoothService.getInstance().writeChar = null;
-                          }
-                      });
-                  }
-                  public void onServicesDiscovered(BluetoothGatt g, int statusVal) {
-                      BluetoothGattService service = g.getService(java.util.UUID.fromString("0000FFE0-0000-1000-8000-00805F9B34FB"));
-                      if (service == null) return;
-                      BluetoothGattCharacteristic write = service.getCharacteristic(java.util.UUID.fromString("0000FFE1-0000-1000-8000-00805F9B34FB"));
-                      if (write != null) {
-                          BluetoothService.getInstance().writeChar = write;
-                          runOnUiThread(() -> status.setText("CONNECTED / READY"));
-                      }
-                  }
-              };
 
               private TextView text(String s, float size) {
                   TextView t = new TextView(this);
@@ -849,6 +892,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: LEDDMX-Motion-Studio-v7
+          name: LEDDMX-Motion-Studio-v8
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
