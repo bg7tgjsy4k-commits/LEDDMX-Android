@@ -1,4 +1,4 @@
-name: Build LEDDMX Motion Studio v9
+name: Build LEDDMX Stable v10
 
 on:
   workflow_dispatch:
@@ -15,11 +15,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Java 17
+      - name: Setup Java 11
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '11'
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -27,9 +27,9 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.5'
+          gradle-version: '7.5'
 
-      - name: Create Android Project & Stable Source Code
+      - name: Create Clean Project Source
         shell: bash
         run: |
           set -e
@@ -55,57 +55,73 @@ jobs:
                   mavenCentral()
               }
           }
-          rootProject.name = "LEDDMX-AI-Pro"
+          rootProject.name = "LEDDMX-Pro"
           include(":app")
           EOF
 
           cat > build.gradle <<'EOF'
-          plugins {
-              id 'com.android.application' version '8.2.0' apply false
+          buildscript {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+              dependencies {
+                  classpath 'com.android.tools.build:gradle:7.4.2'
+              }
+          }
+          allprojects {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          task clean(type: Delete) {
+              delete rootProject.buildDir
           }
           EOF
 
           cat > gradle.properties <<'EOF'
           org.gradle.jvmargs=-Xmx1536m -Dfile.encoding=UTF-8
           android.useAndroidX=true
-          org.gradle.parallel=false
           EOF
 
           cat > app/build.gradle <<'EOF'
-          plugins {
-              id 'com.android.application'
-          }
+          apply plugin: 'com.android.application'
+
           android {
-              namespace 'com.leddmx.pro'
-              compileSdk 34
+              compileSdkVersion 33
               defaultConfig {
-                  applicationId 'com.leddmx.pro'
-                  minSdk 21
-                  targetSdk 34
+                  applicationId "com.leddmx.pro"
+                  minSdkVersion 21
+                  targetSdkVersion 33
                   versionCode 1
-                  versionName "9.0"
+                  versionName "10.0"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_1_8
                   targetCompatibility JavaVersion.VERSION_1_8
               }
           }
+
+          dependencies {
+              implementation 'androidx.appcompat:appcompat:1.6.1'
+          }
           EOF
 
           cat > app/src/main/res/values/strings.xml <<'EOF'
           <resources>
-              <string name="app_name">LEDDMX Motion v9</string>
+              <string name="app_name">LEDDMX Motion v10</string>
           </resources>
           EOF
 
           cat > app/src/main/AndroidManifest.xml <<'EOF'
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="com.leddmx.pro">
               <uses-permission android:name="android.permission.BLUETOOTH" />
               <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
               <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-              <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
+              <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
               <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-              <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
               <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
               <application
                   android:allowBackup="true"
@@ -210,7 +226,7 @@ jobs:
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-                  prefs = getSharedPreferences("leddmx_motion_v9", MODE_PRIVATE);
+                  prefs = getSharedPreferences("leddmx_v10", MODE_PRIVATE);
                   BluetoothService.getInstance().lang = prefs.getString("lang", "id");
                   BluetoothService.getInstance().modulePassword = prefs.getString("mod_pass", "");
 
@@ -224,14 +240,15 @@ jobs:
                   buildRoot();
                   showHome();
                   
-                  String[] perms = {
-                      Manifest.permission.BLUETOOTH_SCAN,
-                      Manifest.permission.BLUETOOTH_CONNECT,
-                      Manifest.permission.ACCESS_FINE_LOCATION,
-                      Manifest.permission.ACCESS_COARSE_LOCATION
-                  };
-                  if (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                  if (android.os.Build.VERSION.SDK_INT >= 31) {
+                      String[] perms = {
+                          Manifest.permission.BLUETOOTH_SCAN,
+                          Manifest.permission.BLUETOOTH_CONNECT,
+                          Manifest.permission.ACCESS_FINE_LOCATION
+                      };
                       requestPermissions(perms, 100);
+                  } else {
+                      requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 100);
                   }
               }
 
@@ -247,7 +264,7 @@ jobs:
                   LinearLayout top = new LinearLayout(this);
                   top.setGravity(Gravity.CENTER_VERTICAL);
                   top.setPadding(24,18,24,18);
-                  TextView title = text("LEDDMX MOTION v9", 18);
+                  TextView title = text("LEDDMX MOTION v10", 18);
                   title.setTextColor(Color.parseColor("#00E5FF"));
                   top.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
                   Button connect = button("SCAN");
@@ -754,13 +771,13 @@ jobs:
                   for (Frame f : frames) {
                       sb.append(f.lamp1Color).append(",").append(f.lamp2Color).append(",").append(f.duration).append(";");
                   }
-                  prefs.edit().putString("motion_v9_slot_" + selectedSlot, sb.toString()).apply();
+                  prefs.edit().putString("motion_v10_slot_" + selectedSlot, sb.toString()).apply();
                   Toast.makeText(this, t("Slot " + selectedSlot + " Tersimpan!", "Saved!"), Toast.LENGTH_SHORT).show();
               }
 
               private void loadSlot() {
                   frames.clear();
-                  String s = prefs.getString("motion_v9_slot_" + selectedSlot, "");
+                  String s = prefs.getString("motion_v10_slot_" + selectedSlot, "");
                   if (s.isEmpty()) {
                       loadMotionPreset("running");
                       return;
@@ -882,11 +899,11 @@ jobs:
           EOF
 
       - name: Build Debug APK
-        run: gradle --no-daemon clean assembleDebug --max-workers=1 --stacktrace
+        run: ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: LEDDMX-Motion-Studio-v9
+          name: LEDDMX-Motion-v10
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
