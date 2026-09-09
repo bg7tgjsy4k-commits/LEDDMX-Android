@@ -66,7 +66,7 @@ jobs:
                   minSdk 23
                   targetSdk 35
                   versionCode 1
-                  versionName '3.1'
+                  versionName '3.2'
               }
           }
           EOF
@@ -151,7 +151,6 @@ jobs:
           import android.widget.SeekBar;
           import android.widget.TextView;
           import java.util.ArrayList;
-          import java.util.Random;
 
           public class EditorActivity extends Activity {
               private ArrayList<Integer> diyColors = new ArrayList<>();
@@ -196,7 +195,6 @@ jobs:
                   title.setGravity(Gravity.CENTER);
                   root.addView(title);
 
-                  // FITUR AI GENERATOR OTOMATIS
                   TextView aiDesc = new TextView(this);
                   aiDesc.setText("\n🤖 AI Assistant Generator:");
                   aiDesc.setTextColor(Color.parseColor("#03DAC5"));
@@ -211,7 +209,7 @@ jobs:
                       diyColors.add(Color.RED);
                       diyColors.add(Color.WHITE);
                       diyColors.add(Color.BLUE);
-                      animSpeedMs = 150; // Cepat
+                      animSpeedMs = 150;
                       updateColorList();
                       startDiyAnim();
                   });
@@ -227,13 +225,12 @@ jobs:
                       diyColors.add(Color.CYAN);
                       diyColors.add(Color.GREEN);
                       diyColors.add(Color.YELLOW);
-                      animSpeedMs = 400; // Halus
+                      animSpeedMs = 400;
                       updateColorList();
                       startDiyAnim();
                   });
                   root.addView(btnAiWave);
 
-                  // MANUAL PALETTE
                   TextView manualDesc = new TextView(this);
                   manualDesc.setText("\n🎨 Manual Frame Creator (Pilih Warna):");
                   manualDesc.setTextColor(Color.parseColor("#BBBBBB"));
@@ -273,7 +270,6 @@ jobs:
                   });
                   root.addView(btnClear);
 
-                  // KONTROL SPEED ANIMASI CUSTOM
                   TextView speedTxt = new TextView(this);
                   speedTxt.setText("\nKecepatan Putar Kustom:");
                   speedTxt.setTextColor(Color.WHITE);
@@ -520,7 +516,7 @@ jobs:
                   actionRow.addView(btnEditor, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
                   root.addView(actionRow);
 
-                  // SPEED SLIDER (TIDAK MERUBAH MODE AKTIF)
+                  // SPEED SLIDER
                   speedLabel = new TextView(this);
                   speedLabel.setText("Kecepatan Animasi Mode Aktif: 50%");
                   speedLabel.setTextColor(Color.WHITE);
@@ -533,7 +529,6 @@ jobs:
                           speedLabel.setText("Kecepatan Animasi Mode Aktif: " + p + "%");
                           if (f) {
                               int val = (p * 255) / 100;
-                              // Mengirim command kecepatan tanpa merusak mode aktif (mempertahankan ble.lastUsedMode)
                               ble.sendPacket(new byte[]{0x7B, (byte)0xFF, 0x02, (byte)val, (byte)0x03, (byte)ble.lastUsedMode, (byte)0xFF, (byte)0xFF, (byte)0xBF});
                           }
                       }
@@ -573,7 +568,7 @@ jobs:
               }
 
               private void sendMode(int mode) {
-                  ble.lastUsedMode = mode; // Simpan memori mode terakhir dengan aman
+                  ble.lastUsedMode = mode;
                   byte[] packet = new byte[]{
                           0x7B, (byte) 0xFF, 0x03, (byte) mode,
                           (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xBF
@@ -584,22 +579,24 @@ jobs:
               private void togglePower() {
                   powerState = !powerState;
                   if (powerState) {
-                      // Power ON -> Kembali tepat ke mode terakhir yang sedang digunakan
                       sendMode(ble.lastUsedMode);
                   } else {
-                      // Power OFF -> Matikan
                       ble.sendPacket(new byte[]{0x7B, (byte)0xFF, 0x07, 0x00, 0x00, 0x00, (byte)0xBF});
                   }
               }
 
               private void startScan() {
-                  if (adapter == null || scanner == null) return;
+                  if (adapter == null) return;
+                  scanner = adapter.getBluetoothLeScanner();
+                  if (scanner == null) return;
                   devices.clear();
                   deviceList.removeAllViews();
                   status.setText("Mencari...");
                   try {
                       scanner.startScan(scanCallback);
-                      handler.postDelayed(() -> scanner.stopScan(scanCallback), 10000);
+                      handler.postDelayed(() -> {
+                          try { scanner.stopScan(scanCallback); } catch (Exception ignored) {}
+                      }, 10000);
                   } catch (SecurityException ignored) {}
               }
 
