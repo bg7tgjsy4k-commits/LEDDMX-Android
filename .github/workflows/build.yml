@@ -1,4 +1,4 @@
-name: Build LEDDMX Full Override v15
+name: Build LEDDMX Final Fix v16
 
 on:
   workflow_dispatch:
@@ -21,7 +21,7 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Build Full Override APK via Gradle
+      - name: Compile and Build APK
         shell: bash
         run: |
           set -e
@@ -29,32 +29,29 @@ jobs:
 
           mkdir -p app/src/main/java/com/leddmx/pro
           mkdir -p app/src/main/res/values
-          mkdir -p gradle/wrapper
 
           echo "sdk.dir=$ANDROID_HOME" > local.properties
 
           cat > settings.gradle << 'EOF'
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
           rootProject.name = "LEDDMX-Pro"
           include ':app'
           EOF
 
           cat > build.gradle << 'EOF'
-          plugins {
-              id 'com.android.application' version '8.2.0' apply false
+          buildscript {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+              dependencies {
+                  classpath 'com.android.tools.build:gradle:7.4.2'
+              }
+          }
+          allprojects {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
           }
           EOF
 
@@ -65,24 +62,23 @@ jobs:
           EOF
 
           cat > app/build.gradle << 'EOF'
-          plugins {
-              id 'com.android.application'
-          }
+          apply plugin: 'com.android.application'
+
           android {
-              namespace 'com.leddmx.pro'
-              compileSdk 34
+              compileSdkVersion 33
               defaultConfig {
                   applicationId "com.leddmx.pro"
-                  minSdk 21
-                  targetSdk 34
+                  minSdkVersion 21
+                  targetSdkVersion 33
                   versionCode 1
-                  versionName "15.0"
+                  versionName "16.0"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_1_8
                   targetCompatibility JavaVersion.VERSION_1_8
               }
           }
+
           dependencies {
               implementation 'androidx.appcompat:appcompat:1.6.1'
           }
@@ -90,12 +86,13 @@ jobs:
 
           cat > app/src/main/res/values/strings.xml << 'EOF'
           <resources>
-              <string name="app_name">LEDDMX Full Override Pro</string>
+              <string name="app_name">LEDDMX Motion Pro</string>
           </resources>
           EOF
 
           cat > app/src/main/AndroidManifest.xml << 'EOF'
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="com.leddmx.pro">
               <uses-permission android:name="android.permission.BLUETOOTH" />
               <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
               <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
@@ -118,35 +115,6 @@ jobs:
                   </activity>
               </application>
           </manifest>
-          EOF
-
-          cat > app/src/main/java/com/leddmx/pro/BluetoothService.java << 'EOF'
-          package com.leddmx.pro;
-          import android.bluetooth.BluetoothGatt;
-          import android.bluetooth.BluetoothGattCharacteristic;
-          public class BluetoothService {
-              private static BluetoothService instance;
-              public static synchronized BluetoothService getInstance() {
-                  if (instance == null) instance = new BluetoothService();
-                  return instance;
-              }
-              public BluetoothGatt gatt;
-              public BluetoothGattCharacteristic writeChar;
-              public boolean isConnected = false;
-              public int lastUsedMode = 171;
-              public int brightness = 100;
-              public int speed = 350;
-              public String lang = "id";
-              public String modulePassword = "";
-
-              public void sendPacket(byte[] data) {
-                  if (gatt == null || writeChar == null) return;
-                  try {
-                      writeChar.setValue(data);
-                      gatt.writeCharacteristic(writeChar);
-                  } catch (Exception ignored) {}
-              }
-          }
           EOF
 
           cat > app/src/main/java/com/leddmx/pro/MainActivity.java << 'EOF'
@@ -196,7 +164,6 @@ jobs:
               private final ArrayList<Frame> frames = new ArrayList<>();
               private int selectedSlot = 171;
               private boolean playing = false;
-              
               private int selectedLampTarget = 0; 
               private View lamp1PreviewBox, lamp2PreviewBox;
               private LinearLayout scanDeviceListLayout;
@@ -205,7 +172,7 @@ jobs:
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-                  prefs = getSharedPreferences("leddmx_override_v15", MODE_PRIVATE);
+                  prefs = getSharedPreferences("leddmx_override_v16", MODE_PRIVATE);
                   BluetoothService.getInstance().lang = prefs.getString("lang", "id");
                   BluetoothService.getInstance().modulePassword = prefs.getString("mod_pass", "");
 
@@ -219,14 +186,15 @@ jobs:
                   buildRoot();
                   showHome();
                   
-                  String[] perms = {
-                      Manifest.permission.BLUETOOTH_SCAN,
-                      Manifest.permission.BLUETOOTH_CONNECT,
-                      Manifest.permission.ACCESS_FINE_LOCATION,
-                      Manifest.permission.ACCESS_COARSE_LOCATION
-                  };
-                  if (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                  if (android.os.Build.VERSION.SDK_INT >= 31) {
+                      String[] perms = {
+                          Manifest.permission.BLUETOOTH_SCAN,
+                          Manifest.permission.BLUETOOTH_CONNECT,
+                          Manifest.permission.ACCESS_FINE_LOCATION
+                      };
                       requestPermissions(perms, 100);
+                  } else {
+                      requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 100);
                   }
               }
 
@@ -749,13 +717,13 @@ jobs:
                   for (Frame f : frames) {
                       sb.append(f.lamp1Color).append(",").append(f.lamp2Color).append(",").append(f.duration).append(";");
                   }
-                  prefs.edit().putString("override_v15_slot_" + selectedSlot, sb.toString()).apply();
+                  prefs.edit().putString("override_v16_slot_" + selectedSlot, sb.toString()).apply();
                   Toast.makeText(this, t("Slot " + selectedSlot + " Tersimpan di Memori!", "Saved to Memory!"), Toast.LENGTH_SHORT).show();
               }
 
               private void loadSlot() {
                   frames.clear();
-                  String s = prefs.getString("override_v15_slot_" + selectedSlot, "");
+                  String s = prefs.getString("override_v16_slot_" + selectedSlot, "");
                   if (s.isEmpty()) {
                       loadMotionPreset("running");
                       return;
@@ -773,7 +741,6 @@ jobs:
 
               private void testFrames() {
                   if (frames.isEmpty()) return;
-                  // Perintahkan modul berpindah ke nomor slot tujuan (171-210)
                   sendMode(selectedSlot);
 
                   playing = true;
@@ -820,7 +787,6 @@ jobs:
                   int g2 = (Color.green(col2) * bright) / 100;
                   int b2 = (Color.blue(col2) * bright) / 100;
 
-                  // Protokol Bypass Dual-Channel 0x08 (Lampu Kiri & Kanan terpisah total)
                   byte[] packet = {
                       (byte)0x7B,
                       (byte)0xFF,
@@ -878,11 +844,12 @@ jobs:
           }
           EOF
 
+          # Eksekusi build langsung via gradle sistem tanpa file wrapper
           gradle assembleDebug --stacktrace
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: LEDDMX-Full-Override-v15
+          name: LEDDMX-Full-Override-v16
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
