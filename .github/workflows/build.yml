@@ -1,4 +1,4 @@
-name: Build LEDDMX Final Java17 v21
+name: Build LEDDMX Wrapper Safe v22
 
 on:
   workflow_dispatch:
@@ -21,7 +21,7 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Build APK Java 17 Fixed
+      - name: Build APK via Gradle Wrapper
         shell: bash
         run: |
           set -e
@@ -29,29 +29,32 @@ jobs:
 
           mkdir -p app/src/main/java/com/leddmx/pro
           mkdir -p app/src/main/res/values
+          mkdir -p gradle/wrapper
 
           echo "sdk.dir=$ANDROID_HOME" > local.properties
 
           cat > settings.gradle << 'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
           rootProject.name = "LEDDMX-Pro"
           include ':app'
           EOF
 
           cat > build.gradle << 'EOF'
-          buildscript {
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-              dependencies {
-                  classpath 'com.android.tools.build:gradle:8.1.4'
-              }
-          }
-          allprojects {
-              repositories {
-                  google()
-                  mavenCentral()
-              }
+          plugins {
+              id 'com.android.application' version '7.4.2' apply false
           }
           EOF
 
@@ -62,23 +65,23 @@ jobs:
           EOF
 
           cat > app/build.gradle << 'EOF'
-          apply plugin: 'com.android.application'
-
+          plugins {
+              id 'com.android.application'
+          }
           android {
-              compileSdk 34
+              compileSdk 33
               defaultConfig {
                   applicationId "com.leddmx.pro"
                   minSdk 21
-                  targetSdk 34
+                  targetSdk 33
                   versionCode 1
-                  versionName "21.0"
+                  versionName "22.0"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_1_8
                   targetCompatibility JavaVersion.VERSION_1_8
               }
           }
-
           dependencies {
               implementation 'androidx.appcompat:appcompat:1.6.1'
           }
@@ -188,7 +191,7 @@ jobs:
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-                  prefs = getSharedPreferences("leddmx_bypass_v21", MODE_PRIVATE);
+                  prefs = getSharedPreferences("leddmx_bypass_v22", MODE_PRIVATE);
 
                   BluetoothManager bm = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
                   if (bm != null) bluetoothAdapter = bm.getAdapter();
@@ -350,13 +353,13 @@ jobs:
                   for (Frame f : frames) {
                       sb.append(f.lamp1Color).append(",").append(f.lamp2Color).append(",").append(f.duration).append(";");
                   }
-                  prefs.edit().putString("bypass_v21_slot_" + selectedSlot, sb.toString()).apply();
+                  prefs.edit().putString("bypass_v22_slot_" + selectedSlot, sb.toString()).apply();
                   Toast.makeText(this, "Slot " + selectedSlot + " Berhasil Disimpan!", Toast.LENGTH_SHORT).show();
               }
 
               private void loadSlot() {
                   frames.clear();
-                  String s = prefs.getString("bypass_v21_slot_" + selectedSlot, "");
+                  String s = prefs.getString("bypass_v22_slot_" + selectedSlot, "");
                   if (s.isEmpty()) {
                       frames.add(new Frame(Color.RED, Color.BLACK, 150));
                       frames.add(new Frame(Color.BLACK, Color.RED, 150));
@@ -509,11 +512,25 @@ jobs:
           }
           EOF
 
-          gradle assembleDebug --stacktrace
+          cat > gradle/wrapper/gradle-wrapper.properties << 'EOF'
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-7.5-bin.zip
+          networkTimeout=10000
+          validateDistributionUrl=true
+          सर=true
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          EOF
+
+          gradle wrapper --gradle-version 7.5
+
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: LEDDMX-Bypass-Pro-v21
+          name: LEDDMX-Bypass-Pro-v22
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
