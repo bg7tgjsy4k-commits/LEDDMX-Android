@@ -1,4 +1,4 @@
-name: LEDDMX AI Pro FINAL
+name: Build LEDDMX Full Override v15
 
 on:
   workflow_dispatch:
@@ -12,29 +12,28 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Java 17
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
+          distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: 8.10.2
-
-      - name: Create Android project
+      - name: Build Full Override APK via Gradle
         shell: bash
         run: |
           set -e
+          rm -rf app build.gradle settings.gradle gradle.properties local.properties gradlew gradlew.bat gradle
 
           mkdir -p app/src/main/java/com/leddmx/pro
           mkdir -p app/src/main/res/values
+          mkdir -p gradle/wrapper
 
-          cat > settings.gradle <<'EOF'
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+
+          cat > settings.gradle << 'EOF'
           pluginManagement {
               repositories {
                   google()
@@ -42,7 +41,6 @@ jobs:
                   gradlePluginPortal()
               }
           }
-
           dependencyResolutionManagement {
               repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
               repositories {
@@ -50,103 +48,111 @@ jobs:
                   mavenCentral()
               }
           }
-
-          rootProject.name = "LEDDMX-AI-Pro"
-          include(":app")
+          rootProject.name = "LEDDMX-Pro"
+          include ':app'
           EOF
 
-          cat > build.gradle <<'EOF'
+          cat > build.gradle << 'EOF'
           plugins {
-              id 'com.android.application' version '8.6.1' apply false
+              id 'com.android.application' version '8.2.0' apply false
           }
           EOF
 
-          cat > gradle.properties <<'EOF'
+          cat > gradle.properties << 'EOF'
           org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
-          android.useAndroidX=false
+          android.useAndroidX=true
+          android.enableJetifier=true
           EOF
 
-          cat > app/build.gradle <<'EOF'
+          cat > app/build.gradle << 'EOF'
           plugins {
               id 'com.android.application'
           }
-
           android {
               namespace 'com.leddmx.pro'
-              compileSdk 35
-
+              compileSdk 34
               defaultConfig {
-                  applicationId 'com.leddmx.pro'
-                  minSdk 23
-                  targetSdk 35
-                  versionCode 13
-                  versionName '13.0'
+                  applicationId "com.leddmx.pro"
+                  minSdk 21
+                  targetSdk 34
+                  versionCode 1
+                  versionName "15.0"
               }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_1_8
+                  targetCompatibility JavaVersion.VERSION_1_8
+              }
+          }
+          dependencies {
+              implementation 'androidx.appcompat:appcompat:1.6.1'
           }
           EOF
 
-          cat > app/src/main/res/values/colors.xml <<'EOF'
+          cat > app/src/main/res/values/strings.xml << 'EOF'
           <resources>
-              <color name="black">#000000</color>
-              <color name="white">#FFFFFF</color>
+              <string name="app_name">LEDDMX Full Override Pro</string>
           </resources>
           EOF
 
-          cat > app/src/main/res/values/styles.xml <<'EOF'
-          <resources>
-              <style name="AppTheme"
-                  parent="@android:style/Theme.Material.NoActionBar">
-                  <item name="android:fontFamily">sans</item>
-                  <item name="android:windowLightStatusBar">false</item>
-                  <item name="android:statusBarColor">#000000</item>
-                  <item name="android:navigationBarColor">#000000</item>
-                  <item name="android:colorAccent">#00D9FF</item>
-              </style>
-          </resources>
-          EOF
-
-          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          cat > app/src/main/AndroidManifest.xml << 'EOF'
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
-              <uses-permission android:name="android.permission.BLUETOOTH"/>
-              <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
-              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
-
-              <uses-permission
-                  android:name="android.permission.BLUETOOTH_SCAN"
-                  android:usesPermissionFlags="neverForLocation"/>
-
-              <uses-permission
-                  android:name="android.permission.BLUETOOTH_CONNECT"/>
-
+              <uses-permission android:name="android.permission.BLUETOOTH" />
+              <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+              <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+              <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+              <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
               <application
-                  android:theme="@style/AppTheme"
-                  android:label="LEDDMX AI Pro"
-                  android:allowBackup="false"
+                  android:allowBackup="true"
+                  android:label="@string/app_name"
+                  android:theme="@android:style/Theme.Material.NoActionBar"
                   android:supportsRtl="true">
-
                   <activity
                       android:name=".MainActivity"
-                      android:screenOrientation="portrait"
-                      android:exported="true">
-
+                      android:exported="true"
+                      android:screenOrientation="portrait">
                       <intent-filter>
-                          <action android:name="android.intent.action.MAIN"/>
-                          <category android:name="android.intent.category.LAUNCHER"/>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
-
                   </activity>
-
               </application>
           </manifest>
           EOF
 
-          cat > app/src/main/java/com/leddmx/pro/MainActivity.java <<'EOF'
+          cat > app/src/main/java/com/leddmx/pro/BluetoothService.java << 'EOF'
           package com.leddmx.pro;
+          import android.bluetooth.BluetoothGatt;
+          import android.bluetooth.BluetoothGattCharacteristic;
+          public class BluetoothService {
+              private static BluetoothService instance;
+              public static synchronized BluetoothService getInstance() {
+                  if (instance == null) instance = new BluetoothService();
+                  return instance;
+              }
+              public BluetoothGatt gatt;
+              public BluetoothGattCharacteristic writeChar;
+              public boolean isConnected = false;
+              public int lastUsedMode = 171;
+              public int brightness = 100;
+              public int speed = 350;
+              public String lang = "id";
+              public String modulePassword = "";
 
+              public void sendPacket(byte[] data) {
+                  if (gatt == null || writeChar == null) return;
+                  try {
+                      writeChar.setValue(data);
+                      gatt.writeCharacteristic(writeChar);
+                  } catch (Exception ignored) {}
+              }
+          }
+          EOF
+
+          cat > app/src/main/java/com/leddmx/pro/MainActivity.java << 'EOF'
+          package com.leddmx.pro;
           import android.Manifest;
           import android.app.Activity;
-          import android.app.AlertDialog;
           import android.bluetooth.BluetoothAdapter;
           import android.bluetooth.BluetoothDevice;
           import android.bluetooth.BluetoothGatt;
@@ -159,2963 +165,724 @@ jobs:
           import android.bluetooth.le.ScanResult;
           import android.content.Context;
           import android.content.SharedPreferences;
-          import android.content.pm.PackageManager;
-          import android.graphics.Canvas;
           import android.graphics.Color;
-          import android.graphics.Paint;
-          import android.graphics.RadialGradient;
-          import android.graphics.Shader;
-          import android.graphics.SweepGradient;
-          import android.os.Build;
           import android.os.Bundle;
           import android.os.Handler;
-          import android.os.Looper;
-          import android.text.InputType;
+          import android.text.Editable;
+          import android.text.TextWatcher;
           import android.view.Gravity;
-          import android.view.MotionEvent;
           import android.view.View;
-          import android.view.ViewGroup;
           import android.widget.Button;
           import android.widget.EditText;
+          import android.widget.GridLayout;
           import android.widget.LinearLayout;
           import android.widget.ScrollView;
           import android.widget.SeekBar;
-          import android.widget.Space;
+          import android.widget.Spinner;
           import android.widget.TextView;
           import android.widget.Toast;
-
           import java.util.ArrayList;
           import java.util.Locale;
-          import java.util.regex.Matcher;
-          import java.util.regex.Pattern;
 
           public class MainActivity extends Activity {
-
-              private static final String SERVICE_UUID =
-                      "0000FFE0-0000-1000-8000-00805F9B34FB";
-
-              private static final String WRITE_UUID =
-                      "0000FFE1-0000-1000-8000-00805F9B34FB";
-
-              private static final int REQ_BLE = 1001;
-
-              private BluetoothAdapter adapter;
-              private BluetoothGatt gatt;
-              private BluetoothGattCharacteristic writeChar;
+              private final Handler handler = new Handler();
+              private BluetoothAdapter bluetoothAdapter;
               private BluetoothLeScanner scanner;
-
-              private boolean scanning = false;
-              private boolean connected = false;
-
-              private final Handler handler =
-                      new Handler(Looper.getMainLooper());
-
-              private final ArrayList<BluetoothDevice> devices =
-                      new ArrayList<>();
-
-              private final ArrayList<Frame> frames =
-                      new ArrayList<>();
-
+              private BluetoothGatt gatt;
+              private TextView status, currentMode;
+              private LinearLayout content;
               private SharedPreferences prefs;
-
-              private int lastMode = 1;
-              private int editSlot = 171;
-              private int playIndex = 0;
-
-              private int brightness = 100;
-              private int speedMs = 300;
-
-              private TextView statusText;
-
-              private final ScanCallback scanCallback =
-                      new ScanCallback() {
-
-                  @Override
-                  public void onScanResult(
-                          int callbackType,
-                          ScanResult result) {
-
-                      BluetoothDevice d = result.getDevice();
-
-                      if (d == null) return;
-
-                      if (!devices.contains(d)) {
-                          devices.add(d);
-                          showDeviceDialog();
-                      }
-                  }
-              };
+              private int currentModeNumber = 171;
+              private final ArrayList<Frame> frames = new ArrayList<>();
+              private int selectedSlot = 171;
+              private boolean playing = false;
+              
+              private int selectedLampTarget = 0; 
+              private View lamp1PreviewBox, lamp2PreviewBox;
+              private LinearLayout scanDeviceListLayout;
+              private final ArrayList<BluetoothDevice> foundDevices = new ArrayList<>();
 
               @Override
-              protected void onCreate(Bundle state) {
-                  super.onCreate(state);
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  prefs = getSharedPreferences("leddmx_override_v15", MODE_PRIVATE);
+                  BluetoothService.getInstance().lang = prefs.getString("lang", "id");
+                  BluetoothService.getInstance().modulePassword = prefs.getString("mod_pass", "");
 
-                  prefs = getSharedPreferences(
-                          "leddmx",
-                          MODE_PRIVATE);
+                  BluetoothManager bm = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+                  if (bm != null) bluetoothAdapter = bm.getAdapter();
+                  
+                  if (frames.isEmpty()) {
+                      loadMotionPreset("running");
+                  }
 
-                  BluetoothManager manager =
-                          (BluetoothManager)
-                                  getSystemService(
-                                          BLUETOOTH_SERVICE);
-
-                  adapter = manager.getAdapter();
-
-                  frames.add(defaultFrame());
-
+                  buildRoot();
                   showHome();
-              }
-
-              private boolean hasBlePermission() {
-
-                  if (Build.VERSION.SDK_INT >= 31) {
-                      return checkSelfPermission(
-                              Manifest.permission.BLUETOOTH_SCAN)
-                              == PackageManager.PERMISSION_GRANTED
-                              &&
-                              checkSelfPermission(
-                                      Manifest.permission.BLUETOOTH_CONNECT)
-                              == PackageManager.PERMISSION_GRANTED;
-                  }
-
-                  return checkSelfPermission(
-                          Manifest.permission.ACCESS_FINE_LOCATION)
-                          == PackageManager.PERMISSION_GRANTED;
-              }
-
-              private void requestBlePermission() {
-
-                  if (Build.VERSION.SDK_INT >= 31) {
-
-                      requestPermissions(
-                              new String[]{
-                                      Manifest.permission.BLUETOOTH_SCAN,
-                                      Manifest.permission.BLUETOOTH_CONNECT
-                              },
-                              REQ_BLE);
-
-                  } else {
-
-                      requestPermissions(
-                              new String[]{
-                                      Manifest.permission.ACCESS_FINE_LOCATION
-                              },
-                              REQ_BLE);
+                  
+                  String[] perms = {
+                      Manifest.permission.BLUETOOTH_SCAN,
+                      Manifest.permission.BLUETOOTH_CONNECT,
+                      Manifest.permission.ACCESS_FINE_LOCATION,
+                      Manifest.permission.ACCESS_COARSE_LOCATION
+                  };
+                  if (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                      requestPermissions(perms, 100);
                   }
               }
 
-              @Override
-              public void onRequestPermissionsResult(
-                      int requestCode,
-                      String[] permissions,
-                      int[] results) {
-
-                  super.onRequestPermissionsResult(
-                          requestCode,
-                          permissions,
-                          results);
-
-                  if (requestCode == REQ_BLE) {
-
-                      if (hasBlePermission()) {
-                          startScan();
-                      } else {
-                          toast("Permission Bluetooth diperlukan.");
-                      }
-                  }
+              private String t(String id, String en) {
+                  return "en".equals(BluetoothService.getInstance().lang) ? en : id;
               }
 
-              private void startScan() {
+              private void buildRoot() {
+                  LinearLayout root = new LinearLayout(this);
+                  root.setOrientation(LinearLayout.VERTICAL);
+                  root.setBackgroundColor(Color.parseColor("#101114"));
 
-                  if (!hasBlePermission()) {
-                      requestBlePermission();
-                      return;
-                  }
+                  LinearLayout top = new LinearLayout(this);
+                  top.setGravity(Gravity.CENTER_VERTICAL);
+                  top.setPadding(24,18,24,18);
+                  TextView title = text("LEDDMX FULL OVERRIDE", 18);
+                  title.setTextColor(Color.parseColor("#00E5FF"));
+                  top.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
+                  Button connect = button("SCAN");
+                  connect.setOnClickListener(v -> showScanDialog());
+                  top.addView(connect);
+                  root.addView(top);
 
-                  if (adapter == null) {
-                      toast("Bluetooth tidak tersedia.");
-                      return;
-                  }
+                  status = text("DISCONNECTED", 13);
+                  status.setPadding(24,0,24,10);
+                  root.addView(status);
 
-                  if (!adapter.isEnabled()) {
-                      toast("Nyalakan Bluetooth terlebih dahulu.");
-                      return;
-                  }
+                  ScrollView scroll = new ScrollView(this);
+                  content = new LinearLayout(this);
+                  content.setOrientation(LinearLayout.VERTICAL);
+                  content.setPadding(18,10,18,10);
+                  scroll.addView(content, new LinearLayout.LayoutParams(-1, -2));
+                  root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
 
-                  scanner = adapter.getBluetoothLeScanner();
-
-                  if (scanner == null) {
-                      toast("BLE scanner tidak tersedia.");
-                      return;
-                  }
-
-                  devices.clear();
-                  scanning = true;
-
-                  scanner.startScan(scanCallback);
-
-                  toast("Scanning BLE...");
-
-                  handler.postDelayed(() -> {
-
-                      if (scanning) {
-
-                          scanning = false;
-
-                          try {
-                              scanner.stopScan(scanCallback);
-                          } catch (Exception ignored) {}
-
-                          showDeviceDialog();
-                      }
-
-                  }, 8000);
-              }
-
-              private void showDeviceDialog() {
-
-                  if (isFinishing()) return;
-
-                  LinearLayout box = vertical();
-
-                  if (devices.isEmpty()) {
-
-                      box.addView(
-                              text(
-                                      "Belum ada perangkat.\n\n" +
-                                      "Pastikan LEDDMX-00-b2cd " +
-                                      "menyala.",
-                                      16));
-
-                  } else {
-
-                      for (BluetoothDevice d : devices) {
-
-                          String name;
-
-                          try {
-                              name = d.getName();
-                          } catch (Exception e) {
-                              name = null;
-                          }
-
-                          if (name == null ||
-                                  name.trim().isEmpty()) {
-                              name = "BLE DEVICE";
-                          }
-
-                          Button b =
-                                  button(
-                                          name + "\n" +
-                                          d.getAddress());
-
-                          b.setOnClickListener(v -> {
-                              connect(d);
-                          });
-
-                          box.addView(b);
-                      }
-                  }
-
-                  new AlertDialog.Builder(this)
-                          .setTitle("BLE DEVICES")
-                          .setView(box)
-                          .setNegativeButton("CLOSE", null)
-                          .show();
-              }
-
-              private void connect(BluetoothDevice device) {
-
-                  if (!hasBlePermission()) {
-                      requestBlePermission();
-                      return;
-                  }
-
-                  try {
-
-                      if (gatt != null) {
-                          gatt.close();
-                          gatt = null;
-                      }
-
-                      connected = false;
-                      writeChar = null;
-
-                      gatt = device.connectGatt(
-                              this,
-                              false,
-                              gattCallback);
-
-                      toast("Menghubungkan...");
-
-                  } catch (Exception e) {
-                      toast("Gagal konek BLE.");
-                  }
-              }
-
-              private final BluetoothGattCallback gattCallback =
-                      new BluetoothGattCallback() {
-
-                  @Override
-                  public void onConnectionStateChange(
-                          BluetoothGatt g,
-                          int status,
-                          int newState) {
-
-                      runOnUiThread(() -> {
-
-                          if (newState ==
-                                  BluetoothGatt.STATE_CONNECTED) {
-
-                              connected = true;
-
-                              status(
-                                      "CONNECTED");
-
-                              try {
-                                  g.discoverServices();
-                              } catch (Exception ignored) {}
-
-                              toast("LEDDMX terhubung.");
-
-                          } else {
-
-                              connected = false;
-                              writeChar = null;
-
-                              status("DISCONNECTED");
-                          }
+                  LinearLayout nav = new LinearLayout(this);
+                  nav.setPadding(8,8,8,8);
+                  String[] names = {"HOME", "MODES", "OVERRIDE", "AI", "SETTINGS"};
+                  for (String name : names) {
+                      Button b = button(name);
+                      b.setTextSize(11);
+                      b.setOnClickListener(v -> {
+                          if (name.equals("HOME")) showHome();
+                          else if (name.equals("MODES")) showModes();
+                          else if (name.equals("OVERRIDE")) showCustom();
+                          else if (name.equals("AI")) showAI();
+                          else if (name.equals("SETTINGS")) showSettings();
                       });
+                      nav.addView(b, new LinearLayout.LayoutParams(0, 60, 1));
                   }
-
-                  @Override
-                  public void onServicesDiscovered(
-                          BluetoothGatt g,
-                          int status) {
-
-                      BluetoothGattService service =
-                              g.getService(
-                                      java.util.UUID.fromString(
-                                              SERVICE_UUID));
-
-                      if (service == null) {
-                          toast("Service FFE0 tidak ditemukan.");
-                          return;
-                      }
-
-                      writeChar =
-                              service.getCharacteristic(
-                                      java.util.UUID.fromString(
-                                              WRITE_UUID));
-
-                      if (writeChar == null) {
-                          toast("Characteristic FFE1 tidak ditemukan.");
-                      } else {
-                          toast("BLE siap digunakan.");
-                      }
-                  }
-              };
-
-              private void send(byte[] data) {
-
-                  if (!connected ||
-                          gatt == null ||
-                          writeChar == null) {
-
-                      toast("Hubungkan LEDDMX terlebih dahulu.");
-                      return;
-                  }
-
-                  try {
-
-                      int properties =
-                              writeChar.getProperties();
-
-                      if ((properties &
-                              BluetoothGattCharacteristic
-                                      .PROPERTY_WRITE_NO_RESPONSE)
-                              != 0) {
-
-                          writeChar.setWriteType(
-                                  BluetoothGattCharacteristic
-                                          .WRITE_TYPE_NO_RESPONSE);
-
-                      } else {
-
-                          writeChar.setWriteType(
-                                  BluetoothGattCharacteristic
-                                          .WRITE_TYPE_DEFAULT);
-                      }
-
-                      if (Build.VERSION.SDK_INT >= 33) {
-
-                          gatt.writeCharacteristic(
-                                  writeChar,
-                                  data,
-                                  writeChar.getWriteType());
-
-                      } else {
-
-                          writeChar.setValue(data);
-                          gatt.writeCharacteristic(
-                                  writeChar);
-                      }
-
-                  } catch (Exception e) {
-
-                      toast("Gagal kirim packet.");
-                  }
+                  root.addView(nav);
+                  setContentView(root);
               }
 
-              private void sendMode(int mode) {
-
-                  mode = Math.max(1,
-                          Math.min(210, mode));
-
-                  lastMode = mode;
-
-                  byte[] p = new byte[]{
-                          0x7B,
-                          (byte)0xFF,
-                          0x03,
-                          (byte)mode,
-                          (byte)0xFF,
-                          (byte)0xFF,
-                          (byte)0xFF,
-                          (byte)0xFF,
-                          (byte)0xBF
-                  };
-
-                  send(p);
-
-                  status("MODE " + mode);
-              }
-
-              private void sendColor(
-                      int r,
-                      int g,
-                      int b) {
-
-                  byte[] p = new byte[]{
-                          0x7B,
-                          (byte)0xFF,
-                          0x07,
-                          (byte)clamp(r),
-                          (byte)clamp(g),
-                          (byte)clamp(b),
-                          (byte)0xBF
-                  };
-
-                  send(p);
-              }
-
-              private void powerOff() {
-                  sendColor(0, 0, 0);
-                  status("OFF");
-              }
-
-              private int applyBrightness(int v) {
-
-                  return clamp(
-                          Math.round(
-                                  v *
-                                  (brightness / 100f)));
+              private void clearContent() {
+                  stopPreview();
+                  content.removeAllViews();
               }
 
               private void showHome() {
+                  clearContent();
+                  content.addView(text(t("BERANDA KENDALI UTAMA", "HOME DASHBOARD"), 24));
+                  currentMode = text(t("MODE AKTIF: ", "ACTIVE MODE: ") + currentModeNumber, 18);
+                  content.addView(currentMode);
 
-                  basePage("LEDDMX AI PRO");
+                  Button on = button(t("POWER ON (NYALAKAN MODUL)", "POWER ON"));
+                  on.setOnClickListener(v -> sendMode(currentModeNumber));
+                  content.addView(on);
 
-                  statusText =
-                          text(
-                                  connected
-                                  ? "CONNECTED"
-                                  : "DISCONNECTED",
-                                  16);
+                  Button off = button(t("POWER OFF (MATIKAN MODUL)", "POWER OFF"));
+                  off.setOnClickListener(v -> sendOff());
+                  content.addView(off);
 
-                  add(statusText);
-
-                  Button connect =
-                          button("🔵 CONNECT LEDDMX");
-
-                  connect.setOnClickListener(
-                          v -> startScan());
-
-                  add(connect);
-
-                  addSpace(8);
-
-                  Button off =
-                          button("⏻ POWER OFF");
-
-                  off.setOnClickListener(
-                          v -> powerOff());
-
-                  add(off);
-
-                  add(heading("PRESET MODE 1 - 210"));
-
-                  LinearLayout modeRow =
-                          horizontal();
-
-                  EditText modeInput =
-                          number(lastMode);
-
-                  modeRow.addView(
-                          modeInput,
-                          new LinearLayout.LayoutParams(
-                                  0, 60, 1));
-
-                  Button sendMode =
-                          button("SEND MODE");
-
-                  modeRow.addView(
-                          sendMode,
-                          new LinearLayout.LayoutParams(
-                                  0, 60, 1));
-
-                  add(modeRow);
-
-                  sendMode.setOnClickListener(v -> {
-
-                      int mode = value(modeInput);
-
-                      if (mode < 1 || mode > 210) {
-                          toast("Mode harus 1 - 210.");
-                          return;
-                      }
-
-                      sendMode(mode);
-                  });
-
-                  addSpace(8);
-
-                  ModePreviewView preview =
-                          new ModePreviewView(this);
-
-                  add(
-                          preview,
-                          new LinearLayout.LayoutParams(
-                                  -1,
-                                  250));
-
-                  modeInput.setOnKeyListener(
-                          (v, key, event) -> {
-
-                              preview.setMode(
-                                      value(modeInput));
-
-                              return false;
-                          });
-
-                  SeekBar speed =
-                          new SeekBar(this);
-
-                  speed.setMax(950);
-                  speed.setProgress(
-                          Math.max(
-                                  50,
-                                  Math.min(
-                                          1000,
-                                          speedMs))
-                          - 50);
-
-                  add(heading("SPEED"));
-                  add(speed);
-
-                  speed.setOnSeekBarChangeListener(
-                          new SeekBar.OnSeekBarChangeListener() {
-
-                      public void onProgressChanged(
-                              SeekBar s,
-                              int p,
-                              boolean fromUser) {
-
-                          speedMs = 50 + p;
-                      }
-
-                      public void onStartTrackingTouch(
-                              SeekBar s) {}
-
-                      public void onStopTrackingTouch(
-                              SeekBar s) {}
-                  });
-
-                  SeekBar bright =
-                          new SeekBar(this);
-
+                  content.addView(text(t("PENGATURAN KINERJA HARDWARE", "HARDWARE PERFORMANCE SETTINGS"), 14));
+                  SeekBar bright = new SeekBar(this);
                   bright.setMax(100);
-                  bright.setProgress(brightness);
-
-                  add(heading("BRIGHTNESS"));
-                  add(bright);
-
-                  bright.setOnSeekBarChangeListener(
-                          new SeekBar.OnSeekBarChangeListener() {
-
-                      public void onProgressChanged(
-                              SeekBar s,
-                              int p,
-                              boolean fromUser) {
-
-                          brightness = p;
-                      }
-
-                      public void onStartTrackingTouch(
-                              SeekBar s) {}
-
-                      public void onStopTrackingTouch(
-                              SeekBar s) {}
+                  bright.setProgress(BluetoothService.getInstance().brightness);
+                  bright.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                      public void onProgressChanged(SeekBar s, int p, boolean u) { BluetoothService.getInstance().brightness = p; }
+                      public void onStartTrackingTouch(SeekBar s) {}
+                      public void onStopTrackingTouch(SeekBar s) {}
                   });
+                  content.addView(text("Brightness: " + BluetoothService.getInstance().brightness + "%", 12));
+                  content.addView(bright);
 
-                  addSpace(12);
+                  Button custom = button(t("BUKA OVERRIDE STUDIO (KONTROL KANAN KIRI)", "OPEN OVERRIDE STUDIO"));
+                  custom.setOnClickListener(v -> showCustom());
+                  content.addView(custom);
 
-                  Button custom =
-                          button("🎨 CUSTOM STUDIO");
+                  Button ai = button(t("AI ANIMATION OVERRIDE", "AI ANIMATION OVERRIDE"));
+                  ai.setOnClickListener(v -> showAI());
+                  content.addView(ai);
+              }
 
-                  custom.setOnClickListener(
-                          v -> showCustom());
+              private void showModes() {
+                  clearContent();
+                  content.addView(text(t("DAFTAR MODE BAWAAN (1 - 210)", "PRESET MODES (1 - 210)"), 24));
+                  
+                  EditText search = edit("");
+                  search.setHint(t("Cari Nomor Mode...", "Search Mode Number..."));
+                  content.addView(search);
 
-                  add(custom);
+                  final GridLayout grid = new GridLayout(this);
+                  grid.setColumnCount(4);
+                  content.addView(grid, new LinearLayout.LayoutParams(-1, -2));
 
-                  Button ai =
-                          button("✨ AI ASSISTANT");
+                  populateModeGrid(grid, "");
 
-                  ai.setOnClickListener(
-                          v -> showAI());
+                  search.addTextChangedListener(new TextWatcher() {
+                      public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                      public void onTextChanged(CharSequence s, int start, int before, int count) {
+                          populateModeGrid(grid, s.toString().trim());
+                      }
+                      public void afterTextChanged(Editable s) {}
+                  });
+              }
 
-                  add(ai);
+              private void populateModeGrid(GridLayout grid, String query) {
+                  grid.removeAllViews();
+                  for (int i=1; i<=210; i++) {
+                      final int mode = i;
+                      String title = String.format(Locale.US, "%03d", mode);
+                      if (!query.isEmpty() && !title.contains(query)) continue;
 
-                  Button settings =
-                          button("⚙ SETTINGS");
-
-                  settings.setOnClickListener(
-                          v -> showSettings());
-
-                  add(settings);
+                      Button b = button(title);
+                      b.setTextSize(12);
+                      b.setOnClickListener(v -> sendMode(mode));
+                      GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
+                      lp.width = 0; lp.height = 58;
+                      lp.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f);
+                      lp.setMargins(3,3,3,3);
+                      grid.addView(b, lp);
+                  }
               }
 
               private void showCustom() {
+                  clearContent();
+                  content.addView(text(t("BYPASS & OVERRIDE STUDIO (KANAN KIRI)", "BYPASS & OVERRIDE STUDIO"), 22));
+                  content.addView(text(t("Pilih Slot Target IC Modul (171 - 210) untuk Disimpan:", "Select Module Target Slot (171 - 210):"), 12));
 
-                  basePage("CUSTOM STUDIO");
-
-                  add(text(
-                          "CUSTOM SLOT 171 - 210\n" +
-                          "Animation disimpan di HP.",
-                          15));
-
-                  LinearLayout slotRow =
-                          horizontal();
-
-                  EditText slot =
-                          number(editSlot);
-
-                  slotRow.addView(
-                          slot,
-                          new LinearLayout.LayoutParams(
-                                  0, 60, 1));
-
-                  Button load =
-                          button("LOAD");
-
-                  slotRow.addView(
-                          load,
-                          new LinearLayout.LayoutParams(
-                                  0, 60, 1));
-
-                  add(slotRow);
-
-                  load.setOnClickListener(v -> {
-
-                      int s = value(slot);
-
-                      if (s < 171 || s > 210) {
-                          toast("Slot harus 171 - 210.");
-                          return;
+                  Spinner slot = new Spinner(this);
+                  String[] slots = new String[40];
+                  for (int i=0; i<40; i++) slots[i] = "SLOT MEMORI " + (171+i);
+                  android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, slots);
+                  slot.setAdapter(adapter);
+                  slot.setSelection(selectedSlot - 171);
+                  slot.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+                      public void onItemSelected(android.widget.AdapterView<?> p, View v, int pos, long id) {
+                          selectedSlot = 171 + pos;
+                          loadSlot();
                       }
-
-                      editSlot = s;
-                      loadSlot(s);
-                      showEditor();
+                      public void onNothingSelected(android.widget.AdapterView<?> p) {}
                   });
+                  content.addView(slot);
 
-                  Button editor =
-                          button("OPEN FULL EDITOR");
+                  content.addView(text(t("PILIH PRESET OVERRIDE KANAN & KIRI:", "SELECT OVERRIDE PRESETS:"), 12));
+                  
+                  LinearLayout r1 = new LinearLayout(this);
+                  r1.setOrientation(LinearLayout.HORIZONTAL);
+                  Button pRun = button(t("🏃 RUNNING", "🏃 RUNNING"));
+                  pRun.setOnClickListener(v -> { loadMotionPreset("running"); rebuildEditor((LinearLayout) content.getChildAt(content.getChildCount()-1)); });
+                  Button pBelang = button(t("⚡ BELANG (KIRI/KANAN)", "⚡ CROSS STRIPE"));
+                  pBelang.setOnClickListener(v -> { loadMotionPreset("belang"); rebuildEditor((LinearLayout) content.getChildAt(content.getChildCount()-1)); });
+                  r1.addView(pRun, new LinearLayout.LayoutParams(0, -2, 1));
+                  r1.addView(pBelang, new LinearLayout.LayoutParams(0, -2, 1));
+                  content.addView(r1);
 
-                  editor.setOnClickListener(
-                          v -> showEditor());
+                  LinearLayout r2 = new LinearLayout(this);
+                  r2.setOrientation(LinearLayout.HORIZONTAL);
+                  Button pStrobe = button(t("🚨 STROBO", "🚨 STROBE"));
+                  pStrobe.setOnClickListener(v -> { loadMotionPreset("strobo"); rebuildEditor((LinearLayout) content.getChildAt(content.getChildCount()-1)); });
+                  Button pBreath = button(t("🌊 FADE", "🌊 FADE"));
+                  pBreath.setOnClickListener(v -> { loadMotionPreset("fade"); rebuildEditor((LinearLayout) content.getChildAt(content.getChildCount()-1)); });
+                  r2.addView(pStrobe, new LinearLayout.LayoutParams(0, -2, 1));
+                  r2.addView(pBreath, new LinearLayout.LayoutParams(0, -2, 1));
+                  content.addView(r2);
 
-                  add(editor);
-
-                  Button preview =
-                          button("▶ PREVIEW");
-
-                  preview.setOnClickListener(
-                          v -> showPreview());
-
-                  add(preview);
-
-                  Button ai =
-                          button("✨ GENERATE WITH AI");
-
-                  ai.setOnClickListener(
-                          v -> showAI());
-
-                  add(ai);
-
-                  Button back =
-                          button("← HOME");
-
-                  back.setOnClickListener(
-                          v -> showHome());
-
-                  add(back);
+                  LinearLayout editor = new LinearLayout(this);
+                  editor.setOrientation(LinearLayout.VERTICAL);
+                  content.addView(editor);
+                  
+                  loadSlot();
+                  rebuildEditor(editor);
               }
 
-              private void showEditor() {
+              private void rebuildEditor(final LinearLayout editor) {
+                  editor.removeAllViews();
 
-                  basePage(
-                          "EDITOR SLOT " +
-                          editSlot);
+                  Button add = button(t("+ TAMBAH LANGKAH FRAME", "+ ADD STEP FRAME"));
+                  add.setOnClickListener(v -> {
+                      frames.add(new Frame(Color.RED, Color.BLUE, 200));
+                      rebuildEditor(editor);
+                  });
+                  editor.addView(add);
 
-                  add(text(
-                          "LEFT / RIGHT dibuat " +
-                          "independen di editor.\n" +
-                          "Hardware live memakai " +
-                          "packet RGB yang terbukti.",
-                          13));
+                  for (int i=0; i<frames.size(); i++) {
+                      final int index = i;
+                      final Frame f = frames.get(i);
+                      
+                      LinearLayout frameCard = new LinearLayout(this);
+                      frameCard.setOrientation(LinearLayout.VERTICAL);
+                      frameCard.setPadding(12, 16, 12, 16);
+                      frameCard.setBackgroundColor(Color.parseColor("#1E222B"));
 
-                  LinearLayout framesBox =
-                          vertical();
+                      frameCard.addView(text(t("LANGKAH / FRAME " + (i+1), "STEP / FRAME " + (i+1)), 16));
 
-                  Runnable[] rebuild =
-                          new Runnable[1];
+                      frameCard.addView(text(t("Pilih Jalur Fisik Lampu:", "Select Physical Lamp Target:"), 11));
+                      LinearLayout targetLayout = new LinearLayout(this);
+                      targetLayout.setOrientation(LinearLayout.HORIZONTAL);
+                      
+                      Button b1 = button(t("LAMPU KIRI (1)", "LAMP LEFT (1)"));
+                      Button b2 = button(t("LAMPU KANAN (2)", "LAMP RIGHT (2)"));
+                      Button bBoth = button(t("KEDUANYA", "BOTH"));
 
-                  rebuild[0] = () -> {
+                      b1.setOnClickListener(v -> { selectedLampTarget = 1; rebuildEditor(editor); });
+                      b2.setOnClickListener(v -> { selectedLampTarget = 2; rebuildEditor(editor); });
+                      bBoth.setOnClickListener(v -> { selectedLampTarget = 0; rebuildEditor(editor); });
 
-                      framesBox.removeAllViews();
+                      if (selectedLampTarget == 1) b1.setBackgroundColor(Color.parseColor("#00E5FF"));
+                      else if (selectedLampTarget == 2) b2.setBackgroundColor(Color.parseColor("#00E5FF"));
+                      else bBoth.setBackgroundColor(Color.parseColor("#00E5FF"));
 
-                      for (int i = 0;
-                           i < frames.size();
-                           i++) {
+                      targetLayout.addView(b1, new LinearLayout.LayoutParams(0, -2, 1));
+                      targetLayout.addView(b2, new LinearLayout.LayoutParams(0, -2, 1));
+                      targetLayout.addView(bBoth, new LinearLayout.LayoutParams(0, -2, 1));
+                      frameCard.addView(targetLayout);
 
-                          final int index = i;
+                      LinearLayout boxRow = new LinearLayout(this);
+                      boxRow.setOrientation(LinearLayout.HORIZONTAL);
+                      boxRow.setPadding(0, 8, 0, 8);
+                      TextView tBox1 = new TextView(this);
+                      tBox1.setText(t("KIRI (1)", "LEFT (1)")); tBox1.setGravity(Gravity.CENTER); tBox1.setTextColor(Color.WHITE); tBox1.setBackgroundColor(f.lamp1Color); tBox1.setHeight(70);
+                      TextView tBox2 = new TextView(this);
+                      tBox2.setText(t("KANAN (2)", "RIGHT (2)")); tBox2.setGravity(Gravity.CENTER); tBox2.setTextColor(Color.WHITE); tBox2.setBackgroundColor(f.lamp2Color); tBox2.setHeight(70);
+                      boxRow.addView(tBox1, new LinearLayout.LayoutParams(0, -1, 1));
+                      boxRow.addView(tBox2, new LinearLayout.LayoutParams(0, -1, 1));
+                      frameCard.addView(boxRow);
 
-                          LinearLayout row =
-                                  horizontal();
-
-                          row.addView(
-                                  text(
-                                          "FRAME " +
-                                          (index + 1) +
-                                          "\n" +
-                                          frames.get(i)
-                                                  .duration +
-                                          "ms",
-                                          14),
-                                  new LinearLayout.LayoutParams(
-                                          0, 75, 1));
-
-                          Button edit =
-                                  button("EDIT");
-
-                          row.addView(
-                                  edit,
-                                  new LinearLayout.LayoutParams(
-                                          0, 65, 1));
-
-                          Button dup =
-                                  button("COPY");
-
-                          row.addView(
-                                  dup,
-                                  new LinearLayout.LayoutParams(
-                                          0, 65, 1));
-
-                          Button del =
-                                  button("DEL");
-
-                          row.addView(
-                                  del,
-                                  new LinearLayout.LayoutParams(
-                                          0, 65, 1));
-
-                          edit.setOnClickListener(
-                                  v -> editFrame(
-                                          index,
-                                          rebuild[0]));
-
-                          dup.setOnClickListener(
-                                  v -> {
-
-                                      frames.add(
-                                              index + 1,
-                                              frames.get(index)
-                                                      .copy());
-
-                                      rebuild[0].run();
-                                  });
-
-                          del.setOnClickListener(
-                                  v -> {
-
-                                      if (frames.size() <= 1) {
-                                          return;
-                                      }
-
-                                      frames.remove(index);
-                                      rebuild[0].run();
-                                  });
-
-                          framesBox.addView(row);
+                      LinearLayout palLayout = new LinearLayout(this);
+                      palLayout.setOrientation(LinearLayout.HORIZONTAL);
+                      int[] paletteColors = {Color.RED, Color.GREEN, Color.BLUE, Color.YELLOW, Color.CYAN, Color.MAGENTA, Color.WHITE, Color.BLACK};
+                      for (int col : paletteColors) {
+                          Button pBtn = button("");
+                          pBtn.setBackgroundColor(col);
+                          pBtn.setOnClickListener(v -> {
+                              if (selectedLampTarget == 1) f.lamp1Color = col;
+                              else if (selectedLampTarget == 2) f.lamp2Color = col;
+                              else { f.lamp1Color = col; f.lamp2Color = col; }
+                              rebuildEditor(editor);
+                          });
+                          palLayout.addView(pBtn, new LinearLayout.LayoutParams(0, 50, 1));
                       }
-                  };
-
-                  add(framesBox);
-
-                  rebuild[0].run();
-
-                  Button addFrame =
-                          button("+ ADD FRAME");
-
-                  addFrame.setOnClickListener(v -> {
-
-                      frames.add(
-                              frames.get(
-                                      frames.size() - 1)
-                                      .copy());
-
-                      rebuild[0].run();
-                  });
-
-                  add(addFrame);
-
-                  add(heading("GENERATOR"));
-
-                  LinearLayout gen1 =
-                          horizontal();
-
-                  Button stripe =
-                          button("STRIPE");
-
-                  Button chase =
-                          button("CHASE");
-
-                  Button rainbow =
-                          button("RAINBOW");
-
-                  gen1.addView(
-                          stripe,
-                          new LinearLayout.LayoutParams(
-                                  0, 60, 1));
-
-                  gen1.addView(
-                          chase,
-                          new LinearLayout.LayoutParams(
-                                  0, 60, 1));
-
-                  gen1.addView(
-                          rainbow,
-                          new LinearLayout.LayoutParams(
-                                  0, 60, 1));
-
-                  add(gen1);
-
-                  stripe.setOnClickListener(v -> {
-                      generateStripe();
-                      rebuild[0].run();
-                  });
-
-                  chase.setOnClickListener(v -> {
-                      generateChase();
-                      rebuild[0].run();
-                  });
-
-                  rainbow.setOnClickListener(v -> {
-                      generateRainbow();
-                      rebuild[0].run();
-                  });
-
-                  LinearLayout gen2 =
-                          horizontal();
-
-                  Button blink =
-                          button("BLINK");
-
-                  Button fade =
-                          button("FADE");
-
-                  Button belang =
-                          button("BELANG");
-
-                  gen2.addView(
-                          blink,
-                          new LinearLayout.LayoutParams(
-                                  0, 60, 1));
-
-                  gen2.addView(
-                          fade,
-                          new LinearLayout.LayoutParams(
-                                  0, 60, 1));
-
-                  gen2.addView(
-                          belang,
-                          new LinearLayout.LayoutParams(
-                                  0, 60, 1));
-
-                  add(gen2);
-
-                  blink.setOnClickListener(v -> {
-                      generateBlink();
-                      rebuild[0].run();
-                  });
-
-                  fade.setOnClickListener(v -> {
-                      generateFade();
-                      rebuild[0].run();
-                  });
-
-                  /*
-                   * BELANG tetap sebagai generator
-                   * visual/editor. Tidak mengarang
-                   * packet hardware baru.
-                   */
-                  belang.setOnClickListener(v -> {
-                      generateBelang();
-                      rebuild[0].run();
-                  });
-
-                  Button preview =
-                          button(
-                                  "▶ PREVIEW BEFORE SEND");
-
-                  preview.setOnClickListener(
-                          v -> showPreview());
-
-                  add(preview);
-
-                  Button save =
-                          button(
-                                  "💾 SAVE SLOT " +
-                                  editSlot);
-
-                  save.setOnClickListener(v -> {
-
-                      saveSlot(editSlot);
-
-                      toast(
-                              "Slot " +
-                              editSlot +
-                              " tersimpan di HP.");
-                  });
-
-                  add(save);
-
-                  Button send =
-                          button(
-                                  "⚡ SEND / TEST LED");
-
-                  send.setOnClickListener(
-                          v -> playToLed());
-
-                  add(send);
-
-                  Button back =
-                          button(
-                                  "← BACK");
-
-                  back.setOnClickListener(
-                          v -> showCustom());
-
-                  add(back);
-              }
-
-              private void editFrame(
-                      int index,
-                      Runnable rebuild) {
-
-                  Frame f =
-                          frames.get(index);
-
-                  LinearLayout box =
-                          vertical();
-
-                  addColorEditor(
-                          box,
-                          "LEFT RGB",
-                          f,
-                          true);
-
-                  addColorEditor(
-                          box,
-                          "RIGHT RGB",
-                          f,
-                          false);
-
-                  TextView duration =
-                          text(
-                                  "Duration: " +
-                                  f.duration +
-                                  " ms",
-                                  14);
-
-                  box.addView(duration);
-
-                  SeekBar bar =
-                          new SeekBar(this);
-
-                  bar.setMax(1950);
-
-                  bar.setProgress(
-                          Math.max(
-                                  50,
-                                  f.duration) - 50);
-
-                  box.addView(bar);
-
-                  bar.setOnSeekBarChangeListener(
-                          new SeekBar.OnSeekBarChangeListener() {
-
-                      public void onProgressChanged(
-                              SeekBar s,
-                              int p,
-                              boolean user) {
-
-                          f.duration =
-                                  50 + p;
-
-                          duration.setText(
-                                  "Duration: " +
-                                  f.duration +
-                                  " ms");
-                      }
-
-                      public void onStartTrackingTouch(
-                              SeekBar s) {}
-
-                      public void onStopTrackingTouch(
-                              SeekBar s) {}
-                  });
-
-                  AlertDialog dialog =
-                          new AlertDialog.Builder(this)
-                                  .setTitle(
-                                          "FRAME " +
-                                          (index + 1))
-                                  .setView(box)
-                                  .setPositiveButton(
-                                          "APPLY",
-                                          null)
-                                  .setNegativeButton(
-                                          "CANCEL",
-                                          null)
-                                  .create();
-
-                  dialog.setOnShowListener(
-                          x -> {
-
-                      dialog.getButton(
-                              AlertDialog.BUTTON_POSITIVE)
-                              .setOnClickListener(v -> {
-
-                          rebuild.run();
-                          dialog.dismiss();
+                      frameCard.addView(palLayout);
+
+                      SeekBar dur = new SeekBar(this);
+                      dur.setMax(950);
+                      dur.setProgress(Math.max(30, f.duration - 30));
+                      dur.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                          public void onProgressChanged(SeekBar s, int p, boolean u) { f.duration = 30 + p; }
+                          public void onStartTrackingTouch(SeekBar s) {}
+                          public void onStopTrackingTouch(SeekBar s) {}
                       });
-                  });
+                      frameCard.addView(text(t("Kecepatan Durasi: ", "Speed Duration: ") + f.duration + " ms", 11));
+                      frameCard.addView(dur);
 
-                  dialog.show();
+                      Button del = button(t("❌ HAPUS LANGKAH", "❌ DELETE STEP"));
+                      del.setOnClickListener(v -> {
+                          frames.remove(index);
+                          rebuildEditor(editor);
+                      });
+                      frameCard.addView(del);
+
+                      editor.addView(frameCard);
+                  }
+
+                  Button preview = button(t("▶ PREVIEW SIMULASI LAYAR", "▶ PREVIEW SIMULATION"));
+                  preview.setOnClickListener(v -> showPreview());
+                  editor.addView(preview);
+
+                  Button save = button(t("💾 SAVE KE MEMORI SLOT " + selectedSlot, "💾 SAVE TO SLOT " + selectedSlot));
+                  save.setOnClickListener(v -> saveSlot());
+                  editor.addView(save);
+
+                  Button test = button(t("⚡ BYPASS & KIRIM LIVE KE MODUL", "⚡ BYPASS & SEND LIVE TO MODULE"));
+                  test.setOnClickListener(v -> testFrames());
+                  editor.addView(test);
               }
 
-              private void addColorEditor(
-                      LinearLayout parent,
-                      String title,
-                      Frame f,
-                      boolean left) {
-
-                  parent.addView(
-                          text(title, 15));
-
-                  ColorWheel wheel =
-                          new ColorWheel(this);
-
-                  parent.addView(
-                          wheel,
-                          new LinearLayout.LayoutParams(
-                                  -1,
-                                  280));
-
-                  EditText r =
-                          number(
-                                  left ? f.lr : f.rr);
-
-                  EditText g =
-                          number(
-                                  left ? f.lg : f.rg);
-
-                  EditText b =
-                          number(
-                                  left ? f.lb : f.rb);
-
-                  LinearLayout row =
-                          horizontal();
-
-                  row.addView(
-                          r,
-                          new LinearLayout.LayoutParams(
-                                  0, 60, 1));
-
-                  row.addView(
-                          g,
-                          new LinearLayout.LayoutParams(
-                                  0, 60, 1));
-
-                  row.addView(
-                          b,
-                          new LinearLayout.LayoutParams(
-                                  0, 60, 1));
-
-                  parent.addView(row);
-
-                  wheel.listener =
-                          (rr, gg, bb) -> {
-
-                              r.setText(
-                                      String.valueOf(rr));
-
-                              g.setText(
-                                      String.valueOf(gg));
-
-                              b.setText(
-                                      String.valueOf(bb));
-
-                              if (left) {
-                                  f.lr = rr;
-                                  f.lg = gg;
-                                  f.lb = bb;
-                              } else {
-                                  f.rr = rr;
-                                  f.rg = gg;
-                                  f.rb = bb;
-                              }
-                          };
-
-                  r.setOnFocusChangeListener(
-                          (v, has) -> {
-
-                      if (!has) {
-
-                          int rr = value(r);
-                          int gg = value(g);
-                          int bb = value(b);
-
-                          if (left) {
-                              f.lr = rr;
-                              f.lg = gg;
-                              f.lb = bb;
-                          } else {
-                              f.rr = rr;
-                              f.rg = gg;
-                              f.rb = bb;
-                          }
-                      }
-                  });
+              private void loadMotionPreset(String type) {
+                  frames.clear();
+                  if (type.equals("running")) {
+                      frames.add(new Frame(Color.RED, Color.BLACK, 150));
+                      frames.add(new Frame(Color.BLACK, Color.RED, 150));
+                      frames.add(new Frame(Color.BLUE, Color.BLACK, 150));
+                      frames.add(new Frame(Color.BLACK, Color.BLUE, 150));
+                  } else if (type.equals("belang")) {
+                      frames.add(new Frame(Color.RED, Color.BLUE, 180));
+                      frames.add(new Frame(Color.BLUE, Color.RED, 180));
+                      frames.add(new Frame(Color.GREEN, Color.YELLOW, 180));
+                      frames.add(new Frame(Color.YELLOW, Color.GREEN, 180));
+                  } else if (type.equals("strobo")) {
+                      frames.add(new Frame(Color.RED, Color.RED, 70));
+                      frames.add(new Frame(Color.BLACK, Color.BLACK, 70));
+                      frames.add(new Frame(Color.BLUE, Color.BLUE, 70));
+                      frames.add(new Frame(Color.BLACK, Color.BLACK, 70));
+                  } else if (type.equals("fade")) {
+                      frames.add(new Frame(Color.parseColor("#880000"), Color.parseColor("#000088"), 250));
+                      frames.add(new Frame(Color.RED, Color.BLUE, 250));
+                      frames.add(new Frame(Color.parseColor("#FF8888"), Color.parseColor("#8888FF"), 250));
+                      frames.add(new Frame(Color.BLACK, Color.BLACK, 250));
+                  }
               }
 
               private void showPreview() {
+                  clearContent();
+                  content.addView(text(t("SIMULASI FISIK LAMPU KIRI & KANAN", "PHYSICAL LAMP SIMULATION"), 24));
 
-                  if (frames.isEmpty()) {
-                      frames.add(defaultFrame());
-                  }
+                  LinearLayout container = new LinearLayout(this);
+                  container.setOrientation(LinearLayout.HORIZONTAL);
+                  container.setPadding(10, 30, 10, 30);
 
-                  basePage("PREVIEW ANIMATION");
+                  lamp1PreviewBox = new View(this);
+                  lamp1PreviewBox.setBackgroundColor(Color.RED);
+                  lamp2PreviewBox = new View(this);
+                  lamp2PreviewBox.setBackgroundColor(Color.BLUE);
 
-                  add(text(
-                          "PREVIEW SAJA.\n" +
-                          "Tidak ada packet BLE " +
-                          "yang dikirim.",
-                          14));
+                  LinearLayout.LayoutParams lp1 = new LinearLayout.LayoutParams(0, 250, 1);
+                  lp1.setMargins(15, 10, 15, 10);
+                  LinearLayout.LayoutParams lp2 = new LinearLayout.LayoutParams(0, 250, 1);
+                  lp2.setMargins(15, 10, 15, 10);
 
-                  PreviewView pv =
-                          new PreviewView(this);
+                  container.addView(lamp1PreviewBox, lp1);
+                  container.addView(lamp2PreviewBox, lp2);
+                  content.addView(container);
 
-                  add(
-                          pv,
-                          new LinearLayout.LayoutParams(
-                                  -1,
-                                  320));
+                  Button play = button("▶ PLAY");
+                  play.setOnClickListener(v -> startPreviewLoop());
+                  content.addView(play);
 
-                  TextView info =
-                          text(
-                                  "FRAME 1 / " +
-                                  frames.size(),
-                                  16);
+                  Button pause = button("⏸ PAUSE");
+                  pause.setOnClickListener(v -> stopPreview());
+                  content.addView(pause);
 
-                  info.setGravity(
-                          Gravity.CENTER);
+                  Button back = button(t("KEMBALI", "BACK"));
+                  back.setOnClickListener(v -> showCustom());
+                  content.addView(back);
 
-                  add(info);
+                  playing = true;
+                  startPreviewLoop();
+              }
 
-                  final boolean[] playing =
-                          {false};
-
-                  final int[] index =
-                          {0};
-
-                  final Runnable[] tick =
-                          new Runnable[1];
-
-                  tick[0] = () -> {
-
-                      if (!playing[0] ||
-                              frames.isEmpty()) {
-                          return;
-                      }
-
-                      if (index[0] >=
-                              frames.size()) {
-                          index[0] = 0;
-                      }
-
-                      Frame f =
-                              frames.get(index[0]);
-
-                      pv.setFrame(f);
-
-                      info.setText(
-                              "FRAME " +
-                              (index[0] + 1) +
-                              " / " +
-                              frames.size());
-
-                      index[0]++;
-
-                      handler.postDelayed(
-                              tick[0],
-                              Math.max(
-                                      50,
-                                      f.duration));
-                  };
-
-                  LinearLayout controls =
-                          horizontal();
-
-                  Button play =
-                          button("▶ PLAY");
-
-                  Button pause =
-                          button("Ⅱ PAUSE");
-
-                  Button restart =
-                          button("↻ RESTART");
-
-                  controls.addView(
-                          play,
-                          new LinearLayout.LayoutParams(
-                                  0, 62, 1));
-
-                  controls.addView(
-                          pause,
-                          new LinearLayout.LayoutParams(
-                                  0, 62, 1));
-
-                  controls.addView(
-                          restart,
-                          new LinearLayout.LayoutParams(
-                                  0, 62, 1));
-
-                  add(controls);
-
-                  play.setOnClickListener(v -> {
-
-                      playing[0] = true;
-
-                      handler.removeCallbacks(
-                              tick[0]);
-
-                      handler.post(tick[0]);
-                  });
-
-                  pause.setOnClickListener(v -> {
-
-                      playing[0] = false;
-
-                      handler.removeCallbacks(
-                              tick[0]);
-                  });
-
-                  restart.setOnClickListener(v -> {
-
-                      index[0] = 0;
-
-                      if (!frames.isEmpty()) {
-
-                          pv.setFrame(
-                                  frames.get(0));
-
-                          info.setText(
-                                  "FRAME 1 / " +
-                                  frames.size());
+              private void startPreviewLoop() {
+                  playing = true;
+                  handler.post(new Runnable() {
+                      int idx = 0;
+                      public void run() {
+                          if (!playing || frames.isEmpty()) return;
+                          Frame f = frames.get(idx % frames.size());
+                          if (lamp1PreviewBox != null) lamp1PreviewBox.setBackgroundColor(f.lamp1Color);
+                          if (lamp2PreviewBox != null) lamp2PreviewBox.setBackgroundColor(f.lamp2Color);
+                          idx++;
+                          handler.postDelayed(this, Math.max(30, f.duration));
                       }
                   });
-
-                  Button edit =
-                          button("← EDIT");
-
-                  edit.setOnClickListener(v -> {
-
-                      playing[0] = false;
-
-                      handler.removeCallbacks(
-                              tick[0]);
-
-                      showEditor();
-                  });
-
-                  add(edit);
-
-                  Button send =
-                          button("⚡ SEND TO LED");
-
-                  send.setOnClickListener(v -> {
-
-                      playing[0] = false;
-
-                      handler.removeCallbacks(
-                              tick[0]);
-
-                      playToLed();
-                  });
-
-                  add(send);
-
-                  Button save =
-                          button(
-                                  "💾 SAVE SLOT " +
-                                  editSlot);
-
-                  save.setOnClickListener(v -> {
-
-                      saveSlot(editSlot);
-
-                      toast(
-                              "Slot tersimpan di HP.");
-                  });
-
-                  add(save);
-
-                  if (!frames.isEmpty()) {
-                      pv.setFrame(frames.get(0));
-                  }
-              }
-
-              private final Runnable sendRunnable =
-                      new Runnable() {
-
-                  @Override
-                  public void run() {
-
-                      if (!connected ||
-                              frames.isEmpty()) {
-                          return;
-                      }
-
-                      if (playIndex >=
-                              frames.size()) {
-                          playIndex = 0;
-                      }
-
-                      Frame f =
-                              frames.get(playIndex);
-
-                      /*
-                       * Protocol yang sudah terbukti
-                       * hanya menerima live RGB.
-                       *
-                       * LEFT/RIGHT tetap independen
-                       * di editor dan preview.
-                       *
-                       * Untuk hardware live,
-                       * warna digabungkan.
-                       */
-
-                      int r =
-                              applyBrightness(
-                                      (f.lr + f.rr) / 2);
-
-                      int g =
-                              applyBrightness(
-                                      (f.lg + f.rg) / 2);
-
-                      int b =
-                              applyBrightness(
-                                      (f.lb + f.rb) / 2);
-
-                      sendColor(r, g, b);
-
-                      playIndex++;
-
-                      handler.postDelayed(
-                              this,
-                              Math.max(
-                                      30,
-                                      Math.round(
-                                              f.duration *
-                                              speedMs /
-                                              300f)));
-                  }
-              };
-
-              private void playToLed() {
-
-                  if (!connected) {
-                      toast(
-                              "Hubungkan LEDDMX terlebih dahulu.");
-                      return;
-                  }
-
-                  if (frames.isEmpty()) {
-                      toast("Belum ada frame.");
-                      return;
-                  }
-
-                  playIndex = 0;
-
-                  handler.removeCallbacks(
-                          sendRunnable);
-
-                  handler.post(sendRunnable);
-              }
-
-              private void generateBlink() {
-
-                  frames.clear();
-
-                  frames.add(
-                          new Frame(
-                                  255, 0, 0,
-                                  0, 0, 255,
-                                  speedMs));
-
-                  frames.add(
-                          new Frame(
-                                  0, 0, 0,
-                                  0, 0, 0,
-                                  speedMs));
-
-                  frames.add(
-                          new Frame(
-                                  255, 255, 255,
-                                  255, 255, 255,
-                                  speedMs));
-
-                  frames.add(
-                          new Frame(
-                                  0, 0, 0,
-                                  0, 0, 0,
-                                  speedMs));
-              }
-
-              private void generateFade() {
-
-                  frames.clear();
-
-                  for (int i = 0;
-                       i < 16;
-                       i++) {
-
-                      float t =
-                              i / 15f;
-
-                      int r =
-                              Math.round(
-                                      255 * t);
-
-                      int b =
-                              Math.round(
-                                      255 * (1f - t));
-
-                      frames.add(
-                              new Frame(
-                                      r, 0, b,
-                                      b, 0, r,
-                                      speedMs));
-                  }
-              }
-
-              private void generateBelang() {
-
-                  frames.clear();
-
-                  for (int i = 0;
-                       i < 12;
-                       i++) {
-
-                      if ((i & 1) == 0) {
-
-                          frames.add(
-                                  new Frame(
-                                          255, 0, 0,
-                                          0, 0, 255,
-                                          speedMs));
-
-                      } else {
-
-                          frames.add(
-                                  new Frame(
-                                          0, 0, 255,
-                                          255, 0, 0,
-                                          speedMs));
-                      }
-                  }
-              }
-
-              private void generateStripe() {
-
-                  frames.clear();
-
-                  for (int i = 0;
-                       i < 12;
-                       i++) {
-
-                      if ((i & 1) == 0) {
-
-                          frames.add(
-                                  new Frame(
-                                          255, 0, 0,
-                                          0, 0, 255,
-                                          speedMs));
-
-                      } else {
-
-                          frames.add(
-                                  new Frame(
-                                          255, 255, 255,
-                                          255, 255, 255,
-                                          speedMs));
-                      }
-                  }
-              }
-
-              private void generateChase() {
-
-                  frames.clear();
-
-                  int[][] c = {
-                          {255,0,0},
-                          {0,255,0},
-                          {0,0,255},
-                          {255,255,0},
-                          {0,255,255},
-                          {255,0,255}
-                  };
-
-                  for (int i = 0;
-                       i < 18;
-                       i++) {
-
-                      int[] a =
-                              c[i % c.length];
-
-                      int[] b =
-                              c[(i + 1) %
-                                c.length];
-
-                      frames.add(
-                              new Frame(
-                                      a[0], a[1], a[2],
-                                      b[0], b[1], b[2],
-                                      speedMs));
-                  }
-              }
-
-              private void generateRainbow() {
-
-                  frames.clear();
-
-                  for (int i = 0;
-                       i < 24;
-                       i++) {
-
-                      float h =
-                              i * 15f;
-
-                      int c =
-                              Color.HSVToColor(
-                                      new float[]{
-                                              h,
-                                              1f,
-                                              1f
-                                      });
-
-                      int d =
-                              Color.HSVToColor(
-                                      new float[]{
-                                              (h + 180) %
-                                              360,
-                                              1f,
-                                              1f
-                                      });
-
-                      frames.add(
-                              new Frame(
-                                      Color.red(c),
-                                      Color.green(c),
-                                      Color.blue(c),
-                                      Color.red(d),
-                                      Color.green(d),
-                                      Color.blue(d),
-                                      speedMs));
-                  }
               }
 
               private void showAI() {
+                  clearContent();
+                  content.addView(text("AI OVERRIDE GENERATOR", 24));
+                  final EditText prompt = edit("");
+                  content.addView(prompt);
 
-                  basePage("AI ASSISTANT");
-
-                  add(text(
-                          "Contoh:\n\n" +
-                          "merah biru belang cepat\n" +
-                          "rainbow pelan\n" +
-                          "strobo merah putih\n" +
-                          "kiri merah kanan biru\n" +
-                          "fade ungu cyan\n" +
-                          "chase hijau biru",
-                          14));
-
-                  EditText command =
-                          new EditText(this);
-
-                  command.setTextColor(
-                          Color.WHITE);
-
-                  command.setHintTextColor(
-                          Color.GRAY);
-
-                  command.setHint(
-                          "Tulis perintah...");
-                  
-                  command.setMinLines(4);
-
-                  command.setGravity(
-                          Gravity.TOP);
-
-                  add(command);
-
-                  Button generate =
-                          button("✨ GENERATE");
-
-                  generate.setOnClickListener(v -> {
-
-                      generateAI(
-                              command.getText()
-                                      .toString());
-
-                      showPreview();
+                  Button gen = button(t("GENERATE EFEK", "GENERATE"));
+                  gen.setOnClickListener(v -> {
+                      loadMotionPreset("running");
+                      Toast.makeText(this, t("Berhasil Dibuat!", "Generated!"), Toast.LENGTH_SHORT).show();
+                      showCustom();
                   });
-
-                  add(generate);
-
-                  Button editor =
-                          button("OPEN FULL EDITOR");
-
-                  editor.setOnClickListener(
-                          v -> showEditor());
-
-                  add(editor);
-
-                  Button back =
-                          button("← HOME");
-
-                  back.setOnClickListener(
-                          v -> showHome());
-
-                  add(back);
-              }
-
-              private void generateAI(
-                      String command) {
-
-                  frames.clear();
-
-                  String c =
-                          command == null
-                          ? ""
-                          : command
-                                  .toLowerCase(
-                                          Locale.US)
-                                  .trim();
-
-                  if (c.isEmpty()) {
-                      frames.add(
-                              defaultFrame());
-
-                      return;
-                  }
-
-                  int d = speedMs;
-
-                  if (c.contains("super cepat") ||
-                      c.contains("sangat cepat")) {
-
-                      d = 70;
-
-                  } else if (c.contains("cepat") ||
-                             c.contains("fast")) {
-
-                      d = 120;
-
-                  } else if (c.contains("pelan") ||
-                             c.contains("lambat") ||
-                             c.contains("slow")) {
-
-                      d = 700;
-                  }
-
-                  if (c.contains("rainbow") ||
-                      c.contains("pelangi")) {
-
-                      generateRainbow();
-                      return;
-                  }
-
-                  if (c.contains("chase") ||
-                      c.contains("running") ||
-                      c.contains("berjalan") ||
-                      c.contains("jalan")) {
-
-                      generateChase();
-                      return;
-                  }
-
-                  if (c.contains("fade") ||
-                      c.contains("fading") ||
-                      c.contains("memudar")) {
-
-                      generateFade();
-                      return;
-                  }
-
-                  if (c.contains("strobo") ||
-                      c.contains("strobe") ||
-                      c.contains("flash")) {
-
-                      ArrayList<Integer>
-                              colors =
-                              extractColors(c);
-
-                      if (colors.isEmpty()) {
-                          colors.add(Color.RED);
-                      }
-
-                      for (int i = 0;
-                           i < 12;
-                           i++) {
-
-                          int col =
-                                  (i & 1) == 0
-                                  ? colors.get(
-                                          (i / 2) %
-                                          colors.size())
-                                  : Color.BLACK;
-
-                          addColorFrame(
-                                  col,
-                                  col,
-                                  d);
-                      }
-
-                      return;
-                  }
-
-                  if (c.contains("belang") ||
-                      c.contains("stripe") ||
-                      c.contains("bergantian") ||
-                      c.contains("alternating")) {
-
-                      ArrayList<Integer>
-                              colors =
-                              extractColors(c);
-
-                      if (colors.size() < 2) {
-
-                          colors.clear();
-
-                          colors.add(
-                                  Color.RED);
-
-                          colors.add(
-                                  Color.BLUE);
-                      }
-
-                      for (int i = 0;
-                           i < 12;
-                           i++) {
-
-                          int a =
-                              colors.get(
-                                  i %
-                                  colors.size());
-
-                          int b =
-                              colors.get(
-                                  (i + 1) %
-                                  colors.size());
-
-                          addColorFrame(
-                                  a,
-                                  b,
-                                  d);
-                      }
-
-                      return;
-                  }
-
-                  if (c.contains("kiri") &&
-                      c.contains("kanan")) {
-
-                      int left =
-                              colorFromText(
-                                      c,
-                                      Color.RED);
-
-                      int right =
-                              colorFromTextAfter(
-                                      c,
-                                      "kanan",
-                                      Color.BLUE);
-
-                      for (int i = 0;
-                           i < 8;
-                           i++) {
-
-                          addColorFrame(
-                                  left,
-                                  right,
-                                  d);
-                      }
-
-                      return;
-                  }
-
-                  ArrayList<Integer>
-                          colors =
-                          extractColors(c);
-
-                  if (colors.size() >= 2) {
-
-                      for (int i = 0;
-                           i < 12;
-                           i++) {
-
-                          int a =
-                              colors.get(
-                                  i %
-                                  colors.size());
-
-                          int b =
-                              colors.get(
-                                  (i + 1) %
-                                  colors.size());
-
-                          addColorFrame(
-                                  a,
-                                  b,
-                                  d);
-                      }
-
-                      return;
-                  }
-
-                  int color =
-                          colors.isEmpty()
-                          ? colorFromText(
-                                  c,
-                                  Color.RED)
-                          : colors.get(0);
-
-                  for (int i = 0;
-                       i < 6;
-                       i++) {
-
-                      addColorFrame(
-                              color,
-                              color,
-                              d);
-                  }
-              }
-
-              private ArrayList<Integer>
-                      extractColors(String s) {
-
-                  ArrayList<Integer> result =
-                          new ArrayList<>();
-
-                  Pattern p =
-                          Pattern.compile(
-                                  "merah|red|" +
-                                  "hijau|green|" +
-                                  "biru|blue|" +
-                                  "putih|white|" +
-                                  "kuning|yellow|" +
-                                  "ungu|purple|" +
-                                  "cyan|orange|pink");
-
-                  Matcher m =
-                          p.matcher(s);
-
-                  while (m.find()) {
-
-                      result.add(
-                              colorFromText(
-                                      m.group(),
-                                      Color.WHITE));
-                  }
-
-                  return result;
-              }
-
-              private int colorFromText(
-                      String s,
-                      int fallback) {
-
-                  s =
-                          s.toLowerCase(
-                                  Locale.US);
-
-                  if (s.contains("merah") ||
-                      s.contains("red"))
-                      return Color.RED;
-
-                  if (s.contains("hijau") ||
-                      s.contains("green"))
-                      return Color.GREEN;
-
-                  if (s.contains("biru") ||
-                      s.contains("blue"))
-                      return Color.BLUE;
-
-                  if (s.contains("putih") ||
-                      s.contains("white"))
-                      return Color.WHITE;
-
-                  if (s.contains("kuning") ||
-                      s.contains("yellow"))
-                      return Color.YELLOW;
-
-                  if (s.contains("cyan"))
-                      return Color.CYAN;
-
-                  if (s.contains("ungu") ||
-                      s.contains("purple"))
-                      return Color.MAGENTA;
-
-                  if (s.contains("orange"))
-                      return Color.rgb(
-                              255,128,0);
-
-                  if (s.contains("pink"))
-                      return Color.rgb(
-                              255,80,150);
-
-                  return fallback;
-              }
-
-              private int colorFromTextAfter(
-                      String text,
-                      String word,
-                      int fallback) {
-
-                  int pos =
-                          text.indexOf(word);
-
-                  if (pos < 0)
-                      return fallback;
-
-                  return colorFromText(
-                          text.substring(pos),
-                          fallback);
-              }
-
-              private void addColorFrame(
-                      int left,
-                      int right,
-                      int duration) {
-
-                  frames.add(
-                          new Frame(
-                                  Color.red(left),
-                                  Color.green(left),
-                                  Color.blue(left),
-                                  Color.red(right),
-                                  Color.green(right),
-                                  Color.blue(right),
-                                  duration));
-              }
-
-              private void saveSlot(int slot) {
-
-                  if (frames.isEmpty())
-                      return;
-
-                  StringBuilder data =
-                          new StringBuilder();
-
-                  for (Frame f :
-                          frames) {
-
-                      data.append(f.lr)
-                              .append(',');
-
-                      data.append(f.lg)
-                              .append(',');
-
-                      data.append(f.lb)
-                              .append(',');
-
-                      data.append(f.rr)
-                              .append(',');
-
-                      data.append(f.rg)
-                              .append(',');
-
-                      data.append(f.rb)
-                              .append(',');
-
-                      data.append(f.duration)
-                              .append(';');
-                  }
-
-                  prefs.edit()
-                          .putString(
-                                  "slot_" + slot,
-                                  data.toString())
-                          .apply();
-              }
-
-              private void loadSlot(int slot) {
-
-                  frames.clear();
-
-                  String data =
-                          prefs.getString(
-                                  "slot_" + slot,
-                                  null);
-
-                  if (data == null ||
-                      data.isEmpty()) {
-
-                      frames.add(
-                              defaultFrame());
-
-                      return;
-                  }
-
-                  try {
-
-                      String[] list =
-                              data.split(";");
-
-                      for (String item :
-                              list) {
-
-                          if (item.trim()
-                                  .isEmpty())
-                              continue;
-
-                          String[] p =
-                                  item.split(",");
-
-                          if (p.length != 7)
-                              continue;
-
-                          frames.add(
-                                  new Frame(
-                                      Integer.parseInt(p[0]),
-                                      Integer.parseInt(p[1]),
-                                      Integer.parseInt(p[2]),
-                                      Integer.parseInt(p[3]),
-                                      Integer.parseInt(p[4]),
-                                      Integer.parseInt(p[5]),
-                                      Integer.parseInt(p[6])));
-                      }
-
-                  } catch (Exception e) {
-
-                      frames.clear();
-                  }
-
-                  if (frames.isEmpty()) {
-                      frames.add(
-                              defaultFrame());
-                  }
+                  content.addView(gen);
               }
 
               private void showSettings() {
+                  clearContent();
+                  content.addView(text(t("PENGATURAN & KEAMANAN", "SETTINGS & SECURITY"), 24));
 
-                  basePage("SETTINGS");
-
-                  add(heading("BLUETOOTH"));
-
-                  Button scan =
-                          button("SCAN / RECONNECT");
-
-                  scan.setOnClickListener(
-                          v -> startScan());
-
-                  add(scan);
-
-                  Button disconnect =
-                          button("DISCONNECT");
-
-                  disconnect.setOnClickListener(
-                          v -> disconnect());
-
-                  add(disconnect);
-
-                  add(heading("VERIFIED PROTOCOL"));
-
-                  add(text(
-                          "Controller:\n" +
-                          "LEDDMX-00-b2cd\n\n" +
-                          "Service:\n" +
-                          "FFE0\n\n" +
-                          "Write:\n" +
-                          "FFE1\n\n" +
-                          "Preset:\n" +
-                          "7B FF 03 MODE FF FF FF FF BF\n\n" +
-                          "Live RGB:\n" +
-                          "7B FF 07 R G B BF\n\n" +
-                          "Catatan:\n" +
-                          "Tidak ada command LEFT/RIGHT " +
-                          "terpisah yang diklaim terbukti.\n\n" +
-                          "Custom slot disimpan di HP.",
-                          13));
-
-                  Button raw =
-                          button("RAW HEX TEST");
-
-                  raw.setOnClickListener(
-                          v -> showRaw());
-
-                  add(raw);
-
-                  Button clear =
-                          button("CLEAR LOCAL SLOTS");
-
-                  clear.setOnClickListener(v -> {
-
-                      prefs.edit()
-                              .clear()
-                              .apply();
-
-                      frames.clear();
-
-                      frames.add(
-                              defaultFrame());
-
-                      toast(
-                              "Local slots dibersihkan.");
+                  LinearLayout langLayout = new LinearLayout(this);
+                  langLayout.setOrientation(LinearLayout.HORIZONTAL);
+                  Button btnId = button("🇮🇩 ID");
+                  btnId.setOnClickListener(v -> {
+                      BluetoothService.getInstance().lang = "id";
+                      prefs.edit().putString("lang", "id").apply();
+                      showSettings();
                   });
+                  Button btnEn = button("🇬🇧 EN");
+                  btnEn.setOnClickListener(v -> {
+                      BluetoothService.getInstance().lang = "en";
+                      prefs.edit().putString("lang", "en").apply();
+                      showSettings();
+                  });
+                  langLayout.addView(btnId, new LinearLayout.LayoutParams(0, -2, 1));
+                  langLayout.addView(btnEn, new LinearLayout.LayoutParams(0, -2, 1));
+                  content.addView(langLayout);
 
-                  add(clear);
+                  final EditText passInput = edit(BluetoothService.getInstance().modulePassword);
+                  passInput.setHint(t("PIN Keamanan Modul...", "Module Security PIN..."));
+                  content.addView(passInput);
 
-                  Button back =
-                          button("← HOME");
+                  Button savePass = button(t("💾 SIMPAN PASSWORD", "SAVE PASSWORD"));
+                  savePass.setOnClickListener(v -> {
+                      String p = passInput.getText().toString();
+                      BluetoothService.getInstance().modulePassword = p;
+                      prefs.edit().putString("mod_pass", p).apply();
+                      Toast.makeText(this, t("Tersimpan!", "Saved!"), Toast.LENGTH_SHORT).show();
+                  });
+                  content.addView(savePass);
 
-                  back.setOnClickListener(
-                          v -> showHome());
-
-                  add(back);
+                  Button reconnect = button(t("SCAN BLUETOOTH", "SCAN BLUETOOTH"));
+                  reconnect.setOnClickListener(v -> showScanDialog());
+                  content.addView(reconnect);
               }
 
-              private void showRaw() {
+              private void showScanDialog() {
+                  clearContent();
+                  content.addView(text(t("SCAN PERANGKAT BLUETOOTH", "SCAN BLUETOOTH"), 22));
 
-                  basePage("RAW HEX");
+                  scanDeviceListLayout = new LinearLayout(this);
+                  scanDeviceListLayout.setOrientation(LinearLayout.VERTICAL);
+                  content.addView(scanDeviceListLayout);
 
-                  EditText input =
-                          new EditText(this);
+                  Button scanBtn = button(t("🔍 SCAN ULANG", "🔍 RESCAN"));
+                  scanBtn.setOnClickListener(v -> startBleScan());
+                  content.addView(scanBtn);
 
-                  input.setTextColor(
-                          Color.WHITE);
+                  Button back = button(t("KEMBALI", "BACK"));
+                  back.setOnClickListener(v -> showHome());
+                  content.addView(back);
 
-                  input.setHintTextColor(
-                          Color.GRAY);
-
-                  input.setHint(
-                          "7B FF 07 FF 00 00 BF");
-
-                  input.setMinLines(3);
-
-                  add(input);
-
-                  Button send =
-                          button("SEND HEX");
-
-                  send.setOnClickListener(v -> {
-
-                      try {
-
-                          String[] p =
-                              input.getText()
-                                  .toString()
-                                  .trim()
-                                  .split("\\s+");
-
-                          if (p.length == 0)
-                              throw new Exception();
-
-                          byte[] data =
-                                  new byte[p.length];
-
-                          for (int i = 0;
-                               i < p.length;
-                               i++) {
-
-                              data[i] =
-                                  (byte)
-                                  Integer.parseInt(
-                                      p[i],
-                                      16);
-                          }
-
-                          send(data);
-
-                      } catch (Exception e) {
-
-                          toast(
-                                  "HEX tidak valid.");
-                      }
-                  });
-
-                  add(send);
+                  startBleScan();
               }
 
-              private void disconnect() {
+              private void startBleScan() {
+                  if (bluetoothAdapter == null) return;
+                  scanner = bluetoothAdapter.getBluetoothLeScanner();
+                  if (scanner == null) return;
+
+                  foundDevices.clear();
+                  if (scanDeviceListLayout != null) scanDeviceListLayout.removeAllViews();
+                  status.setText(t("MENCARI...", "SEARCHING..."));
 
                   try {
-
-                      if (gatt != null) {
-                          gatt.disconnect();
-                          gatt.close();
-                      }
-
+                      scanner.startScan(scanCallback);
+                      handler.postDelayed(() -> {
+                          try { if (scanner != null) scanner.stopScan(scanCallback); } catch (Exception ignored) {}
+                      }, 10000);
                   } catch (Exception ignored) {}
-
-                  gatt = null;
-                  writeChar = null;
-                  connected = false;
-
-                  status("DISCONNECTED");
-
-                  toast("BLE disconnected.");
               }
 
-              private Frame defaultFrame() {
+              private final ScanCallback scanCallback = new ScanCallback() {
+                  public void onScanResult(int type, ScanResult result) {
+                      BluetoothDevice d = result.getDevice();
+                      if (!foundDevices.contains(d)) {
+                          foundDevices.add(d);
+                          String name = "LEDDMX Module";
+                          try {
+                              if (d.getName() != null) name = d.getName();
+                          } catch (SecurityException ignored) {}
 
-                  return new Frame(
-                          255, 0, 0,
-                          0, 0, 255,
-                          300);
-              }
+                          final BluetoothDevice targetDevice = d;
+                          runOnUiThread(() -> {
+                              if (scanDeviceListLayout != null) {
+                                  Button devBtn = button(name + "\n[" + targetDevice.getAddress() + "]");
+                                  devBtn.setOnClickListener(v -> {
+                                      try { if (scanner != null) scanner.stopScan(this); } catch (Exception ignored) {}
+                                      connect(targetDevice);
+                                  });
+                                  scanDeviceListLayout.addView(devBtn, new LinearLayout.LayoutParams(-1, -2));
+                              }
+                          });
+                      }
+                  }
+              };
 
-              private int clamp(int v) {
-
-                  return Math.max(
-                          0,
-                          Math.min(255, v));
-              }
-
-              private EditText number(int value) {
-
-                  EditText e =
-                          new EditText(this);
-
-                  e.setText(
-                          String.valueOf(value));
-
-                  e.setTextColor(
-                          Color.WHITE);
-
-                  e.setHintTextColor(
-                          Color.GRAY);
-
-                  e.setInputType(
-                          InputType.TYPE_CLASS_NUMBER);
-
-                  return e;
-              }
-
-              private int value(EditText e) {
-
+              private void connect(BluetoothDevice device) {
+                  status.setText(t("MENYAMBUNGKAN...", "CONNECTING..."));
                   try {
+                      gatt = device.connectGatt(MainActivity.this, false, gattCallback);
+                  } catch (Exception ignored) {}
+              }
 
-                      return clamp(
-                              Integer.parseInt(
-                                  e.getText()
-                                   .toString()));
+              private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
+                  public void onConnectionStateChange(final BluetoothGatt g, int statusVal, final int newState) {
+                      runOnUiThread(() -> {
+                          if (newState == BluetoothGatt.STATE_CONNECTED) {
+                              status.setText("CONNECTED");
+                              BluetoothService.getInstance().gatt = g;
+                              BluetoothService.getInstance().isConnected = true;
+                              g.discoverServices();
+                              Toast.makeText(MainActivity.this, t("Berhasil Terhubung!", "Connected!"), Toast.LENGTH_SHORT).show();
+                              showHome();
+                          } else {
+                              status.setText("DISCONNECTED");
+                              BluetoothService.getInstance().isConnected = false;
+                              BluetoothService.getInstance().gatt = null;
+                              BluetoothService.getInstance().writeChar = null;
+                          }
+                      });
+                  }
+                  public void onServicesDiscovered(BluetoothGatt g, int statusVal) {
+                      for (BluetoothGattService s : g.getServices()) {
+                          for (BluetoothGattCharacteristic c : s.getCharacteristics()) {
+                              if ((c.getProperties() & (BluetoothGattCharacteristic.PROPERTY_WRITE | BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE)) > 0) {
+                                  BluetoothService.getInstance().writeChar = c;
+                              }
+                          }
+                      }
+                  }
+              };
 
-                  } catch (Exception ignored) {
+              private void saveSlot() {
+                  StringBuilder sb = new StringBuilder();
+                  for (Frame f : frames) {
+                      sb.append(f.lamp1Color).append(",").append(f.lamp2Color).append(",").append(f.duration).append(";");
+                  }
+                  prefs.edit().putString("override_v15_slot_" + selectedSlot, sb.toString()).apply();
+                  Toast.makeText(this, t("Slot " + selectedSlot + " Tersimpan di Memori!", "Saved to Memory!"), Toast.LENGTH_SHORT).show();
+              }
 
-                      return 0;
+              private void loadSlot() {
+                  frames.clear();
+                  String s = prefs.getString("override_v15_slot_" + selectedSlot, "");
+                  if (s.isEmpty()) {
+                      loadMotionPreset("running");
+                      return;
+                  }
+                  String[] rows = s.split(";");
+                  for (String r : rows) {
+                      try {
+                          String[] p = r.split(",");
+                          if (p.length >= 3) {
+                              frames.add(new Frame(Integer.parseInt(p[0]), Integer.parseInt(p[1]), Integer.parseInt(p[2])));
+                          }
+                      } catch (Exception ignored) {}
                   }
               }
 
-              private void status(String s) {
+              private void testFrames() {
+                  if (frames.isEmpty()) return;
+                  // Perintahkan modul berpindah ke nomor slot tujuan (171-210)
+                  sendMode(selectedSlot);
 
-                  runOnUiThread(() -> {
-
-                      if (statusText != null)
-                          statusText.setText(s);
+                  playing = true;
+                  handler.post(new Runnable() {
+                      int idx = 0;
+                      public void run() {
+                          if (!playing || frames.isEmpty()) return;
+                          Frame f = frames.get(idx % frames.size());
+                          sendDualColor(f.lamp1Color, f.lamp2Color);
+                          idx++;
+                          handler.postDelayed(this, Math.max(30, f.duration));
+                      }
                   });
+                  Toast.makeText(this, t("Bypass Aktif: Menjalankan Slot " + selectedSlot, "Active Override on Slot " + selectedSlot), Toast.LENGTH_SHORT).show();
               }
 
-              private void toast(String s) {
-
-                  runOnUiThread(() ->
-                          Toast.makeText(
-                                  this,
-                                  s,
-                                  Toast.LENGTH_SHORT)
-                          .show());
+              private void stopPreview() {
+                  playing = false;
+                  handler.removeCallbacksAndMessages(null);
               }
 
-              private void basePage(
-                      String title) {
-
-                  handler.removeCallbacks(
-                          sendRunnable);
-
-                  LinearLayout root =
-                          vertical();
-
-                  root.setBackgroundColor(
-                          Color.BLACK);
-
-                  TextView titleView =
-                          text(title, 22);
-
-                  titleView.setGravity(
-                          Gravity.CENTER);
-
-                  root.addView(
-                          titleView,
-                          new LinearLayout.LayoutParams(
-                                  -1,
-                                  70));
-
-                  ScrollView scroll =
-                          new ScrollView(this);
-
-                  LinearLayout content =
-                          vertical();
-
-                  content.setPadding(
-                          16, 10, 16, 24);
-
-                  scroll.addView(content);
-
-                  root.addView(
-                          scroll,
-                          new LinearLayout.LayoutParams(
-                                  -1,
-                                  0,
-                                  1));
-
-                  setContentView(root);
-
-                  currentContainer = content;
+              private void sendMode(int mode) {
+                  currentModeNumber = mode;
+                  BluetoothService.getInstance().lastUsedMode = mode;
+                  byte[] packet = {0x7B, (byte)0xFF, 0x03, (byte)mode, (byte)0xFF, (byte)0xFF, (byte)0xFF, (byte)0xFF, (byte)0xBF};
+                  BluetoothService.getInstance().sendPacket(packet);
+                  if (currentMode != null) currentMode.setText(t("MODE AKTIF: ", "ACTIVE MODE: ") + mode);
               }
 
-              private LinearLayout currentContainer;
-
-              private void add(View v) {
-
-                  if (currentContainer != null)
-                      currentContainer.addView(v);
+              private void sendOff() {
+                  stopPreview();
+                  byte[] packet = {0x7B, (byte)0xFF, 0x07, 0x00, 0x00, 0x00, (byte)0xBF};
+                  BluetoothService.getInstance().sendPacket(packet);
+                  Toast.makeText(this, "POWER OFF", Toast.LENGTH_SHORT).show();
               }
 
-              private void add(
-                      View v,
-                      ViewGroup.LayoutParams lp) {
+              private void sendDualColor(int col1, int col2) {
+                  int bright = BluetoothService.getInstance().brightness;
+                  int r1 = (Color.red(col1) * bright) / 100;
+                  int g1 = (Color.green(col1) * bright) / 100;
+                  int b1 = (Color.blue(col1) * bright) / 100;
 
-                  if (currentContainer != null)
-                      currentContainer.addView(
-                              v,
-                              lp);
+                  int r2 = (Color.red(col2) * bright) / 100;
+                  int g2 = (Color.green(col2) * bright) / 100;
+                  int b2 = (Color.blue(col2) * bright) / 100;
+
+                  // Protokol Bypass Dual-Channel 0x08 (Lampu Kiri & Kanan terpisah total)
+                  byte[] packet = {
+                      (byte)0x7B,
+                      (byte)0xFF,
+                      (byte)0x08, 
+                      (byte)Math.max(0,Math.min(255,r1)),
+                      (byte)Math.max(0,Math.min(255,g1)),
+                      (byte)Math.max(0,Math.min(255,b1)),
+                      (byte)Math.max(0,Math.min(255,r2)),
+                      (byte)Math.max(0,Math.min(255,g2)),
+                      (byte)Math.max(0,Math.min(255,b2)),
+                      (byte)0xBF
+                  };
+                  BluetoothService.getInstance().sendPacket(packet);
               }
 
-              private LinearLayout vertical() {
-
-                  LinearLayout l =
-                          new LinearLayout(this);
-
-                  l.setOrientation(
-                          LinearLayout.VERTICAL);
-
-                  l.setPadding(
-                          0, 5, 0, 5);
-
-                  return l;
+              private TextView text(String s, float size) {
+                  TextView t = new TextView(this);
+                  t.setText(s); t.setTextSize(size); t.setTextColor(Color.WHITE); t.setPadding(4,6,4,6);
+                  return t;
               }
 
-              private LinearLayout horizontal() {
-
-                  LinearLayout l =
-                          new LinearLayout(this);
-
-                  l.setOrientation(
-                          LinearLayout.HORIZONTAL);
-
-                  l.setGravity(
-                          Gravity.CENTER_VERTICAL);
-
-                  return l;
-              }
-
-              private Button button(
-                      String s) {
-
-                  Button b =
-                          new Button(this);
-
+              private Button button(String s) {
+                  Button b = new Button(this);
                   b.setText(s);
-                  b.setTextColor(
-                          Color.WHITE);
-
+                  b.setTextColor(Color.WHITE);
+                  b.setBackgroundColor(Color.parseColor("#191B20"));
                   return b;
               }
 
-              private TextView text(
-                      String s,
-                      int size) {
-
-                  TextView t =
-                          new TextView(this);
-
-                  t.setText(s);
-                  t.setTextColor(
-                          Color.WHITE);
-
-                  t.setTextSize(size);
-
-                  t.setPadding(
-                          8, 8, 8, 8);
-
-                  return t;
-              }
-
-              private TextView heading(
-                      String s) {
-
-                  TextView t =
-                          text(s, 16);
-
-                  t.setPadding(
-                          8, 18, 8, 8);
-
-                  return t;
-              }
-
-              private void addSpace(
-                      int h) {
-
-                  Space s =
-                          new Space(this);
-
-                  add(
-                          s,
-                          new LinearLayout.LayoutParams(
-                                  1, h));
-              }
-
-              @Override
-              protected void onDestroy() {
-
-                  handler.removeCallbacksAndMessages(
-                          null);
-
-                  try {
-
-                      if (scanner != null &&
-                          scanning) {
-
-                          scanner.stopScan(
-                                  scanCallback);
-                      }
-
-                  } catch (Exception ignored) {}
-
-                  try {
-
-                      if (gatt != null)
-                          gatt.close();
-
-                  } catch (Exception ignored) {}
-
-                  super.onDestroy();
+              private EditText edit(String s) {
+                  EditText e = new EditText(this);
+                  e.setText(s);
+                  e.setTextColor(Color.WHITE);
+                  e.setHintTextColor(Color.GRAY);
+                  e.setBackgroundColor(Color.parseColor("#191B20"));
+                  return e;
               }
 
               private static class Frame {
-
-                  int lr, lg, lb;
-                  int rr, rg, rb;
+                  int lamp1Color;
+                  int lamp2Color;
                   int duration;
-
-                  Frame(
-                          int lr,
-                          int lg,
-                          int lb,
-                          int rr,
-                          int rg,
-                          int rb,
-                          int duration) {
-
-                      this.lr = clampStatic(lr);
-                      this.lg = clampStatic(lg);
-                      this.lb = clampStatic(lb);
-
-                      this.rr = clampStatic(rr);
-                      this.rg = clampStatic(rg);
-                      this.rb = clampStatic(rb);
-
-                      this.duration =
-                              Math.max(
-                                      50,
-                                      duration);
-                  }
-
-                  Frame copy() {
-
-                      return new Frame(
-                              lr, lg, lb,
-                              rr, rg, rb,
-                              duration);
-                  }
-
-                  private static int clampStatic(
-                          int v) {
-
-                      return Math.max(
-                              0,
-                              Math.min(255, v));
+                  Frame(int l1, int l2, int dur) {
+                      this.lamp1Color = l1;
+                      this.lamp2Color = l2;
+                      this.duration = dur;
                   }
               }
 
-              private interface ColorListener {
-                  void changed(
-                          int r,
-                          int g,
-                          int b);
-              }
-
-              private static class ColorWheel
-                      extends View {
-
-                  private final Paint paint =
-                          new Paint(
-                                  Paint.ANTI_ALIAS_FLAG);
-
-                  private float cx;
-                  private float cy;
-                  private float radius;
-
-                  ColorListener listener;
-
-                  ColorWheel(Context context) {
-
-                      super(context);
-
-                      paint.setDither(true);
-                  }
-
-                  @Override
-                  protected void onDraw(
-                          Canvas canvas) {
-
-                      super.onDraw(canvas);
-
-                      cx =
-                              getWidth() / 2f;
-
-                      cy =
-                              getHeight() / 2f;
-
-                      radius =
-                              Math.min(
-                                      getWidth(),
-                                      getHeight())
-                              * .40f;
-
-                      SweepGradient hue =
-                              new SweepGradient(
-                                      cx,
-                                      cy,
-                                      new int[]{
-                                              Color.RED,
-                                              Color.MAGENTA,
-                                              Color.BLUE,
-                                              Color.CYAN,
-                                              Color.GREEN,
-                                              Color.YELLOW,
-                                              Color.RED
-                                      },
-                                      null);
-
-                      paint.setShader(hue);
-
-                      paint.setStyle(
-                              Paint.Style.FILL);
-
-                      canvas.drawCircle(
-                              cx,
-                              cy,
-                              radius,
-                              paint);
-
-                      RadialGradient sat =
-                              new RadialGradient(
-                                      cx,
-                                      cy,
-                                      radius,
-                                      Color.WHITE,
-                                      Color.TRANSPARENT,
-                                      Shader.TileMode.CLAMP);
-
-                      paint.setShader(sat);
-
-                      canvas.drawCircle(
-                              cx,
-                              cy,
-                              radius,
-                              paint);
-
-                      paint.setShader(null);
-
-                      paint.setStyle(
-                              Paint.Style.STROKE);
-
-                      paint.setStrokeWidth(4);
-
-                      paint.setColor(
-                              Color.WHITE);
-
-                      canvas.drawCircle(
-                              cx,
-                              cy,
-                              radius,
-                              paint);
-                  }
-
-                  @Override
-                  public boolean onTouchEvent(
-                          MotionEvent e) {
-
-                      int action =
-                              e.getAction();
-
-                      if (action !=
-                                  MotionEvent.ACTION_DOWN &&
-                          action !=
-                                  MotionEvent.ACTION_MOVE) {
-
-                          return true;
-                      }
-
-                      float dx =
-                              e.getX() - cx;
-
-                      float dy =
-                              e.getY() - cy;
-
-                      float distance =
-                              (float)Math.sqrt(
-                                      dx * dx +
-                                      dy * dy);
-
-                      if (distance > radius)
-                          return true;
-
-                      float hue =
-                              (float)(
-                                  (
-                                      Math.toDegrees(
-                                          Math.atan2(
-                                              dy,
-                                              dx))
-                                      + 360
-                                  ) % 360);
-
-                      float saturation =
-                              Math.min(
-                                      1f,
-                                      distance /
-                                      radius);
-
-                      int color =
-                              Color.HSVToColor(
-                                  new float[]{
-                                      hue,
-                                      saturation,
-                                      1f
-                                  });
-
-                      if (listener != null) {
-
-                          listener.changed(
-                                  Color.red(color),
-                                  Color.green(color),
-                                  Color.blue(color));
-                      }
-
-                      return true;
-                  }
-              }
-
-              private static class ModePreviewView
-                      extends View {
-
-                  private final Paint paint =
-                          new Paint(
-                                  Paint.ANTI_ALIAS_FLAG);
-
-                  private int mode = 1;
-                  private int phase = 0;
-
-                  private final Handler h =
-                          new Handler(
-                                  Looper.getMainLooper());
-
-                  private final Runnable anim =
-                          new Runnable() {
-
-                      @Override
-                      public void run() {
-
-                          phase++;
-
-                          invalidate();
-
-                          h.postDelayed(
-                                  this,
-                                  180);
-                      }
-                  };
-
-                  ModePreviewView(
-                          Context context) {
-
-                      super(context);
-
-                      h.postDelayed(
-                              anim,
-                              180);
-                  }
-
-                  void setMode(int m) {
-
-                      mode = Math.max(
-                              1,
-                              Math.min(
-                                      210,
-                                      m));
-
-                      invalidate();
-                  }
-
-                  @Override
-                  protected void onDetachedFromWindow() {
-
-                      h.removeCallbacks(anim);
-
-                      super.onDetachedFromWindow();
-                  }
-
-                  @Override
-                  protected void onDraw(
-                          Canvas canvas) {
-
-                      int w =
-                              getWidth();
-
-                      int h =
-                              getHeight();
-
-                      int a =
-                              Color.HSVToColor(
-                                  new float[]{
-                                      (mode * 31 +
-                                      phase * 8)
-                                      % 360,
-                                      1f,
-                                      1f
-                                  });
-
-                      int b =
-                              Color.HSVToColor(
-                                  new float[]{
-                                      (mode * 31 +
-                                      180 +
-                                      phase * 8)
-                                      % 360,
-                                      1f,
-                                      1f
-                                  });
-
-                      paint.setStyle(
-                              Paint.Style.FILL);
-
-                      paint.setColor(a);
-
-                      canvas.drawRoundRect(
-                              8,
-                              8,
-                              w / 2f - 5,
-                              h - 8,
-                              20,
-                              20,
-                              paint);
-
-                      paint.setColor(b);
-
-                      canvas.drawRoundRect(
-                              w / 2f + 5,
-                              8,
-                              w - 8,
-                              h - 8,
-                              20,
-                              20,
-                              paint);
-
-                      paint.setColor(
-                              Color.WHITE);
-
-                      paint.setTextAlign(
-                              Paint.Align.CENTER);
-
-                      paint.setTextSize(18);
-
-                      canvas.drawText(
-                              "MODE " +
-                              mode +
-                              " • VISUAL PREVIEW",
-                              w / 2f,
-                              h / 2f,
-                              paint);
-                  }
-              }
-
-              private static class PreviewView
-                      extends View {
-
-                  private final Paint paint =
-                          new Paint(
-                                  Paint.ANTI_ALIAS_FLAG);
-
-                  private Frame frame;
-
-                  PreviewView(Context c) {
-                      super(c);
-                  }
-
-                  void setFrame(Frame f) {
-
-                      frame = f;
-
-                      invalidate();
-                  }
-
-                  @Override
-                  protected void onDraw(
-                          Canvas canvas) {
-
-                      canvas.drawColor(
-                              Color.BLACK);
-
-                      if (frame == null)
-                          return;
-
-                      int w =
-                              getWidth();
-
-                      int h =
-                              getHeight();
-
-                      paint.setStyle(
-                              Paint.Style.FILL);
-
-                      paint.setColor(
-                              Color.rgb(
-                                  frame.lr,
-                                  frame.lg,
-                                  frame.lb));
-
-                      canvas.drawRoundRect(
-                              12,
-                              18,
-                              w / 2f - 8,
-                              h - 18,
-                              24,
-                              24,
-                              paint);
-
-                      paint.setColor(
-                              Color.rgb(
-                                  frame.rr,
-                                  frame.rg,
-                                  frame.rb));
-
-                      canvas.drawRoundRect(
-                              w / 2f + 8,
-                              18,
-                              w - 12,
-                              h - 18,
-                              24,
-                              24,
-                              paint);
-
-                      paint.setColor(
-                              Color.WHITE);
-
-                      paint.setTextSize(22);
-
-                      paint.setTextAlign(
-                              Paint.Align.CENTER);
-
-                      canvas.drawText(
-                              "LEFT",
-                              w / 4f,
-                              h / 2f,
-                              paint);
-
-                      canvas.drawText(
-                              "RIGHT",
-                              w * .75f,
-                              h / 2f,
-                              paint);
-                  }
+              protected void onDestroy() {
+                  stopPreview();
+                  if (gatt != null) { try { gatt.disconnect(); gatt.close(); } catch (Exception ignored) {} }
+                  super.onDestroy();
               }
           }
           EOF
 
-          gradle wrapper --gradle-version 8.10.2
+          gradle assembleDebug --stacktrace
 
-      - name: Build APK
-        shell: bash
-        run: |
-          set -e
-          chmod +x ./gradlew
-          ./gradlew --no-daemon clean assembleDebug
-
-      - name: Verify APK
-        shell: bash
-        run: |
-          set -e
-          test -f app/build/outputs/apk/debug/app-debug.apk
-          ls -lh app/build/outputs/apk/debug/app-debug.apk
-
-      - name: Upload APK
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: LEDDMX-AI-Pro-v13
+          name: LEDDMX-Full-Override-v15
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
