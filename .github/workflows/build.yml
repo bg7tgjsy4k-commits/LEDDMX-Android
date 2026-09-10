@@ -1,4 +1,4 @@
-name: Build LEDDMX Final Wrapper Fix v34
+Name: Build LEDDMX Final Wrapper Fix v35
 
 on:
   workflow_dispatch:
@@ -21,7 +21,7 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Build APK v34 with Wrapper
+      - name: Build APK v35 with Location & Scan Fix
         shell: bash
         run: |
           set -e
@@ -71,7 +71,7 @@ jobs:
                   minSdkVersion 21
                   targetSdkVersion 33
                   versionCode 1
-                  versionName "34.0"
+                  versionName "35.0"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_1_8
@@ -98,6 +98,7 @@ jobs:
               <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
               <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
               <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+              <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
               <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
               <application
                   android:allowBackup="true"
@@ -173,6 +174,7 @@ jobs:
               private boolean isPlaying = false;
               private final ArrayList<AnimFrame> timelineFrames = new ArrayList<>();
               private LinearLayout scanDeviceListLayout;
+              private final ArrayList<String> foundAddresses = new ArrayList<>();
 
               @Override
               protected void onCreate(Bundle savedInstanceState) {
@@ -190,11 +192,14 @@ jobs:
                   buildUI();
                   showHomeDashboard();
 
-                  if (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                  // Meminta izin Lokasi dan Bluetooth secara bersamaan secara runtime
+                  if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED ||
+                      checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
                       requestPermissions(new String[]{
                           Manifest.permission.BLUETOOTH_SCAN,
                           Manifest.permission.BLUETOOTH_CONNECT,
-                          Manifest.permission.ACCESS_FINE_LOCATION
+                          Manifest.permission.ACCESS_FINE_LOCATION,
+                          Manifest.permission.ACCESS_COARSE_LOCATION
                       }, 100);
                   }
               }
@@ -522,13 +527,13 @@ jobs:
 
               private void showScanScreen() {
                   clearContent();
-                  contentLayout.addView(createHeader("SCAN BLE: LEDDMX-00-b2cd"));
+                  contentLayout.addView(createHeader("SCAN BLE (Device Online):"));
 
                   scanDeviceListLayout = new LinearLayout(this);
                   scanDeviceListLayout.setOrientation(LinearLayout.VERTICAL);
                   contentLayout.addView(scanDeviceListLayout);
 
-                  Button scanBtn = createButton("MULAI SCAN", Color.parseColor("#1F2430"));
+                  Button scanBtn = createButton("MULAI SCAN ULANG", Color.parseColor("#00838F"));
                   scanBtn.setOnClickListener(v -> startBleScan());
                   contentLayout.addView(scanBtn);
 
@@ -540,36 +545,58 @@ jobs:
               }
 
               private void startBleScan() {
-                  if (bluetoothAdapter == null) return;
+                  if (bluetoothAdapter == null) {
+                      Toast.makeText(this, "Bluetooth tidak didukung!", Toast.LENGTH_SHORT).show();
+                      return;
+                  }
                   BluetoothLeScanner bleScanner = bluetoothAdapter.getBluetoothLeScanner();
-                  if (bleScanner == null) return;
+                  if (bleScanner == null) {
+                      Toast.makeText(this, "BLE Scanner tidak aktif (Pastikan GPS/Lokasi ON)", Toast.LENGTH_LONG).show();
+                      return;
+                  }
                   if (scanDeviceListLayout != null) scanDeviceListLayout.removeAllViews();
+                  foundAddresses.clear();
 
-                  statusText.setText("Status: Scanning...");
+                  statusText.setText("Status: Scanning perangkat sekitar...");
                   try {
                       bleScanner.startScan(new ScanCallback() {
                           public void onScanResult(int callbackType, ScanResult result) {
                               BluetoothDevice dev = result.getDevice();
-                              String name = "";
-                              try { if (dev.getName() != null) name = dev.getName(); } catch(SecurityException ignored){}
+                              String address = dev.getAddress();
+                              if (address != null && !foundAddresses.contains(address)) {
+                                  foundAddresses.add(address);
+                                  String name = "Unknown Device";
+                                  try {
+                                      if (dev.getName() != null) name = dev.getName();
+                                  } catch(SecurityException ignored){}
 
-                              if (name.contains("LEDDMX") || name.contains("b2cd")) {
+                                  final String devName = name;
+                                  final String devAddress = address;
+
+                                  // Tampilkan semua perangkat BLE yang aktif/online di sekitar
                                   runOnUiThread(() -> {
-                                      Button devBtn = createButton(name + "\n[" + dev.getAddress() + "]", Color.parseColor("#00838F"));
+                                      Button devBtn = createButton("📶 " + devName + "\n[" + devAddress + "]", Color.parseColor("#1F2430"));
+                                      devBtn.setPadding(10, 15, 10, 15);
                                       devBtn.setOnClickListener(v -> {
-                                          bleScanner.stopScan(this);
+                                          try {
+                                              bleScanner.stopScan(this);
+                                          } catch(SecurityException ignored){}
                                           connectDevice(dev);
                                       });
-                                      if (scanDeviceListLayout != null) scanDeviceListLayout.addView(devBtn);
+                                      if (scanDeviceListLayout != null) {
+                                          scanDeviceListLayout.addView(devBtn, new LinearLayout.LayoutParams(-1, -2));
+                                      }
                                   });
                               }
                           }
                       });
-                  } catch (Exception ignored) {}
+                  } catch (SecurityException e) {
+                      statusText.setText("Status: Izin Lokasi/Bluetooth ditolak oleh sistem!");
+                  }
               }
 
               private void connectDevice(BluetoothDevice device) {
-                  statusText.setText("Status: Connecting...");
+                  statusText.setText("Status: Connecting to " + device.getAddress() + "...");
                   try {
                       bluetoothGatt = device.connectGatt(MainActivity.this, false, new BluetoothGattCallback() {
                           public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
@@ -578,7 +605,7 @@ jobs:
                                   gatt.discoverServices();
                                   runOnUiThread(() -> {
                                       statusText.setText("Status: Connected");
-                                      Toast.makeText(MainActivity.this, "Terhubung!", Toast.LENGTH_SHORT).show();
+                                      Toast.makeText(MainActivity.this, "Berhasil Terhubung!", Toast.LENGTH_SHORT).show();
                                       showHomeDashboard();
                                   });
                               } else if (newState == BluetoothGatt.STATE_DISCONNECTED) {
@@ -591,9 +618,9 @@ jobs:
                           public void onServicesDiscovered(BluetoothGatt gatt, int status) {
                               if (status == BluetoothGatt.GATT_SUCCESS) {
                                   for (BluetoothGattService s : gatt.getServices()) {
-                                      if (s.getUuid().equals(SERVICE_FFE0) || s.getUuid().toString().contains("ffe0")) {
+                                      if (s.getUuid().equals(SERVICE_FFE0) || s.getUuid().toString().toLowerCase().contains("ffe0")) {
                                           for (BluetoothGattCharacteristic c : s.getCharacteristics()) {
-                                              if (c.getUuid().equals(CHAR_FFE1) || c.getUuid().toString().contains("ffe1")) {
+                                              if (c.getUuid().equals(CHAR_FFE1) || c.getUuid().toString().toLowerCase().contains("ffe1")) {
                                                   targetChar = c;
                                                   break;
                                               }
@@ -685,7 +712,6 @@ jobs:
           }
           EOF
 
-          # Generate Gradle Wrapper secara eksplisit sebelum build
           gradle wrapper --gradle-version 7.5
           chmod +x ./gradlew
           ./gradlew assembleDebug --stacktrace
@@ -693,6 +719,6 @@ jobs:
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: LEDDMX-Pro-v34
+          name: LEDDMX-Pro-v35
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
