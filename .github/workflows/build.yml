@@ -1,4 +1,4 @@
-name: Build LEDDMX Ultimate Fix v24
+name: Build LEDDMX Ultimate Fix v25
 
 on:
   workflow_dispatch:
@@ -75,7 +75,7 @@ jobs:
                   minSdk 21
                   targetSdk 34
                   versionCode 1
-                  versionName "24.0"
+                  versionName "25.0"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_1_8
@@ -190,7 +190,7 @@ jobs:
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-                  prefs = getSharedPreferences("leddmx_bypass_v24", MODE_PRIVATE);
+                  prefs = getSharedPreferences("leddmx_bypass_v25", MODE_PRIVATE);
 
                   BluetoothManager bm = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
                   if (bm != null) bluetoothAdapter = bm.getAdapter();
@@ -352,13 +352,13 @@ jobs:
                   for (Frame f : frames) {
                       sb.append(f.lamp1Color).append(",").append(f.lamp2Color).append(",").append(f.duration).append(";");
                   }
-                  prefs.edit().putString("bypass_v24_slot_" + selectedSlot, sb.toString()).apply();
+                  prefs.edit().putString("bypass_v25_slot_" + selectedSlot, sb.toString()).apply();
                   Toast.makeText(this, "Slot " + selectedSlot + " Berhasil Disimpan!", Toast.LENGTH_SHORT).show();
               }
 
               private void loadSlot() {
                   frames.clear();
-                  String s = prefs.getString("bypass_v24_slot_" + selectedSlot, "");
+                  String s = prefs.getString("bypass_v25_slot_" + selectedSlot, "");
                   if (s.isEmpty()) {
                       frames.add(new Frame(Color.RED, Color.BLACK, 150));
                       frames.add(new Frame(Color.BLACK, Color.RED, 150));
@@ -399,9 +399,10 @@ jobs:
               }
 
               private void sendDualChannelPacket(int col1, int col2) {
-                  int r1 = Color.red(col1); int g1 = Color.green(col1); int b1 = Color.blue(col1);
+                  int r1 = Color.red(logColor(col1)); int g1 = Color.green(col1); int b1 = Color.blue(col1);
                   int r2 = Color.red(col2); int g2 = Color.green(col2); int b2 = Color.blue(col2);
 
+                  // Protokol Bypass 0x08 untuk Dual-Channel (Kiri & Kanan Terpisah Total)
                   byte[] packet = {
                       (byte)0x7B, (byte)0xFF, (byte)0x08, 
                       (byte)r1, (byte)g1, (byte)b1, 
@@ -410,12 +411,10 @@ jobs:
                   };
                   sendBle(packet);
               }
+              
+              private int logColor(int c) { return c; }
 
               private void sendBle(byte[] data) {
-                  if (BluetoothService.getInstance().gatt == null || BluetoothService.getInstance().writeChar == null) {
-                      Toast.makeText(this, "Modul Belum Terhubung!", Toast.LENGTH_SHORT).show();
-                      return;
-                  }
                   BluetoothService.getInstance().sendPacket(data);
               }
 
@@ -511,23 +510,13 @@ jobs:
           }
           EOF
 
-          cat > gradle/wrapper/gradle-wrapper.properties << 'EOF'
-          distributionBase=GRADLE_USER_HOME
-          distributionPath=wrapper/dists
-          distributionUrl=https\://services.gradle.org/distributions/gradle-8.0-bin.zip
-          networkTimeout=10000
-          zipStoreBase=GRADLE_USER_HOME
-          zipStorePath=wrapper/dists
-          EOF
-
           gradle wrapper --gradle-version 8.0
-
           chmod +x ./gradlew
           ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: LEDDMX-Bypass-Pro-v24
+          name: LEDDMX-Bypass-Pro-v25
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
