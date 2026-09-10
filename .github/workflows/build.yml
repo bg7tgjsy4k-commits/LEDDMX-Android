@@ -1,4 +1,4 @@
-name: Build LEDDMX Final Force v26
+name: Build LEDDMX Final Wrapper v27
 
 on:
   workflow_dispatch:
@@ -21,7 +21,7 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Force Gradle 8.5 and Build
+      - name: Generate Wrapper and Build APK
         shell: bash
         run: |
           set -e
@@ -29,7 +29,6 @@ jobs:
 
           mkdir -p app/src/main/java/com/leddmx/pro
           mkdir -p app/src/main/res/values
-          mkdir -p gradle/wrapper
 
           echo "sdk.dir=$ANDROID_HOME" > local.properties
 
@@ -76,7 +75,7 @@ jobs:
                   minSdk 21
                   targetSdk 34
                   versionCode 1
-                  versionName "26.0"
+                  versionName "27.0"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_1_8
@@ -191,7 +190,7 @@ jobs:
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-                  prefs = getSharedPreferences("leddmx_bypass_v26", MODE_PRIVATE);
+                  prefs = getSharedPreferences("leddmx_bypass_v27", MODE_PRIVATE);
 
                   BluetoothManager bm = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
                   if (bm != null) bluetoothAdapter = bm.getAdapter();
@@ -353,13 +352,13 @@ jobs:
                   for (Frame f : frames) {
                       sb.append(f.lamp1Color).append(",").append(f.lamp2Color).append(",").append(f.duration).append(";");
                   }
-                  prefs.edit().putString("bypass_v26_slot_" + selectedSlot, sb.toString()).apply();
+                  prefs.edit().putString("bypass_v27_slot_" + selectedSlot, sb.toString()).apply();
                   Toast.makeText(this, "Slot " + selectedSlot + " Berhasil Disimpan!", Toast.LENGTH_SHORT).show();
               }
 
               private void loadSlot() {
                   frames.clear();
-                  String s = prefs.getString("bypass_v26_slot_" + selectedSlot, "");
+                  String s = prefs.getString("bypass_v27_slot_" + selectedSlot, "");
                   if (s.isEmpty()) {
                       frames.add(new Frame(Color.RED, Color.BLACK, 150));
                       frames.add(new Frame(Color.BLACK, Color.RED, 150));
@@ -508,24 +507,14 @@ jobs:
           }
           EOF
 
-          # Hapus file wrapper bawaan lalu paksa download dan kunci Gradle ke versi 8.5
-          rm -rf gradle/wrapper/gradle-wrapper.properties
-          cat > gradle/wrapper/gradle-wrapper.properties << 'EOF'
-          distributionBase=GRADLE_USER_HOME
-          distributionPath=wrapper/dists
-          distributionUrl=https\://services.gradle.org/distributions/gradle-8.5-bin.zip
-          networkTimeout=10000
-          zipStoreBase=GRADLE_USER_HOME
-          zipStorePath=wrapper/dists
-          EOF
-
-          ./gradlew wrapper --gradle-version 8.5 --distribution-type bin
+          # Generate file gradle wrapper secara eksplisit sebelum build
+          gradle wrapper --gradle-version 8.5
           chmod +x ./gradlew
           ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: LEDDMX-Bypass-Pro-v26
+          name: LEDDMX-Bypass-Pro-v27
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
