@@ -1,4 +1,4 @@
-name: Build LEDDMX Exact Protocol v31
+name: Build LEDDMX Final Clean v32
 
 on:
   workflow_dispatch:
@@ -21,7 +21,7 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Build APK Exact Protocol
+      - name: Build APK v32
         shell: bash
         run: |
           set -e
@@ -75,7 +75,7 @@ jobs:
                   minSdk 21
                   targetSdk 34
                   versionCode 1
-                  versionName "31.0"
+                  versionName "32.0"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_1_8
@@ -165,15 +165,13 @@ jobs:
               private SharedPreferences sharedPrefs;
               private final Handler handler = new Handler();
 
-              // Parameter State LEDDMX-00
               private int currentMode = 1;
               private int brightness = 100;
               private int speed = 50;
               private int pixelCount = 60;
-              private int direction = 0; // 0: Fwd, 1: Rev
+              private int direction = 0;
               private String rgbOrder = "RGB";
-              private String icType = "WS2812B";
-              private int selectedSlot = 171; // 171 - 210 (Local Storage)
+              private int selectedSlot = 171;
               private boolean isPlaying = false;
               private final ArrayList<AnimFrame> timelineFrames = new ArrayList<>();
               private LinearLayout scanDeviceListLayout;
@@ -208,7 +206,6 @@ jobs:
                   root.setOrientation(LinearLayout.VERTICAL);
                   root.setBackgroundColor(Color.parseColor("#121418"));
 
-                  // Top Bar
                   LinearLayout topBar = new LinearLayout(this);
                   topBar.setGravity(Gravity.CENTER_VERTICAL);
                   topBar.setPadding(20, 20, 20, 20);
@@ -233,7 +230,6 @@ jobs:
                   statusText.setPadding(20, 0, 20, 10);
                   root.addView(statusText);
 
-                  // Scrollable Content
                   ScrollView scroll = new ScrollView(this);
                   contentLayout = new LinearLayout(this);
                   contentLayout.setOrientation(LinearLayout.VERTICAL);
@@ -241,7 +237,6 @@ jobs:
                   scroll.addView(contentLayout, new LinearLayout.LayoutParams(-1, -2));
                   root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
 
-                  // Bottom Nav
                   LinearLayout nav = new LinearLayout(this);
                   nav.setPadding(10, 10, 10, 10);
                   nav.setBackgroundColor(Color.parseColor("#1A1D24"));
@@ -271,12 +266,10 @@ jobs:
                   contentLayout.removeAllViews();
               }
 
-              // --- 1. HOME & HARDWARE SETTINGS (FFE1 PROTOCOL) ---
               private void showHomeDashboard() {
                   clearContent();
                   contentLayout.addView(createHeader("DASHBOARD HARDWARE (FFE1)"));
 
-                  // Power ON / OFF (0x04 / 0x01)
                   LinearLayout pwrRow = new LinearLayout(this);
                   Button onBtn = createButton("POWER ON", Color.parseColor("#00C853"));
                   onBtn.setOnClickListener(v -> sendCommand(new byte[]{0x7B, (byte)0xFF, 0x04, 0x01, (byte)0xBF}));
@@ -286,7 +279,6 @@ jobs:
                   pwrRow.addView(offBtn, new LinearLayout.LayoutParams(0, -2, 1));
                   contentLayout.addView(pwrRow);
 
-                  // Brightness (0x02)
                   contentLayout.addView(createLabel("Brightness: " + brightness + "%"));
                   SeekBar brightSeek = new SeekBar(this);
                   brightSeek.setMax(100);
@@ -300,7 +292,6 @@ jobs:
                   });
                   contentLayout.addView(brightSeek);
 
-                  // Speed (0x04)
                   contentLayout.addView(createLabel("Speed: " + speed));
                   SeekBar speedSeek = new SeekBar(this);
                   speedSeek.setMax(100);
@@ -314,18 +305,16 @@ jobs:
                   });
                   contentLayout.addView(speedSeek);
 
-                  // Direction (0x0D)
-                  Button dirBtn = createButton("Arah Gerak (Direction): " + (direction == 0 ? "Forward" : "Reverse"), Color.parseColor("#1F2430"));
+                  Button dirBtn = createButton("Direction: " + (direction == 0 ? "Forward" : "Reverse"), Color.parseColor("#1F2430"));
                   dirBtn.setOnClickListener(v -> {
                       direction = (direction == 0) ? 1 : 0;
                       sendCommand(new byte[]{0x7B, (byte)0xFF, (byte)0x0D, (byte)direction, (byte)0xBF});
-                      Toast.makeText(this, "Direction diubah", Toast.LENGTH_SHORT).show();
+                      Toast.makeText(MainActivity.this, "Direction diubah", Toast.LENGTH_SHORT).show();
                       showHomeDashboard();
                   });
                   contentLayout.addView(dirBtn);
 
-                  // Pixel Config (0x05)
-                  contentLayout.addView(createLabel("Pixel Count & IC Type:"));
+                  contentLayout.addView(createLabel("Pixel Count:"));
                   EditText pixelInput = createEditText(String.valueOf(pixelCount));
                   contentLayout.addView(pixelInput);
 
@@ -333,11 +322,10 @@ jobs:
                   applyPixel.setOnClickListener(v -> {
                       try { pixelCount = Integer.parseInt(pixelInput.getText().toString()); } catch(Exception ignored){}
                       sendCommand(new byte[]{0x7B, (byte)0xFF, 0x05, (byte)(pixelCount >> 8), (byte)(pixelCount & 0xFF), (byte)0xBF});
-                      Toast.makeText(this, "Pixel Count " + pixelCount + " Terkirim!", Toast.LENGTH_SHORT).show();
+                      Toast.makeText(MainActivity.this, "Pixel Count " + pixelCount + " Terkirim!", Toast.LENGTH_SHORT).show();
                   });
                   contentLayout.addView(applyPixel);
 
-                  // RGB Order (0x07)
                   contentLayout.addView(createLabel("RGB Order (0x07):"));
                   LinearLayout rgbRow = new LinearLayout(this);
                   String[] orders = {"RGB", "RBG", "GRB", "GBR", "BRG", "BGR"};
@@ -348,7 +336,7 @@ jobs:
                       b.setOnClickListener(v -> {
                           rgbOrder = ordName;
                           sendCommand(new byte[]{0x7B, (byte)0xFF, 0x07, (byte)ordVal, (byte)0xBF});
-                          Toast.makeText(this, "RGB Order: " + ordName, Toast.LENGTH_SHORT).show();
+                          Toast.makeText(MainActivity.this, "RGB Order: " + ordName, Toast.LENGTH_SHORT).show();
                           showHomeDashboard();
                       });
                       rgbRow.addView(b, new LinearLayout.LayoutParams(0, 60, 1));
@@ -356,7 +344,6 @@ jobs:
                   contentLayout.addView(rgbRow);
               }
 
-              // --- 2. MODES 1 - 210 (0x03) ---
               private void showModeScreen() {
                   clearContent();
                   contentLayout.addView(createHeader("PILIH MODE (1 - 210)"));
@@ -397,14 +384,13 @@ jobs:
                       b.setOnClickListener(v -> {
                           currentMode = m;
                           sendCommand(new byte[]{0x7B, (byte)0xFF, 0x03, (byte)m, (byte)0xBF});
-                          Toast.makeText(this, "Mode " + m + " Dikirim", Toast.LENGTH_SHORT).show();
+                          Toast.makeText(MainActivity.this, "Mode " + m + " Dikirim", Toast.LENGTH_SHORT).show();
                           showModeScreen();
                       });
                       row.addView(b, new LinearLayout.LayoutParams(0, 80, 1));
                   }
               }
 
-              // --- 3. CUSTOM EDITOR & SLOT 171-210 (LOKAL HP) ---
               private void showEditorScreen() {
                   clearContent();
                   contentLayout.addView(createHeader("CUSTOM ANIMATION & SLOT 171-210"));
@@ -475,7 +461,7 @@ jobs:
                   Button saveLocalBtn = createButton("💾 Simpan ke Slot Lokal HP", Color.parseColor("#00838F"));
                   saveLocalBtn.setOnClickListener(v -> {
                       saveSlotToLocal(selectedSlot);
-                      Toast.makeText(this, "Tersimpan di Slot " + selectedSlot + " (Lokal HP)", Toast.LENGTH_SHORT).show();
+                      Toast.makeText(MainActivity.this, "Tersimpan di Slot " + selectedSlot, Toast.LENGTH_SHORT).show();
                   });
                   contentLayout.addView(saveLocalBtn);
 
@@ -488,7 +474,6 @@ jobs:
                   contentLayout.addView(stopLiveBtn);
               }
 
-              // --- 4. TEMPLATES ---
               private void showTemplatesScreen() {
                   clearContent();
                   contentLayout.addView(createHeader("TEMPLATE EFEK"));
@@ -497,7 +482,7 @@ jobs:
                       Button b = createButton("Template: " + tpl, Color.parseColor("#1F2430"));
                       b.setOnClickListener(v -> {
                           loadTemplate(tpl);
-                          Toast.makeText(this, "Dimuat ke Editor!", Toast.LENGTH_SHORT).show();
+                          Toast.makeText(MainActivity.this, "Dimuat ke Editor!", Toast.LENGTH_SHORT).show();
                           showEditorScreen();
                       });
                       contentLayout.addView(b);
@@ -515,7 +500,6 @@ jobs:
                   }
               }
 
-              // --- 5. RAW HEX & OFFLINE AI ---
               private void showRawHexScreen() {
                   clearContent();
                   contentLayout.addView(createHeader("RAW HEX & OFFLINE AI"));
@@ -530,15 +514,14 @@ jobs:
                           byte[] data = new byte[parts.length];
                           for (int i = 0; i < parts.length; i++) data[i] = (byte) Integer.parseInt(parts[i], 16);
                           sendCommand(data);
-                          Toast.makeText(this, "HEX Terkirim!", Toast.LENGTH_SHORT).show();
+                          Toast.makeText(MainActivity.this, "HEX Terkirim!", Toast.LENGTH_SHORT).show();
                       } catch(Exception e) {
-                          Toast.makeText(this, "Format Salah!", Toast.LENGTH_SHORT).show();
+                          Toast.makeText(MainActivity.this, "Format Salah!", Toast.LENGTH_SHORT).show();
                       }
                   });
                   contentLayout.addView(sendHex);
               }
 
-              // --- BLE SCANNER & FFE1 CONNECTION ---
               private void showScanScreen() {
                   clearContent();
                   contentLayout.addView(createHeader("SCAN BLE: LEDDMX-00-b2cd"));
@@ -590,14 +573,14 @@ jobs:
               private void connectDevice(BluetoothDevice device) {
                   statusText.setText("Status: Connecting...");
                   try {
-                      bluetoothGatt = device.connectGatt(this, false, new BluetoothGattCallback() {
+                      bluetoothGatt = device.connectGatt(MainActivity.this, false, new BluetoothGattCallback() {
                           public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
                               if (newState == BluetoothGatt.STATE_CONNECTED) {
                                   bluetoothGatt = gatt;
                                   gatt.discoverServices();
                                   runOnUiThread(() -> {
                                       statusText.setText("Status: Connected");
-                                      Toast.MakeText(MainActivity.this, "Terhubung!", Toast.LENGTH_SHORT).show();
+                                      Toast.makeText(MainActivity.this, "Terhubung!", Toast.LENGTH_SHORT).show();
                                       showHomeDashboard();
                                   });
                               } else if (newState == BluetoothGatt.STATE_DISCONNECTED) {
@@ -612,7 +595,6 @@ jobs:
                                   for (BluetoothGattService s : gatt.getServices()) {
                                       if (s.getUuid().equals(SERVICE_FFE0) || s.getUuid().toString().contains("ffe0")) {
                                           for (BluetoothGattCharacteristic c : s.getCharacteristics()) {
-                                              // PRIORITAS UTAMA FFE1
                                               if (c.getUuid().equals(CHAR_FFE1) || c.getUuid().toString().contains("ffe1")) {
                                                   targetChar = c;
                                                   break;
@@ -628,7 +610,7 @@ jobs:
 
               private void sendCommand(byte[] data) {
                   if (bluetoothGatt == null || targetChar == null) {
-                      Toast.makeText(this, "Belum terhubung ke FFE1!", Toast.LENGTH_SHORT).show();
+                      Toast.makeText(MainActivity.this, "Belum terhubung ke FFE1!", Toast.LENGTH_SHORT).show();
                       return;
                   }
                   try {
@@ -687,16 +669,16 @@ jobs:
               }
 
               private TextView createHeader(String text) {
-                  TextView t = new TextView(this); t.setText(text); t.setTextColor(Color.parseColor("#00E5FF")); t.setTextSize(16); t.setPadding(0, 10, 0, 10); return t;
+                  TextView t = new TextView(MainActivity.this); t.setText(text); t.setTextColor(Color.parseColor("#00E5FF")); t.setTextSize(16); t.setPadding(0, 10, 0, 10); return t;
               }
               private TextView createLabel(String text) {
-                  TextView t = new TextView(this); t.setText(text); t.setTextColor(Color.WHITE); t.setTextSize(13); t.setPadding(0, 8, 0, 4); return t;
+                  TextView t = new TextView(MainActivity.this); t.setText(text); t.setTextColor(Color.WHITE); t.setTextSize(13); t.setPadding(0, 8, 0, 4); return t;
               }
               private Button createButton(String text, int bgColor) {
-                  Button b = new Button(this); b.setText(text); b.setTextColor(Color.WHITE); b.setBackgroundColor(bgColor); return b;
+                  Button b = new Button(MainActivity.this); b.setText(text); b.setTextColor(Color.WHITE); b.setBackgroundColor(bgColor); return b;
               }
               private EditText createEditText(String text) {
-                  EditText e = new EditText(this); e.setText(text); e.setTextColor(Color.WHITE); e.setBackgroundColor(Color.parseColor("#1F2430")); return e;
+                  EditText e = new EditText(MainActivity.this); e.setText(text); e.setTextColor(Color.WHITE); e.setBackgroundColor(Color.parseColor("#1F2430")); return e;
               }
               private static class AnimFrame {
                   int leftColor, rightColor, duration;
@@ -712,6 +694,6 @@ jobs:
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: LEDDMX-Pro-v31
+          name: LEDDMX-Pro-v32
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
