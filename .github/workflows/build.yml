@@ -3,7 +3,9 @@ name: LEDDMX AI PRO FINAL
 on:
   workflow_dispatch:
   push:
-    branches: [main, master]
+    branches:
+      - main
+      - master
 
 permissions:
   contents: read
@@ -16,20 +18,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup JDK 17
+      - name: Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Download Gradle 7.6.1
+      - name: Gradle 7.6.1
         shell: bash
         run: |
           curl -L -o gradle.zip https://services.gradle.org/distributions/gradle-7.6.1-bin.zip
           unzip -q gradle.zip
           echo "$PWD/gradle-7.6.1/bin" >> "$GITHUB_PATH"
 
-      - name: Create project
+      - name: Create Android project
         shell: bash
         run: |
           mkdir -p app/src/main/java/com/leddmx/aipro
@@ -77,7 +79,7 @@ jobs:
                   minSdk 21
                   targetSdk 33
                   versionCode 100
-                  versionName "FINAL"
+                  versionName "1.0-FINAL"
               }
           }
           EOF
@@ -110,11 +112,16 @@ jobs:
 
               <uses-permission android:name="android.permission.BLUETOOTH" />
               <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+
               <uses-permission
                   android:name="android.permission.BLUETOOTH_SCAN"
                   android:usesPermissionFlags="neverForLocation" />
-              <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+
+              <uses-permission
+                  android:name="android.permission.BLUETOOTH_CONNECT" />
+
+              <uses-permission
+                  android:name="android.permission.ACCESS_FINE_LOCATION" />
 
               <application
                   android:theme="@style/AppTheme"
@@ -134,33 +141,2321 @@ jobs:
 
                   </activity>
               </application>
+
           </manifest>
           EOF
 
-          cat > app/src/main/assets/modes.txt <<'EOF'
+          cat > app/src/main/assets/index.html <<'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+          <meta name="viewport"
+                content="width=device-width,initial-scale=1,
+                         maximum-scale=1,user-scalable=no">
+
+          <style>
+          *{
+            box-sizing:border-box;
+            -webkit-tap-highlight-color:transparent;
+          }
+
+          html,body{
+            margin:0;
+            padding:0;
+            background:#050505;
+            color:#fff;
+            font-family:Arial,sans-serif;
+            min-height:100%;
+          }
+
+          body{
+            overflow-x:hidden;
+          }
+
+          button{
+            font-family:inherit;
+            color:#fff;
+            background:#141414;
+            border:1px solid #303030;
+            border-radius:13px;
+            padding:13px 12px;
+            font-size:14px;
+            font-weight:600;
+          }
+
+          button:active{
+            transform:scale(.98);
+          }
+
+          .top{
+            position:sticky;
+            top:0;
+            z-index:50;
+            height:68px;
+            display:flex;
+            align-items:center;
+            gap:8px;
+            padding:0 13px;
+            background:rgba(5,5,5,.97);
+            border-bottom:1px solid #222;
+          }
+
+          .hamb{
+            width:48px;
+            height:48px;
+            padding:0;
+            border:0;
+            background:transparent;
+            font-size:31px;
+          }
+
+          .title{
+            flex:1;
+            font-size:19px;
+            font-weight:800;
+            letter-spacing:.8px;
+          }
+
+          .status{
+            font-size:10px;
+            border:1px solid #333;
+            border-radius:20px;
+            padding:8px 10px;
+            color:#999;
+            white-space:nowrap;
+          }
+
+          .page{
+            display:none;
+            padding:15px;
+            padding-bottom:100px;
+          }
+
+          .page.active{
+            display:block;
+          }
+
+          .card{
+            background:#101010;
+            border:1px solid #242424;
+            border-radius:20px;
+            padding:16px;
+            margin-bottom:14px;
+          }
+
+          h1{
+            margin:0 0 14px;
+            font-size:25px;
+          }
+
+          h2{
+            margin:0 0 14px;
+            font-size:20px;
+          }
+
+          h3{
+            margin:18px 0 9px;
+            font-size:12px;
+            color:#999;
+            letter-spacing:1.2px;
+          }
+
+          .sub{
+            color:#777;
+            font-size:12px;
+            line-height:1.5;
+          }
+
+          .grid2{
+            display:grid;
+            grid-template-columns:1fr 1fr;
+            gap:10px;
+          }
+
+          .grid3{
+            display:grid;
+            grid-template-columns:repeat(3,1fr);
+            gap:8px;
+          }
+
+          .primary{
+            background:#fff;
+            color:#000;
+            border-color:#fff;
+          }
+
+          .danger{
+            border-color:#553030;
+          }
+
+          /* DRAWER */
+
+          .drawer{
+            position:fixed;
+            z-index:200;
+            top:0;
+            left:-310px;
+            width:292px;
+            height:100vh;
+            overflow:auto;
+            padding:22px 16px;
+            background:#0b0b0b;
+            border-right:1px solid #282828;
+            transition:left .22s ease;
+            box-shadow:15px 0 50px rgba(0,0,0,.7);
+          }
+
+          .drawer.open{
+            left:0;
+          }
+
+          .drawerTitle{
+            font-size:21px;
+            font-weight:800;
+            padding:5px 8px 18px;
+          }
+
+          .drawer button{
+            width:100%;
+            text-align:left;
+            margin:4px 0;
+            padding:14px;
+            background:#141414;
+          }
+
+          .drawerSep{
+            height:1px;
+            background:#272727;
+            margin:15px 0;
+          }
+
+          .overlay{
+            display:none;
+            position:fixed;
+            z-index:150;
+            inset:0;
+            background:rgba(0,0,0,.65);
+          }
+
+          .overlay.show{
+            display:block;
+          }
+
+          /* COLOR WHEEL */
+
+          .wheelWrap{
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            padding:10px 0 16px;
+          }
+
+          .wheel{
+            width:min(78vw,300px);
+            height:min(78vw,300px);
+            max-width:300px;
+            max-height:300px;
+            min-width:220px;
+            min-height:220px;
+            position:relative;
+            border-radius:50%;
+            touch-action:none;
+            background:
+              radial-gradient(
+                circle,
+                #fff 0%,
+                rgba(255,255,255,0) 68%
+              ),
+              conic-gradient(
+                #ff0000,
+                #ffff00,
+                #00ff00,
+                #00ffff,
+                #0000ff,
+                #ff00ff,
+                #ff0000
+              );
+            box-shadow:
+              0 0 0 2px #282828,
+              0 0 40px rgba(255,255,255,.08);
+          }
+
+          .wheelDot{
+            position:absolute;
+            left:50%;
+            top:50%;
+            width:20px;
+            height:20px;
+            margin-left:-10px;
+            margin-top:-10px;
+            border-radius:50%;
+            border:3px solid #fff;
+            background:transparent;
+            box-shadow:
+              0 0 0 2px #000,
+              0 0 10px rgba(255,255,255,.8);
+            z-index:5;
+            pointer-events:none;
+          }
+
+          .colorPreview{
+            height:42px;
+            border-radius:13px;
+            border:1px solid #333;
+            margin:5px 0 13px;
+          }
+
+          .preset{
+            height:50px;
+            border-radius:12px;
+          }
+
+          .preset.red{background:#f00}
+          .preset.green{background:#0f0}
+          .preset.blue{background:#00f}
+          .preset.white{background:#fff;color:#000}
+          .preset.yellow{background:#ff0;color:#000}
+          .preset.cyan{background:#0ff;color:#000}
+          .preset.magenta{background:#f0f;color:#000}
+
+          input[type=range]{
+            width:100%;
+            accent-color:#fff;
+          }
+
+          .value{
+            float:right;
+            color:#fff;
+          }
+
+          /* LED STRIP */
+
+          .strip{
+            display:flex;
+            align-items:center;
+            gap:4px;
+            height:90px;
+            padding:17px 8px;
+            border-radius:18px;
+            overflow:hidden;
+            background:#070707;
+            border:1px solid #222;
+          }
+
+          .led{
+            flex:1;
+            min-width:8px;
+            height:42px;
+            border-radius:8px;
+            background:#111;
+            transition:
+              background .07s,
+              box-shadow .07s,
+              transform .07s;
+          }
+
+          /* EFFECTS */
+
+          .effectPreview{
+            height:120px;
+            display:flex;
+            align-items:center;
+            gap:4px;
+            padding:15px 7px;
+            border-radius:18px;
+            background:#070707;
+            border:1px solid #222;
+            overflow:hidden;
+            margin-bottom:12px;
+          }
+
+          .effectPreview .led{
+            height:60px;
+          }
+
+          .search{
+            width:100%;
+            background:#0b0b0b;
+            border:1px solid #333;
+            color:#fff;
+            padding:13px;
+            border-radius:12px;
+            outline:none;
+            margin-bottom:10px;
+          }
+
+          .effects{
+            display:grid;
+            grid-template-columns:1fr 1fr;
+            gap:8px;
+            max-height:520px;
+            overflow:auto;
+          }
+
+          .effect{
+            min-height:68px;
+            text-align:left;
+            background:#141414;
+          }
+
+          .effect b{
+            display:block;
+            font-size:12px;
+            margin-bottom:5px;
+          }
+
+          .effect small{
+            color:#777;
+            font-size:10px;
+          }
+
+          /* CUSTOM */
+
+          .frames{
+            display:flex;
+            gap:8px;
+            overflow-x:auto;
+            padding:5px 0 10px;
+          }
+
+          .frame{
+            min-width:85px;
+            height:58px;
+            border-radius:11px;
+            border:1px solid #333;
+          }
+
+          .chips{
+            display:flex;
+            flex-wrap:wrap;
+            gap:7px;
+            margin-bottom:10px;
+          }
+
+          .chip{
+            width:38px;
+            height:30px;
+            border-radius:9px;
+            border:2px solid #555;
+          }
+
+          /* ANALYZER */
+
+          .terminal{
+            background:#000;
+            border:1px solid #272727;
+            border-radius:13px;
+            padding:12px;
+            min-height:120px;
+            max-height:330px;
+            overflow:auto;
+            white-space:pre-wrap;
+            word-break:break-all;
+            font-family:monospace;
+            font-size:11px;
+            line-height:1.55;
+          }
+
+          textarea{
+            width:100%;
+            min-height:150px;
+            resize:vertical;
+            background:#080808;
+            border:1px solid #333;
+            border-radius:13px;
+            color:#fff;
+            padding:12px;
+            outline:none;
+            font-family:monospace;
+          }
+
+          .device{
+            border:1px solid #292929;
+            border-radius:14px;
+            background:#111;
+            padding:13px;
+            margin:8px 0;
+          }
+
+          .deviceName{
+            font-weight:800;
+            font-size:14px;
+          }
+
+          .deviceAddress{
+            color:#777;
+            font-size:11px;
+            margin:6px 0 10px;
+            font-family:monospace;
+          }
+
+          .pill{
+            display:inline-block;
+            border:1px solid #333;
+            border-radius:20px;
+            padding:7px 10px;
+            color:#aaa;
+            font-size:10px;
+            margin:3px;
+          }
+
+          .notice{
+            padding:12px;
+            border-radius:12px;
+            background:#0c0c0c;
+            border:1px solid #292929;
+            color:#888;
+            font-size:11px;
+            line-height:1.5;
+          }
+
+          </style>
+          </head>
+
+          <body>
+
+          <div id="overlay" class="overlay" onclick="closeDrawer()"></div>
+
+          <div id="drawer" class="drawer">
+
+            <div class="drawerTitle">LEDDMX AI PRO</div>
+
+            <button onclick="go('home')">🏠 HOME</button>
+            <button onclick="go('effects')">✨ 210 EFFECTS</button>
+            <button onclick="go('custom')">🎨 CUSTOM STUDIO</button>
+            <button onclick="go('slots')">💾 MY MODES 171–210</button>
+            <button onclick="go('ai')">🤖 AI SCENE</button>
+
+            <div class="drawerSep"></div>
+
+            <button onclick="go('analyzer')">🧠 MODULE / MCU ANALYZER</button>
+            <button onclick="go('protocol')">🧪 PROTOCOL LAB</button>
+            <button onclick="go('gatt')">📡 GATT / BLE INSPECTOR</button>
+            <button onclick="go('ota')">🔧 OTA / FIRMWARE</button>
+
+            <div class="drawerSep"></div>
+
+            <button onclick="go('settings')">⚙ SETTINGS</button>
+
+          </div>
+
+          <header class="top">
+            <button class="hamb" onclick="toggleDrawer()">☰</button>
+            <div class="title">LEDDMX AI PRO</div>
+            <div id="status" class="status">DISCONNECTED</div>
+          </header>
+
+          <!-- HOME -->
+
+          <section id="home" class="page active">
+
+            <div class="card">
+
+              <h2>Control Center</h2>
+
+              <div class="grid2">
+                <button class="primary" onclick="LED.power(true)">
+                  POWER ON
+                </button>
+
+                <button onclick="LED.power(false)">
+                  POWER OFF
+                </button>
+              </div>
+
+            </div>
+
+            <div class="card">
+
+              <h3>RGB COLOUR</h3>
+
+              <div class="wheelWrap">
+                <div id="wheel" class="wheel">
+                  <div id="dot" class="wheelDot"></div>
+                </div>
+              </div>
+
+              <div id="colorPreview" class="colorPreview"></div>
+
+              <div class="grid3">
+                <button class="preset red"
+                        onclick="setRGB(255,0,0)"></button>
+                <button class="preset green"
+                        onclick="setRGB(0,255,0)"></button>
+                <button class="preset blue"
+                        onclick="setRGB(0,0,255)"></button>
+
+                <button class="preset white"
+                        onclick="setRGB(255,255,255)">WHITE</button>
+                <button class="preset yellow"
+                        onclick="setRGB(255,255,0)">YELLOW</button>
+                <button class="preset cyan"
+                        onclick="setRGB(0,255,255)">CYAN</button>
+
+                <button class="preset magenta"
+                        onclick="setRGB(255,0,255)">MAGENTA</button>
+                <button onclick="setRGB(255,128,0)">ORANGE</button>
+                <button onclick="setRGB(128,0,255)">PURPLE</button>
+              </div>
+
+            </div>
+
+            <div class="card">
+
+              <h3>
+                BRIGHTNESS
+                <span id="brightVal" class="value">100%</span>
+              </h3>
+
+              <input id="bright"
+                     type="range"
+                     min="0"
+                     max="100"
+                     value="100"
+                     oninput="
+                       brightVal.innerText=this.value+'%';
+                     "
+                     onchange="
+                       LED.brightness(+this.value);
+                     ">
+
+              <h3>
+                SPEED
+                <span id="speedVal" class="value">128</span>
+              </h3>
+
+              <input id="speed"
+                     type="range"
+                     min="0"
+                     max="255"
+                     value="128"
+                     oninput="
+                       speedVal.innerText=this.value;
+                     "
+                     onchange="
+                       LED.speed(+this.value);
+                     ">
+
+              <h3>DIRECTION</h3>
+
+              <div class="grid2">
+                <button onclick="LED.direction(0)">
+                  → FORWARD
+                </button>
+
+                <button onclick="LED.direction(1)">
+                  ← REVERSE
+                </button>
+              </div>
+
+            </div>
+
+            <div class="card">
+
+              <h3>LIVE PREVIEW</h3>
+
+              <div id="homeStrip" class="strip"></div>
+
+            </div>
+
+            <div class="card">
+
+              <h2>LEDDMX DEVICE</h2>
+
+              <div id="scanStatus" class="notice">
+                Press SCAN DEVICE to search for LEDDMX Bluetooth.
+              </div>
+
+              <br>
+
+              <button class="primary"
+                      style="width:100%"
+                      onclick="scanDevice()">
+                🔍 SCAN DEVICE
+              </button>
+
+              <div id="devices"></div>
+
+            </div>
+
+          </section>
+
+          <!-- EFFECTS -->
+
+          <section id="effects" class="page">
+
+            <div class="card">
+
+              <h2>210 EFFECTS</h2>
+
+              <div id="effectPreview" class="effectPreview"></div>
+
+              <div id="effectName" class="sub">
+                Select an effect
+              </div>
+
+              <br>
+
+              <input
+                id="effectSearch"
+                class="search"
+                placeholder="Search effect..."
+                oninput="filterEffects()">
+
+              <div id="effectsList" class="effects"></div>
+
+            </div>
+
+          </section>
+
+          <!-- CUSTOM -->
+
+          <section id="custom" class="page">
+
+            <div class="card">
+
+              <h2>Custom Animation Studio</h2>
+
+              <div id="customStrip" class="strip"></div>
+
+              <h3>TEMPLATE</h3>
+
+              <div class="grid2">
+                <button onclick="template('belang')">BELANG</button>
+                <button onclick="template('rainbow')">RAINBOW</button>
+                <button onclick="template('chase')">CHASE</button>
+                <button onclick="template('wave')">WAVE</button>
+                <button onclick="template('comet')">COMET</button>
+                <button onclick="template('scanner')">SCANNER</button>
+                <button onclick="template('pulse')">PULSE</button>
+                <button onclick="template('fade')">FADE</button>
+              </div>
+
+              <h3>OUTPUT</h3>
+
+              <div class="grid2">
+                <button onclick="output='WHOLE'">WHOLE</button>
+                <button onclick="output='BOTH'">BOTH</button>
+                <button onclick="output='LEFT'">LEFT</button>
+                <button onclick="output='RIGHT'">RIGHT</button>
+              </div>
+
+            </div>
+
+            <div class="card">
+
+              <h3>COLOUR</h3>
+
+              <div class="wheelWrap">
+                <div id="customWheel" class="wheel">
+                  <div id="customDot" class="wheelDot"></div>
+                </div>
+              </div>
+
+              <div id="chips" class="chips"></div>
+
+              <div class="grid2">
+                <button onclick="addColor()">＋ ADD COLOR</button>
+                <button onclick="clearColors()">CLEAR</button>
+              </div>
+
+            </div>
+
+            <div class="card">
+
+              <h3>FRAMES</h3>
+
+              <div id="frames" class="frames"></div>
+
+              <div class="grid2">
+                <button onclick="addFrame()">＋ FRAME</button>
+                <button onclick="removeFrame()">− FRAME</button>
+              </div>
+
+              <h3>FRAME DURATION</h3>
+
+              <input
+                id="duration"
+                type="range"
+                min="50"
+                max="1500"
+                value="250">
+
+              <div class="grid2" style="margin-top:12px">
+                <button class="primary"
+                        onclick="previewCustom()">
+                  ▶ PREVIEW
+                </button>
+
+                <button onclick="sendCustom()">
+                  ⚡ SEND
+                </button>
+              </div>
+
+            </div>
+
+          </section>
+
+          <!-- SLOTS -->
+
+          <section id="slots" class="page">
+
+            <div class="card">
+
+              <h2>MY MODES 171–210</h2>
+
+              <div class="notice">
+                Slot disimpan lokal di HP.
+                Permanent storage pada MCU tidak dianggap tersedia
+                sebelum command storage terbukti dari modul.
+              </div>
+
+              <div id="slotsList"></div>
+
+            </div>
+
+          </section>
+
+          <!-- AI -->
+
+          <section id="ai" class="page">
+
+            <div class="card">
+
+              <h2>AI SCENE COMPOSER</h2>
+
+              <div class="notice">
+                Offline natural-language composer.
+                Tidak membutuhkan API AI.
+              </div>
+
+              <br>
+
+              <textarea
+                id="aiText"
+                placeholder="Contoh:
+belang merah biru cepat
+rainbow pelan
+kiri merah kanan biru
+chase merah cepat"></textarea>
+
+              <br><br>
+
+              <div class="grid2">
+                <button class="primary"
+                        onclick="generateAI()">
+                  ✨ GENERATE
+                </button>
+
+                <button onclick="previewCustom()">
+                  ▶ PREVIEW
+                </button>
+              </div>
+
+              <br>
+
+              <button style="width:100%"
+                      onclick="sendCustom()">
+                ⚡ SEND TO MODULE
+              </button>
+
+            </div>
+
+          </section>
+
+          <!-- ANALYZER -->
+
+          <section id="analyzer" class="page">
+
+            <div class="card">
+
+              <h2>MODULE / MCU ANALYZER</h2>
+
+              <span class="pill">SOURCE: DEVICE</span>
+              <span class="pill">LIVE BLE</span>
+
+              <p class="sub">
+                Data RX/TX di sini adalah data komunikasi aktual.
+                Aplikasi tidak boleh mengisi informasi MCU yang tidak
+                diberikan oleh device.
+              </p>
+
+              <h3>MODULE → PHONE / RX</h3>
+
+              <div id="rxLog" class="terminal">
+                NOT EXPOSED BY DEVICE
+              </div>
+
+              <br>
+
+              <button onclick="copyBox('rxLog')">
+                COPY RX
+              </button>
+
+              <h3>PHONE → MODULE / TX</h3>
+
+              <div id="txLog" class="terminal">
+                NO PACKET SENT
+              </div>
+
+              <br>
+
+              <button onclick="copyBox('txLog')">
+                COPY TX
+              </button>
+
+            </div>
+
+          </section>
+
+          <!-- PROTOCOL -->
+
+          <section id="protocol" class="page">
+
+            <div class="card">
+
+              <h2>PROTOCOL LAB</h2>
+
+              <div class="notice">
+                HEX di bawah adalah draft.
+                Tidak akan dikirim sampai SEND ditekan.
+              </div>
+
+              <br>
+
+              <textarea
+                id="hex"
+                spellcheck="false"
+                placeholder="7B FF 03 01 FF FF FF FF BF"></textarea>
+
+              <br><br>
+
+              <button
+                class="primary"
+                style="width:100%"
+                onclick="sendHex()">
+                SEND HEX
+              </button>
+
+            </div>
+
+          </section>
+
+          <!-- GATT -->
+
+          <section id="gatt" class="page">
+
+            <div class="card">
+
+              <h2>GATT / BLE INSPECTOR</h2>
+
+              <div class="notice">
+                Service dan characteristic akan ditampilkan
+                berdasarkan GATT yang benar-benar ditemukan
+                pada device.
+              </div>
+
+              <div id="gattInfo"
+                   class="terminal"
+                   style="margin-top:12px">
+                NOT CONNECTED
+              </div>
+
+            </div>
+
+          </section>
+
+          <!-- OTA -->
+
+          <section id="ota" class="page">
+
+            <div class="card">
+
+              <h2>OTA / FIRMWARE</h2>
+
+              <div id="otaInfo" class="notice">
+                OTA STATUS: NOT EXPOSED BY DEVICE
+              </div>
+
+              <br>
+
+              <div class="notice">
+                OTA tidak melakukan flash firmware sembarangan.
+                Service OTA hanya dianggap terdeteksi jika benar-benar
+                muncul pada GATT device.
+              </div>
+
+            </div>
+
+          </section>
+
+          <!-- SETTINGS -->
+
+          <section id="settings" class="page">
+
+            <div class="card">
+
+              <h2>SETTINGS</h2>
+
+              <div class="grid2">
+                <button onclick="scanDevice()">SCAN DEVICE</button>
+                <button onclick="LED.disconnect()">DISCONNECT</button>
+              </div>
+
+              <h3>APP</h3>
+
+              <span class="pill">LEDDMX AI PRO FINAL</span>
+              <span class="pill">210 EFFECTS</span>
+              <span class="pill">CUSTOM STUDIO</span>
+              <span class="pill">BLE FFE0 / FFE1</span>
+
+              <h3>PROTOCOL</h3>
+
+              <div class="notice">
+                Primary service:
+                0000FFE0-0000-1000-8000-00805F9B34FB
+
+                <br><br>
+
+                Write characteristic:
+                0000FFE1-0000-1000-8000-00805F9B34FB
+              </div>
+
+            </div>
+
+          </section>
+
+          <script>
+
+          let rgb=[255,0,0];
+
+          let colors=[
+            [255,0,0],
+            [0,0,255]
+          ];
+
+          let frames=[];
+
+          let output="WHOLE";
+
+          let previewTimer=null;
+
+          let effects=[];
+
+          let currentEffect=0;
+
+          let phase=0;
+
+          /* NAVIGATION */
+
+          function toggleDrawer(){
+            document.getElementById("drawer")
+              .classList.toggle("open");
+
+            document.getElementById("overlay")
+              .classList.toggle("show");
+          }
+
+          function closeDrawer(){
+            document.getElementById("drawer")
+              .classList.remove("open");
+
+            document.getElementById("overlay")
+              .classList.remove("show");
+          }
+
+          function go(id){
+
+            document.querySelectorAll(".page")
+              .forEach(x=>x.classList.remove("active"));
+
+            let p=document.getElementById(id);
+
+            if(p){
+              p.classList.add("active");
+            }
+
+            closeDrawer();
+
+            if(id==="effects"){
+              loadEffects();
+            }
+
+            if(id==="slots"){
+              loadSlots();
+            }
+          }
+
+          /* COLOR */
+
+          function clamp(v){
+            return Math.max(0,Math.min(255,Math.round(v)));
+          }
+
+          function hsvToRgb(h,s,v){
+
+            let c=v*s;
+            let x=c*(1-Math.abs((h/60)%2-1));
+            let m=v-c;
+
+            let r=0;
+            let g=0;
+            let b=0;
+
+            if(h<60){
+              r=c;g=x;b=0;
+            }else if(h<120){
+              r=x;g=c;b=0;
+            }else if(h<180){
+              r=0;g=c;b=x;
+            }else if(h<240){
+              r=0;g=x;b=c;
+            }else if(h<300){
+              r=x;g=0;b=c;
+            }else{
+              r=c;g=0;b=x;
+            }
+
+            return [
+              Math.round((r+m)*255),
+              Math.round((g+m)*255),
+              Math.round((b+m)*255)
+            ];
+          }
+
+          function wheelPoint(el,dot,e){
+
+            let r=el.getBoundingClientRect();
+
+            let cx=r.left+r.width/2;
+            let cy=r.top+r.height/2;
+
+            let dx=e.clientX-cx;
+            let dy=e.clientY-cy;
+
+            let radius=Math.min(r.width,r.height)/2;
+
+            let dist=Math.sqrt(dx*dx+dy*dy);
+
+            if(dist>radius){
+
+              dx=dx/dist*radius;
+              dy=dy/dist*radius;
+              dist=radius;
+            }
+
+            let hue=
+              (Math.atan2(dy,dx)*180/Math.PI+360)%360;
+
+            let sat=
+              Math.min(1,dist/radius);
+
+            let x=
+              r.width/2+dx;
+
+            let y=
+              r.height/2+dy;
+
+            dot.style.left=x+"px";
+            dot.style.top=y+"px";
+
+            let c=hsvToRgb(hue,sat,1);
+
+            setRGB(c[0],c[1],c[2]);
+          }
+
+          function bindWheel(id,dotId){
+
+            let el=document.getElementById(id);
+            let dot=document.getElementById(dotId);
+
+            if(!el || !dot)return;
+
+            let dragging=false;
+
+            el.addEventListener(
+              "pointerdown",
+              function(e){
+
+                dragging=true;
+
+                try{
+                  el.setPointerCapture(e.pointerId);
+                }catch(x){}
+
+                wheelPoint(el,dot,e);
+                e.preventDefault();
+              }
+            );
+
+            el.addEventListener(
+              "pointermove",
+              function(e){
+
+                if(!dragging)return;
+
+                wheelPoint(el,dot,e);
+                e.preventDefault();
+              }
+            );
+
+            el.addEventListener(
+              "pointerup",
+              function(){
+
+                dragging=false;
+              }
+            );
+
+            el.addEventListener(
+              "pointercancel",
+              function(){
+
+                dragging=false;
+              }
+            );
+          }
+
+          function setRGB(r,g,b){
+
+            rgb=[
+              clamp(r),
+              clamp(g),
+              clamp(b)
+            ];
+
+            let p=document.getElementById("colorPreview");
+
+            if(p){
+              p.style.background=
+                "rgb("+rgb.join(",")+")";
+
+              p.style.boxShadow=
+                "0 0 25px rgba("+
+                rgb.join(",")+
+                ",.35)";
+            }
+
+            drawStrip("homeStrip",rgb);
+
+            LED.color(
+              rgb[0],
+              rgb[1],
+              rgb[2]
+            );
+          }
+
+          /* STRIP */
+
+          function drawStrip(id,c,move=0){
+
+            let el=document.getElementById(id);
+
+            if(!el)return;
+
+            el.innerHTML="";
+
+            let n=id==="effectPreview"?20:28;
+
+            for(let i=0;i<n;i++){
+
+              let d=document.createElement("div");
+
+              d.className="led";
+
+              let active=
+                ((i+move)%n);
+
+              let factor=1;
+
+              if(id==="effectPreview"){
+
+                factor=
+                  active%7===0 ? 1 :
+                  active%7===1 ? .75 :
+                  .15;
+              }
+
+              let rr=Math.round(c[0]*factor);
+              let gg=Math.round(c[1]*factor);
+              let bb=Math.round(c[2]*factor);
+
+              d.style.background=
+                "rgb("+rr+","+gg+","+bb+")";
+
+              d.style.boxShadow=
+                "0 0 14px rgba("+
+                rr+","+gg+","+bb+",.75)";
+
+              if(id==="customStrip"){
+                d.style.transform=
+                  "translateX("+((move%4)-2)+"px)";
+              }
+
+              el.appendChild(d);
+            }
+          }
+
+          setInterval(function(){
+
+            phase=(phase+1)%28;
+
+            drawStrip(
+              "homeStrip",
+              rgb,
+              phase
+            );
+
+            if(frames.length){
+              drawCustomPreview(
+                frames[
+                  phase%frames.length
+                ]
+              );
+            }
+
+          },110);
+
+          function drawCustomPreview(f){
+
+            if(!f)return;
+
+            let el=
+              document.getElementById(
+                "customStrip"
+              );
+
+            if(!el)return;
+
+            el.innerHTML="";
+
+            let n=28;
+
+            for(let i=0;i<n;i++){
+
+              let d=document.createElement("div");
+
+              d.className="led";
+
+              let c;
+
+              if(output==="LEFT"){
+                c=f.l;
+              }else if(output==="RIGHT"){
+                c=f.r;
+              }else{
+                c=i<n/2?f.l:f.r;
+              }
+
+              let factor=
+                ((i+phase)%8===0)?1:
+                ((i+phase)%8===1)?.65:.2;
+
+              let rr=Math.round(c[0]*factor);
+              let gg=Math.round(c[1]*factor);
+              let bb=Math.round(c[2]*factor);
+
+              d.style.background=
+                "rgb("+rr+","+gg+","+bb+")";
+
+              d.style.boxShadow=
+                "0 0 16px rgba("+
+                rr+","+gg+","+bb+",.8)";
+
+              el.appendChild(d);
+            }
+          }
+
+          /* BLE */
+
+          function scanDevice(){
+
+            let box=
+              document.getElementById(
+                "scanStatus"
+              );
+
+            box.innerText=
+              "REQUESTING BLUETOOTH ACCESS...";
+
+            document.getElementById(
+              "devices"
+            ).innerHTML="";
+
+            LED.scan();
+          }
+
+          function scanStarted(){
+
+            document.getElementById(
+              "scanStatus"
+            ).innerText=
+              "SCANNING FOR LEDDMX DEVICES...";
+          }
+
+          function scanStopped(){
+
+            let box=
+              document.getElementById(
+                "scanStatus"
+              );
+
+            if(!document.getElementById(
+              "devices"
+            ).children.length){
+
+              box.innerText=
+                "SCAN FINISHED — NO LEDDMX DEVICE FOUND.";
+            }else{
+
+              box.innerText=
+                "DEVICE FOUND — SELECT CONNECT.";
+            }
+          }
+
+          function scanBusy(){
+
+            document.getElementById(
+              "scanStatus"
+            ).innerText=
+              "PLEASE WAIT BEFORE SCANNING AGAIN.";
+          }
+
+          function scanError(code){
+
+            let msg=
+              "BLUETOOTH SCAN ERROR: "+code;
+
+            if(code===1)
+              msg+=" — ALREADY_STARTED";
+
+            if(code===2)
+              msg+=" — APPLICATION_REGISTRATION_FAILED";
+
+            if(code===3)
+              msg+=" — INTERNAL_ERROR";
+
+            if(code===4)
+              msg+=" — FEATURE_UNSUPPORTED";
+
+            if(code===5)
+              msg+=" — OUT_OF_HARDWARE_RESOURCES";
+
+            if(code===6)
+              msg+=" — SCANNING_TOO_FREQUENTLY";
+
+            document.getElementById(
+              "scanStatus"
+            ).innerText=msg;
+          }
+
+          function bluetoothOff(){
+
+            document.getElementById(
+              "scanStatus"
+            ).innerText=
+              "BLUETOOTH IS OFF.";
+          }
+
+          function deviceFound(name,address){
+
+            let box=
+              document.getElementById(
+                "devices"
+              );
+
+            let row=
+              document.createElement(
+                "div"
+              );
+
+            row.className="device";
+
+            let safeName=
+              String(name||"LEDDMX DEVICE");
+
+            let safeAddress=
+              String(address||"");
+
+            row.innerHTML=
+              "<div class='deviceName'>"+
+              safeName+
+              "</div>"+
+              "<div class='deviceAddress'>"+
+              safeAddress+
+              "</div>"+
+              "<button class='primary' "+
+              "onclick=\"LED.connect('"+
+              safeAddress.replace(
+                /'/g,
+                "\\'"
+              )+
+              "')\">"+
+              "CONNECT"+
+              "</button>";
+
+            box.appendChild(row);
+          }
+
+          function connectionState(ok){
+
+            let s=
+              document.getElementById(
+                "status"
+              );
+
+            s.innerText=
+              ok?"CONNECTED":"DISCONNECTED";
+
+            s.style.color=
+              ok?"#fff":"#999";
+          }
+
+          function moduleReady(write,ota){
+
+            let text=
+              write?
+              "CONNECTED • FFE1 READY":
+              "CONNECTED • FFE1 NOT FOUND";
+
+            document.getElementById(
+              "status"
+            ).innerText=text;
+
+            document.getElementById(
+              "otaInfo"
+            ).innerText=
+              ota?
+              "OTA SERVICE DETECTED ON DEVICE":
+              "OTA STATUS: NOT EXPOSED BY DEVICE";
+          }
+
+          function logDevice(x){
+
+            let box=
+              document.getElementById(
+                "rxLog"
+              );
+
+            if(
+              box.innerText===
+              "NOT EXPOSED BY DEVICE"
+            ){
+              box.innerText="";
+            }
+
+            box.innerText+=
+              x+"\n";
+
+            box.scrollTop=
+              box.scrollHeight;
+          }
+
+          function tx(x){
+
+            let box=
+              document.getElementById(
+                "txLog"
+              );
+
+            if(
+              box.innerText===
+              "NO PACKET SENT"
+            ){
+              box.innerText="";
+            }
+
+            box.innerText+=
+              "TX  "+x+"\n";
+
+            box.scrollTop=
+              box.scrollHeight;
+          }
+
+          function rx(x){
+
+            logDevice(
+              "RX  "+x
+            );
+          }
+
+          function sendHex(){
+
+            let value=
+              document.getElementById(
+                "hex"
+              ).value.trim();
+
+            if(!value)return;
+
+            LED.hex(value);
+          }
+
+          function copyBox(id){
+
+            let text=
+              document.getElementById(
+                id
+              ).innerText;
+
+            if(
+              navigator.clipboard
+            ){
+
+              navigator.clipboard
+                .writeText(text);
+            }
+          }
+
+          /* EFFECTS */
+
+          function loadEffects(){
+
+            if(effects.length)return;
+
+            let raw=LED.modes();
+
+            if(!raw){
+
+              for(
+                let i=1;
+                i<=210;
+                i++
+              ){
+                effects.push([
+                  i,
+                  "MODE "+i
+                ]);
+              }
+
+            }else{
+
+              raw.trim()
+                .split("\n")
+                .forEach(function(line){
+
+                  let p=line.split("|");
+
+                  if(p.length>=2){
+
+                    effects.push([
+                      parseInt(p[0]),
+                      p.slice(1).join("|")
+                    ]);
+                  }
+
+                });
+            }
+
+            renderEffects();
+          }
+
+          function renderEffects(){
+
+            let box=
+              document.getElementById(
+                "effectsList"
+              );
+
+            box.innerHTML="";
+
+            effects.forEach(function(e){
+
+              let b=
+                document.createElement(
+                  "button"
+                );
+
+              b.className="effect";
+
+              b.dataset.name=
+                String(e[1]).toLowerCase();
+
+              b.innerHTML=
+                "<b>"+e[0]+
+                "</b><small>"+
+                e[1]+
+                "</small>";
+
+              b.onclick=function(){
+
+                currentEffect=e[0];
+
+                LED.mode(e[0]);
+
+                document.getElementById(
+                  "effectName"
+                ).innerText=
+                  e[0]+" • "+e[1];
+
+                startEffectPreview(
+                  e[0]
+                );
+              };
+
+              box.appendChild(b);
+            });
+          }
+
+          function filterEffects(){
+
+            let q=
+              document.getElementById(
+                "effectSearch"
+              ).value
+               .toLowerCase();
+
+            document
+              .querySelectorAll(
+                ".effect"
+              )
+              .forEach(function(b){
+
+                b.style.display=
+                  b.dataset.name
+                    .includes(q)
+                  ?"block"
+                  :"none";
+              });
+          }
+
+          function startEffectPreview(mode){
+
+            clearInterval(
+              previewTimer
+            );
+
+            let local=0;
+
+            previewTimer=
+              setInterval(function(){
+
+                local++;
+
+                let c=
+                  hsvToRgb(
+                    (mode*17+local*8)%360,
+                    1,
+                    1
+                  );
+
+                drawStrip(
+                  "effectPreview",
+                  c,
+                  local
+                );
+
+              },90);
+          }
+
+          /* CUSTOM */
+
+          function addColor(){
+
+            colors.push([
+              rgb[0],
+              rgb[1],
+              rgb[2]
+            ]);
+
+            renderChips();
+          }
+
+          function clearColors(){
+
+            colors=[];
+
+            renderChips();
+          }
+
+          function renderChips(){
+
+            let box=
+              document.getElementById(
+                "chips"
+              );
+
+            box.innerHTML="";
+
+            colors.forEach(function(c){
+
+              let d=
+                document.createElement(
+                  "div"
+                );
+
+              d.className="chip";
+
+              d.style.background=
+                "rgb("+c.join(",")+")";
+
+              box.appendChild(d);
+            });
+          }
+
+          function addFrame(){
+
+            let left=
+              colors.length?
+              colors[
+                frameIndex()%colors.length
+              ]:
+              rgb;
+
+            let right=
+              colors.length>1?
+              colors[
+                (frameIndex()+1)%colors.length
+              ]:
+              rgb;
+
+            frames.push({
+              l:[...left],
+              r:[...right],
+              d:+document.getElementById(
+                "duration"
+              ).value
+            });
+
+            renderFrames();
+          }
+
+          function frameIndex(){
+
+            return frames.length;
+          }
+
+          function removeFrame(){
+
+            if(frames.length){
+              frames.pop();
+            }
+
+            renderFrames();
+          }
+
+          function renderFrames(){
+
+            let box=
+              document.getElementById(
+                "frames"
+              );
+
+            box.innerHTML="";
+
+            frames.forEach(function(f){
+
+              let d=
+                document.createElement(
+                  "div"
+                );
+
+              d.className="frame";
+
+              d.style.background=
+                "linear-gradient(90deg,"+
+                "rgb("+f.l.join(",")+"),"+
+                "rgb("+f.r.join(",")+")"+
+                ")";
+
+              box.appendChild(d);
+            });
+          }
+
+          function template(type){
+
+            frames=[];
+
+            if(type==="belang"){
+
+              for(
+                let i=0;
+                i<16;
+                i++
+              ){
+
+                frames.push({
+                  l:i%2?
+                    [255,255,255]:
+                    [255,0,0],
+
+                  r:i%2?
+                    [255,255,255]:
+                    [0,0,255],
+
+                  d:180
+                });
+              }
+
+            }else if(type==="rainbow"){
+
+              for(
+                let i=0;
+                i<30;
+                i++
+              ){
+
+                let c=
+                  hsvToRgb(
+                    i*12,
+                    1,
+                    1
+                  );
+
+                frames.push({
+                  l:c,
+                  r:c,
+                  d:120
+                });
+              }
+
+            }else if(type==="chase"){
+
+              for(
+                let i=0;
+                i<24;
+                i++
+              ){
+
+                frames.push({
+                  l:
+                    i%4===0?
+                    [255,0,0]:
+                    [10,0,0],
+
+                  r:
+                    i%4===2?
+                    [0,0,255]:
+                    [0,0,10],
+
+                  d:100
+                });
+              }
+
+            }else if(type==="wave"){
+
+              for(
+                let i=0;
+                i<24;
+                i++
+              ){
+
+                frames.push({
+                  l:
+                    hsvToRgb(
+                      i*15,
+                      1,
+                      1
+                    ),
+
+                  r:
+                    hsvToRgb(
+                      i*15+180,
+                      1,
+                      1
+                    ),
+
+                  d:130
+                });
+              }
+
+            }else if(
+              type==="comet" ||
+              type==="scanner"
+            ){
+
+              for(
+                let i=0;
+                i<20;
+                i++
+              ){
+
+                frames.push({
+                  l:
+                    i%7===0?
+                    [255,0,0]:
+                    [35,0,0],
+
+                  r:
+                    i%7===3?
+                    [0,0,255]:
+                    [0,0,35],
+
+                  d:100
+                });
+              }
+
+            }else if(type==="pulse"){
+
+              for(
+                let i=0;
+                i<18;
+                i++
+              ){
+
+                let v=
+                  Math.round(
+                    255*
+                    Math.abs(
+                      Math.sin(
+                        i/17*Math.PI
+                      )
+                    )
+                  );
+
+                frames.push({
+                  l:[v,0,0],
+                  r:[0,0,v],
+                  d:90
+                });
+              }
+
+            }else if(type==="fade"){
+
+              for(
+                let i=0;
+                i<20;
+                i++
+              ){
+
+                let v=
+                  Math.round(
+                    255*i/19
+                  );
+
+                frames.push({
+                  l:[v,0,0],
+                  r:[0,0,v],
+                  d:100
+                });
+              }
+            }
+
+            renderFrames();
+          }
+
+          function previewCustom(){
+
+            if(!frames.length){
+              template("belang");
+            }
+
+            clearInterval(
+              previewTimer
+            );
+
+            let i=0;
+
+            previewTimer=
+              setInterval(function(){
+
+                let f=
+                  frames[
+                    i%frames.length
+                  ];
+
+                i++;
+
+                drawCustomPreview(f);
+
+              },
+              Math.max(
+                50,
+                frames[0].d
+              ));
+          }
+
+          function sendCustom(){
+
+            if(!frames.length){
+              template("belang");
+            }
+
+            clearInterval(
+              previewTimer
+            );
+
+            let i=0;
+
+            previewTimer=
+              setInterval(function(){
+
+                let f=
+                  frames[
+                    i%frames.length
+                  ];
+
+                i++;
+
+                /*
+                 * Exact custom color-list protocol:
+                 *
+                 * 7B position 0E FD R G B total BF
+                 *
+                 * Custom mode:
+                 *
+                 * 7B FF 13 modeOrdinal FF FF FF FF BF
+                 *
+                 * LEFT/RIGHT hardware routing remains
+                 * unclaimed until proven by actual MCU.
+                 */
+
+                let list=[];
+
+                if(output==="LEFT"){
+                  list=[f.l];
+                }else if(output==="RIGHT"){
+                  list=[f.r];
+                }else{
+                  list=[f.l,f.r];
+                }
+
+                for(
+                  let p=0;
+                  p<list.length;
+                  p++
+                ){
+
+                  let c=list[p];
+
+                  LED.customColor(
+                    p+1,
+                    c[0],
+                    c[1],
+                    c[2],
+                    list.length
+                  );
+                }
+
+                /*
+                 * GD = 0
+                 */
+                LED.customMode(0);
+
+              },
+              Math.max(
+                100,
+                frames[0].d
+              ));
+          }
+
+          /* AI */
+
+          function generateAI(){
+
+            let s=
+              document.getElementById(
+                "aiText"
+              ).value
+               .toLowerCase();
+
+            if(
+              s.includes("rainbow") ||
+              s.includes("pelangi")
+            ){
+
+              template("rainbow");
+              return;
+            }
+
+            if(
+              s.includes("belang") ||
+              s.includes("stripe") ||
+              s.includes("bergantian")
+            ){
+
+              let a=
+                s.includes("merah")?
+                [255,0,0]:
+                [255,255,255];
+
+              let b=
+                s.includes("biru")?
+                [0,0,255]:
+                s.includes("hijau")?
+                [0,255,0]:
+                [0,0,255];
+
+              let d=
+                s.includes("cepat")?
+                80:
+                s.includes("pelan")||
+                s.includes("lambat")?
+                500:
+                220;
+
+              frames=[];
+
+              for(
+                let i=0;
+                i<18;
+                i++
+              ){
+
+                frames.push({
+                  l:i%2?a:b,
+                  r:i%2?b:a,
+                  d:d
+                });
+              }
+
+              renderFrames();
+              return;
+            }
+
+            if(
+              s.includes("chase") ||
+              s.includes("jalan") ||
+              s.includes("running")
+            ){
+
+              template("chase");
+              return;
+            }
+
+            if(
+              s.includes("fade") ||
+              s.includes("memudar")
+            ){
+
+              template("fade");
+              return;
+            }
+
+            let c=
+              s.includes("biru")?
+              [0,0,255]:
+              s.includes("hijau")?
+              [0,255,0]:
+              s.includes("putih")?
+              [255,255,255]:
+              [255,0,0];
+
+            frames=[];
+
+            for(
+              let i=0;
+              i<10;
+              i++
+            ){
+
+              frames.push({
+                l:c,
+                r:c,
+                d:
+                  s.includes("cepat")?
+                  90:
+                  250
+              });
+            }
+
+            renderFrames();
+          }
+
+          /* SLOTS */
+
+          function saveSlot(n){
+
+            localStorage.setItem(
+              "LEDDMX_SLOT_"+n,
+              JSON.stringify(frames)
+            );
+
+            loadSlots();
+          }
+
+          function loadSlot(n){
+
+            let x=
+              localStorage.getItem(
+                "LEDDMX_SLOT_"+n
+              );
+
+            if(!x)return;
+
+            try{
+
+              frames=
+                JSON.parse(x);
+
+              renderFrames();
+
+              go("custom");
+
+            }catch(e){}
+          }
+
+          function loadSlots(){
+
+            let box=
+              document.getElementById(
+                "slotsList"
+              );
+
+            if(!box)return;
+
+            box.innerHTML="";
+
+            for(
+              let n=171;
+              n<=210;
+              n++
+            ){
+
+              let exists=
+                !!localStorage.getItem(
+                  "LEDDMX_SLOT_"+n
+                );
+
+              let row=
+                document.createElement(
+                  "div"
+                );
+
+              row.className="card";
+
+              row.innerHTML=
+                "<b>SLOT "+n+"</b>"+
+                "<span class='pill'>"+
+                (exists?
+                  "SAVED":
+                  "EMPTY")+
+                "</span>"+
+                "<br><br>"+
+                "<button onclick='loadSlot("+
+                n+
+                ")'>LOAD</button> "+
+                "<button onclick='saveSlot("+
+                n+
+                ")'>SAVE</button>";
+
+              box.appendChild(row);
+            }
+          }
+
+          /* INIT */
+
+          bindWheel(
+            "wheel",
+            "dot"
+          );
+
+          bindWheel(
+            "customWheel",
+            "customDot"
+          );
+
+          setRGB(255,0,0);
+
+          renderChips();
+
+          template("belang");
+
+          </script>
+
+          </body>
+          </html>
           EOF
-
-          curl -L -s \
-            https://raw.githubusercontent.com/user154lt/LEDDMX-00/main/PatternList.kt \
-            -o /tmp/PatternList.kt || true
-
-          if [ -s /tmp/PatternList.kt ]; then
-            python3 - <<'PY'
-          import re
-          src=open("/tmp/PatternList.kt","r",encoding="utf8").read()
-          vals=re.findall(r'"((?:[^"\\]|\\.)*)"',src)
-          vals=vals[:211]
-          with open("app/src/main/assets/modes.txt","w",encoding="utf8") as f:
-              for i in range(1,211):
-                  name=vals[i-1] if i-1 < len(vals) else f"MODE {i}"
-                  name=name.replace("\\n"," ").replace("\\\"","\"")
-                  f.write(f"{i}|{name}\n")
-          PY
-          else
-            for i in $(seq 1 210); do
-              echo "$i|MODE $i" >> app/src/main/assets/modes.txt
-            done
-          fi
 
           cat > app/src/main/java/com/leddmx/aipro/MainActivity.java <<'EOF'
           package com.leddmx.aipro;
@@ -193,114 +2488,184 @@ jobs:
           import java.io.InputStream;
           import java.io.InputStreamReader;
           import java.util.ArrayList;
+          import java.util.HashSet;
           import java.util.Locale;
           import java.util.UUID;
 
           public class MainActivity extends Activity {
 
-              static final UUID SERVICE =
-                      UUID.fromString("0000FFE0-0000-1000-8000-00805F9B34FB");
+              private static final UUID SERVICE =
+                  UUID.fromString(
+                      "0000FFE0-0000-1000-8000-00805F9B34FB"
+                  );
 
-              static final UUID WRITE =
-                      UUID.fromString("0000FFE1-0000-1000-8000-00805F9B34FB");
+              private static final UUID WRITE =
+                  UUID.fromString(
+                      "0000FFE1-0000-1000-8000-00805F9B34FB"
+                  );
 
-              static final UUID OTA_SERVICE =
-                      UUID.fromString("5833FF01-9B8B-5191-6142-22A4536EF123");
+              private static final UUID OTA_SERVICE =
+                  UUID.fromString(
+                      "5833FF01-9B8B-5191-6142-22A4536EF123"
+                  );
 
-              static final UUID OTA_WRITE =
-                      UUID.fromString("5833FF02-9B8B-5191-6142-22A4536EF123");
+              private static final UUID OTA_WRITE =
+                  UUID.fromString(
+                      "5833FF02-9B8B-5191-6142-22A4536EF123"
+                  );
 
-              static final UUID OTA_NOTIFY =
-                      UUID.fromString("5833FF03-9B8B-5191-6142-22A4536EF123");
+              private static final UUID OTA_NOTIFY =
+                  UUID.fromString(
+                      "5833FF03-9B8B-5191-6142-22A4536EF123"
+                  );
 
-              WebView web;
-              BluetoothAdapter adapter;
-              BluetoothLeScanner scanner;
-              BluetoothGatt gatt;
-              BluetoothGattCharacteristic tx;
-              BluetoothGattCharacteristic notifyChar;
+              private WebView web;
 
-              boolean scanning = false;
-              boolean connected = false;
-              long lastScan = 0;
+              private BluetoothAdapter adapter;
+              private BluetoothLeScanner scanner;
 
-              final Handler handler =
-                      new Handler(Looper.getMainLooper());
+              private BluetoothGatt gatt;
 
-              final ArrayList<BluetoothDevice> found =
-                      new ArrayList<>();
+              private BluetoothGattCharacteristic tx;
 
-              final ArrayList<String> rawRx =
-                      new ArrayList<>();
+              private boolean scanning=false;
+              private boolean connected=false;
 
-              final ArrayList<String> rawTx =
-                      new ArrayList<>();
+              private long lastScan=0;
 
-              final ScanCallback scanCallback =
-                      new ScanCallback() {
+              private final Handler handler =
+                  new Handler(Looper.getMainLooper());
 
-                  @Override
-                  public void onScanResult(
+              private final HashSet<String> addresses =
+                  new HashSet<>();
+
+              private final ArrayList<String> rxHistory =
+                  new ArrayList<>();
+
+              private final ArrayList<String> txHistory =
+                  new ArrayList<>();
+
+              private final ScanCallback scanCallback =
+                  new ScanCallback(){
+
+                      @Override
+                      public void onScanResult(
                           int callbackType,
-                          ScanResult result) {
+                          ScanResult result){
 
-                      BluetoothDevice d = result.getDevice();
+                          BluetoothDevice device =
+                              result.getDevice();
 
-                      String name = null;
+                          String name=null;
 
-                      if (result.getScanRecord() != null) {
-                          name = result.getScanRecord().getDeviceName();
-                      }
+                          try{
 
-                      if (name == null) {
-                          try {
-                              name = d.getName();
-                          } catch (Exception ignored) {}
-                      }
+                              if(
+                                  result.getScanRecord()!=null
+                              ){
 
-                      if (name == null) {
-                          name = "";
-                      }
+                                  name=
+                                      result
+                                      .getScanRecord()
+                                      .getDeviceName();
+                              }
 
-                      if (!name.toUpperCase(Locale.US)
-                              .contains("LEDDMX")) {
-                          return;
-                      }
+                          }catch(Exception ignored){}
 
-                      if (!found.contains(d)) {
-                          found.add(d);
+                          if(
+                              name==null ||
+                              name.trim().isEmpty()
+                          ){
 
-                          final String deviceName = name;
-                          final String address = d.getAddress();
+                              try{
+                                  name=device.getName();
+                              }catch(Exception ignored){}
+                          }
+
+                          if(name==null){
+                              name="";
+                          }
+
+                          String upper=
+                              name.toUpperCase(
+                                  Locale.US
+                              );
+
+                          /*
+                           * LEDDMX device name is the
+                           * primary target.
+                           */
+
+                          if(
+                              !upper.contains("LEDDMX")
+                          ){
+                              return;
+                          }
+
+                          String address;
+
+                          try{
+                              address=
+                                  device.getAddress();
+                          }catch(Exception e){
+                              return;
+                          }
+
+                          if(
+                              address==null ||
+                              addresses.contains(address)
+                          ){
+                              return;
+                          }
+
+                          addresses.add(address);
+
+                          final String n=name;
+                          final String a=address;
 
                           runJs(
-                              "deviceFound(" +
-                              js(deviceName) + "," +
-                              js(address) + ");"
+                              "deviceFound("+
+                              js(n)+","+
+                              js(a)+");"
                           );
                       }
-                  }
 
-                  @Override
-                  public void onScanFailed(int errorCode) {
-                      scanning = false;
+                      @Override
+                      public void onScanFailed(
+                          int errorCode){
 
-                      runJs(
-                          "scanError(" +
-                          errorCode +
-                          ");"
-                      );
-                  }
-              };
+                          scanning=false;
+
+                          runJs(
+                              "scanError("+
+                              errorCode+
+                              ");"
+                          );
+                      }
+                  };
 
               @Override
-              protected void onCreate(Bundle state) {
-                  super.onCreate(state);
+              protected void onCreate(
+                  Bundle savedInstanceState){
 
-                  web = new WebView(this);
+                  super.onCreate(
+                      savedInstanceState
+                  );
 
-                  WebSettings settings =
-                          web.getSettings();
+                  BluetoothManager manager=
+                      (BluetoothManager)
+                      getSystemService(
+                          Context.BLUETOOTH_SERVICE
+                      );
+
+                  if(manager!=null){
+                      adapter=manager.getAdapter();
+                  }
+
+                  web=new WebView(this);
+
+                  WebSettings settings=
+                      web.getSettings();
 
                   settings.setJavaScriptEnabled(true);
                   settings.setDomStorageEnabled(true);
@@ -318,144 +2683,306 @@ jobs:
 
                   setContentView(web);
 
-                  requestBluetoothPermissions();
-
-                  web.loadDataWithBaseURL(
-                      "file:///android_asset/",
-                      HTML,
-                      "text/html",
-                      "UTF-8",
-                      null
+                  web.loadUrl(
+                      "file:///android_asset/index.html"
                   );
               }
 
-              void requestBluetoothPermissions() {
+              private boolean permissionsGranted(){
 
-                  if (Build.VERSION.SDK_INT >= 31) {
+                  if(Build.VERSION.SDK_INT>=31){
+
+                      return
+                          checkSelfPermission(
+                              Manifest.permission.BLUETOOTH_SCAN
+                          )==
+                          PackageManager.PERMISSION_GRANTED
+                          &&
+                          checkSelfPermission(
+                              Manifest.permission.BLUETOOTH_CONNECT
+                          )==
+                          PackageManager.PERMISSION_GRANTED;
+
+                  }
+
+                  if(Build.VERSION.SDK_INT>=23){
+
+                      return
+                          checkSelfPermission(
+                              Manifest.permission.ACCESS_FINE_LOCATION
+                          )==
+                          PackageManager.PERMISSION_GRANTED;
+                  }
+
+                  return true;
+              }
+
+              private void requestPermissionsIfNeeded(){
+
+                  if(
+                      permissionsGranted()
+                  ){
+                      startScan();
+                      return;
+                  }
+
+                  if(Build.VERSION.SDK_INT>=31){
 
                       requestPermissions(
                           new String[]{
                               Manifest.permission.BLUETOOTH_SCAN,
                               Manifest.permission.BLUETOOTH_CONNECT
                           },
-                          100
+                          200
                       );
 
-                  } else if (Build.VERSION.SDK_INT >= 23) {
+                  }else if(Build.VERSION.SDK_INT>=23){
 
                       requestPermissions(
                           new String[]{
                               Manifest.permission.ACCESS_FINE_LOCATION
                           },
-                          101
+                          201
                       );
                   }
               }
 
-              void scan() {
+              @Override
+              public void onRequestPermissionsResult(
+                  int requestCode,
+                  String[] permissions,
+                  int[] grantResults){
 
-                  if (adapter == null) {
-
-                      BluetoothManager bm =
-                          (BluetoothManager)
-                          getSystemService(
-                              Context.BLUETOOTH_SERVICE
-                          );
-
-                      if (bm != null) {
-                          adapter = bm.getAdapter();
-                      }
-                  }
-
-                  if (adapter == null ||
-                      !adapter.isEnabled()) {
-
-                      runJs("bluetoothOff();");
-                      return;
-                  }
-
-                  long now =
-                      System.currentTimeMillis();
-
-                  if (now - lastScan < 2500) {
-                      runJs("scanBusy();");
-                      return;
-                  }
-
-                  lastScan = now;
-
-                  scanner =
-                      adapter.getBluetoothLeScanner();
-
-                  if (scanner == null) {
-                      runJs("scanError(4);");
-                      return;
-                  }
-
-                  found.clear();
-
-                  try {
-                      scanner.stopScan(scanCallback);
-                  } catch (Exception ignored) {}
-
-                  ScanSettings settings =
-                      new ScanSettings.Builder()
-                          .setScanMode(
-                              ScanSettings.SCAN_MODE_LOW_LATENCY
-                          )
-                          .build();
-
-                  scanning = true;
-
-                  scanner.startScan(
-                      null,
-                      settings,
-                      scanCallback
+                  super.onRequestPermissionsResult(
+                      requestCode,
+                      permissions,
+                      grantResults
                   );
 
-                  runJs("scanStarted();");
+                  if(
+                      requestCode==200 ||
+                      requestCode==201
+                  ){
+
+                      boolean ok=true;
+
+                      for(
+                          int x:grantResults
+                      ){
+
+                          if(
+                              x!=PackageManager.PERMISSION_GRANTED
+                          ){
+                              ok=false;
+                          }
+                      }
+
+                      if(ok){
+                          startScan();
+                      }else{
+                          runJs(
+                              "logDevice("+
+                              js(
+                                  "BLUETOOTH PERMISSION DENIED"
+                              )+
+                              ");"
+                          );
+                      }
+                  }
+              }
+
+              private void startScan(){
+
+                  if(adapter==null){
+
+                      runJs(
+                          "logDevice("+
+                          js(
+                              "BLUETOOTH ADAPTER NOT AVAILABLE"
+                          )+
+                          ");"
+                      );
+
+                      return;
+                  }
+
+                  try{
+
+                      if(
+                          !adapter.isEnabled()
+                      ){
+
+                          runJs(
+                              "bluetoothOff();"
+                          );
+
+                          return;
+                      }
+
+                  }catch(Exception e){
+
+                      runJs(
+                          "logDevice("+
+                          js(
+                              "BLUETOOTH STATUS ERROR"
+                          )+
+                          ");"
+                      );
+
+                      return;
+                  }
+
+                  long now=
+                      System.currentTimeMillis();
+
+                  if(
+                      now-lastScan<2500
+                  ){
+
+                      runJs(
+                          "scanBusy();"
+                      );
+
+                      return;
+                  }
+
+                  lastScan=now;
+
+                  scanner=
+                      adapter
+                      .getBluetoothLeScanner();
+
+                  if(scanner==null){
+
+                      runJs(
+                          "scanError(4);"
+                      );
+
+                      return;
+                  }
+
+                  try{
+                      scanner.stopScan(
+                          scanCallback
+                      );
+                  }catch(Exception ignored){}
+
+                  addresses.clear();
+
+                  scanning=true;
+
+                  runJs(
+                      "scanStarted();"
+                  );
+
+                  ScanSettings settings=
+                      new ScanSettings.Builder()
+                      .setScanMode(
+                          ScanSettings.SCAN_MODE_LOW_LATENCY
+                      )
+                      .build();
+
+                  try{
+
+                      scanner.startScan(
+                          null,
+                          settings,
+                          scanCallback
+                      );
+
+                  }catch(Exception e){
+
+                      scanning=false;
+
+                      runJs(
+                          "logDevice("+
+                          js(
+                              "SCAN START ERROR: "+
+                              e.toString()
+                          )+
+                          ");"
+                      );
+
+                      return;
+                  }
 
                   handler.postDelayed(
-                      () -> stopScan(),
+                      new Runnable(){
+                          @Override
+                          public void run(){
+                              stopScan();
+                          }
+                      },
                       8000
                   );
               }
 
-              void stopScan() {
+              private void stopScan(){
 
-                  if (!scanning) {
+                  if(!scanning){
                       return;
                   }
 
-                  scanning = false;
+                  scanning=false;
 
-                  try {
-                      if (scanner != null) {
-                          scanner.stopScan(scanCallback);
+                  try{
+
+                      if(scanner!=null){
+                          scanner.stopScan(
+                              scanCallback
+                          );
                       }
-                  } catch (Exception ignored) {}
 
-                  runJs("scanStopped();");
+                  }catch(Exception ignored){}
+
+                  runJs(
+                      "scanStopped();"
+                  );
               }
 
-              void connect(String address) {
+              private void connect(
+                  String address){
 
-                  try {
+                  if(!permissionsGranted()){
 
-                      BluetoothDevice device =
-                          adapter.getRemoteDevice(address);
+                      requestPermissionsIfNeeded();
 
-                      if (gatt != null) {
-                          try {
+                      return;
+                  }
+
+                  try{
+
+                      BluetoothDevice device=
+                          adapter.getRemoteDevice(
+                              address
+                          );
+
+                      if(gatt!=null){
+
+                          try{
+                              gatt.disconnect();
+                          }catch(Exception ignored){}
+
+                          try{
                               gatt.close();
-                          } catch (Exception ignored) {}
-                          gatt = null;
+                          }catch(Exception ignored){}
+
+                          gatt=null;
                       }
 
-                      connected = false;
-                      tx = null;
+                      tx=null;
+                      connected=false;
 
-                      gatt =
+                      runJs(
+                          "logDevice("+
+                          js(
+                              "CONNECTING TO "+
+                              address
+                          )+
+                          ");"
+                      );
+
+                      gatt=
                           device.connectGatt(
                               this,
                               false,
@@ -463,65 +2990,78 @@ jobs:
                               BluetoothDevice.TRANSPORT_LE
                           );
 
-                      runJs(
-                          "log('CONNECTING TO " +
-                          js(address) +
-                          "');"
-                      );
-
-                  } catch (Exception e) {
+                  }catch(Exception e){
 
                       runJs(
-                          "log('CONNECT ERROR: " +
-                          js(e.toString()) +
-                          "');"
+                          "logDevice("+
+                          js(
+                              "CONNECT ERROR: "+
+                              e.toString()
+                          )+
+                          ");"
                       );
                   }
               }
 
-              void disconnect() {
+              private void disconnect(){
 
-                  try {
-                      if (gatt != null) {
+                  try{
+
+                      if(gatt!=null){
                           gatt.disconnect();
                           gatt.close();
                       }
-                  } catch (Exception ignored) {}
 
-                  gatt = null;
-                  tx = null;
-                  connected = false;
+                  }catch(Exception ignored){}
 
-                  runJs("connectionState(false);");
+                  gatt=null;
+                  tx=null;
+                  connected=false;
+
+                  runJs(
+                      "connectionState(false);"
+                  );
               }
 
-              final BluetoothGattCallback gattCallback =
-                  new BluetoothGattCallback() {
+              private final BluetoothGattCallback
+                  gattCallback=
+                  new BluetoothGattCallback(){
 
                       @Override
                       public void onConnectionStateChange(
                           BluetoothGatt g,
                           int status,
-                          int newState) {
+                          int newState){
 
-                          boolean ok =
-                              newState ==
+                          if(
+                              newState==
                               android.bluetooth.BluetoothProfile
-                                  .STATE_CONNECTED;
+                              .STATE_CONNECTED
+                          ){
 
-                          connected = ok;
-
-                          if (ok) {
+                              connected=true;
 
                               runJs(
                                   "connectionState(true);"
                               );
 
-                              g.discoverServices();
+                              try{
+                                  g.discoverServices();
+                              }catch(Exception e){
+                                  runJs(
+                                      "logDevice("+
+                                      js(
+                                          "DISCOVER SERVICES ERROR: "+
+                                          e.toString()
+                                      )+
+                                      ");"
+                                  );
+                              }
 
-                          } else {
+                          }else{
 
-                              tx = null;
+                              connected=false;
+                              tx=null;
 
                               runJs(
                                   "connectionState(false);"
@@ -532,40 +3072,97 @@ jobs:
                       @Override
                       public void onServicesDiscovered(
                           BluetoothGatt g,
-                          int status) {
+                          int status){
 
-                          BluetoothGattService service =
-                              g.getService(SERVICE);
+                          BluetoothGattService service=
+                              g.getService(
+                                  SERVICE
+                              );
 
-                          if (service != null) {
+                          if(service!=null){
 
-                              tx =
-                                  service.getCharacteristic(
+                              tx=
+                                  service
+                                  .getCharacteristic(
                                       WRITE
                                   );
                           }
 
-                          BluetoothGattService ota =
+                          boolean ota=false;
+
+                          BluetoothGattService
+                              otaService=
                               g.getService(
                                   OTA_SERVICE
                               );
 
-                          boolean hasOta =
-                              ota != null;
+                          if(otaService!=null){
 
-                          if (ota != null) {
+                              ota=true;
+                          }
 
-                              notifyChar =
-                                  ota.getCharacteristic(
-                                      OTA_NOTIFY
+                          StringBuilder info=
+                              new StringBuilder();
+
+                          for(
+                              BluetoothGattService s:
+                              g.getServices()
+                          ){
+
+                              info.append(
+                                  "SERVICE  "
+                              );
+
+                              info.append(
+                                  s.getUuid()
+                                      .toString()
+                                      .toUpperCase(
+                                          Locale.US
+                                      )
+                              );
+
+                              info.append("\n");
+
+                              for(
+                                  BluetoothGattCharacteristic c:
+                                  s.getCharacteristics()
+                              ){
+
+                                  info.append(
+                                      "  CHAR   "
                                   );
+
+                                  info.append(
+                                      c.getUuid()
+                                          .toString()
+                                          .toUpperCase(
+                                              Locale.US
+                                          )
+                                  );
+
+                                  info.append(
+                                      "  PROPERTIES="
+                                  );
+
+                                  info.append(
+                                      c.getProperties()
+                                  );
+
+                                  info.append("\n");
+                              }
                           }
 
                           runJs(
-                              "moduleReady(" +
-                              (tx != null) +
-                              "," +
-                              hasOta +
+                              "showGatt("+
+                              js(info.toString())+
+                              ");"
+                          );
+
+                          runJs(
+                              "moduleReady("+
+                              (tx!=null)+
+                              ","+
+                              ota+
                               ");"
                           );
                       }
@@ -573,19 +3170,19 @@ jobs:
                       @Override
                       public void onCharacteristicChanged(
                           BluetoothGatt g,
-                          BluetoothGattCharacteristic c) {
+                          BluetoothGattCharacteristic c){
 
-                          byte[] value =
+                          byte[] value=
                               c.getValue();
 
-                          String hex =
+                          String hex=
                               bytesToHex(value);
 
-                          rawRx.add(hex);
+                          rxHistory.add(hex);
 
                           runJs(
-                              "rx(" +
-                              js(hex) +
+                              "rx("+
+                              js(hex)+
                               ");"
                           );
                       }
@@ -594,51 +3191,60 @@ jobs:
                       public void onCharacteristicRead(
                           BluetoothGatt g,
                           BluetoothGattCharacteristic c,
-                          int status) {
+                          int status){
 
-                          byte[] value =
+                          byte[] value=
                               c.getValue();
 
-                          String hex =
+                          String hex=
                               bytesToHex(value);
 
-                          rawRx.add(hex);
+                          rxHistory.add(hex);
 
                           runJs(
-                              "rx(" +
-                              js(hex) +
+                              "rx("+
+                              js(hex)+
                               ");"
                           );
                       }
                   };
 
-              void sendBytes(byte[] data) {
+              private void send(
+                  byte[] data){
 
-                  if (!connected || tx == null) {
+                  if(
+                      !connected ||
+                      gatt==null ||
+                      tx==null
+                  ){
 
                       runJs(
-                          "log('NOT READY: connect LEDDMX first');"
+                          "logDevice("+
+                          js(
+                              "NOT READY: CONNECT LEDDMX FIRST"
+                          )+
+                          ");"
                       );
 
                       return;
                   }
 
-                  String hex =
+                  String hex=
                       bytesToHex(data);
 
-                  rawTx.add(hex);
+                  txHistory.add(hex);
 
                   runJs(
-                      "tx(" +
-                      js(hex) +
+                      "tx("+
+                      js(hex)+
                       ");"
                   );
 
-                  try {
+                  try{
 
                       tx.setValue(data);
 
-                      if (Build.VERSION.SDK_INT >= 33) {
+                      if(Build.VERSION.SDK_INT>=33){
 
                           gatt.writeCharacteristic(
                               tx,
@@ -647,59 +3253,73 @@ jobs:
                                   .WRITE_TYPE_NO_RESPONSE
                           );
 
-                      } else {
+                      }else{
 
                           tx.setWriteType(
                               BluetoothGattCharacteristic
                                   .WRITE_TYPE_NO_RESPONSE
                           );
 
-                          gatt.writeCharacteristic(tx);
+                          gatt.writeCharacteristic(
+                              tx
+                          );
                       }
 
-                  } catch (Exception e) {
+                  }catch(Exception e){
 
                       runJs(
-                          "log('TX ERROR: " +
-                          js(e.toString()) +
-                          "');"
+                          "logDevice("+
+                          js(
+                              "TX ERROR: "+
+                              e.toString()
+                          )+
+                          ");"
                       );
                   }
               }
 
-              byte[] parseHex(String text) {
+              private byte[] parseHex(
+                  String value){
 
-                  String[] p =
-                      text.trim()
+                  String[] p=
+                      value.trim()
                           .split("\\s+");
 
-                  byte[] data =
+                  byte[] out=
                       new byte[p.length];
 
-                  for (int i = 0; i < p.length; i++) {
+                  for(
+                      int i=0;
+                      i<p.length;
+                      i++
+                  ){
 
-                      data[i] =
-                          (byte) Integer.parseInt(
+                      out[i]=
+                          (byte)
+                          Integer.parseInt(
                               p[i],
                               16
                           );
                   }
 
-                  return data;
+                  return out;
               }
 
-              String bytesToHex(byte[] b) {
+              private String bytesToHex(
+                  byte[] data){
 
-                  StringBuilder s =
+                  StringBuilder s=
                       new StringBuilder();
 
-                  for (byte x : b) {
+                  for(
+                      byte b:data
+                  ){
 
                       s.append(
                           String.format(
                               Locale.US,
                               "%02X ",
-                              x & 255
+                              b&255
                           )
                       );
                   }
@@ -707,122 +3327,173 @@ jobs:
                   return s.toString().trim();
               }
 
-              String js(String s) {
+              private String js(
+                  String value){
 
-                  if (s == null) {
+                  if(value==null){
                       return "''";
                   }
 
-                  return "'" +
-                      s.replace(
+                  return "'"+
+                      value
+                      .replace(
                           "\\",
                           "\\\\"
-                      ).replace(
+                      )
+                      .replace(
                           "'",
                           "\\'"
-                      ).replace(
+                      )
+                      .replace(
+                          "\r",
+                          ""
+                      )
+                      .replace(
                           "\n",
                           "\\n"
-                      ) +
+                      )+
                       "'";
               }
 
-              void runJs(String script) {
+              private void runJs(
+                  String script){
 
-                  runOnUiThread(() ->
-                      web.evaluateJavascript(
-                          "javascript:" + script,
-                          null
-                      )
+                  runOnUiThread(
+                      new Runnable(){
+
+                          @Override
+                          public void run(){
+
+                              if(web==null){
+                                  return;
+                              }
+
+                              web.evaluateJavascript(
+                                  "javascript:"+
+                                  script,
+                                  null
+                              );
+                          }
+                      }
                   );
               }
 
               public class Bridge {
 
                   @JavascriptInterface
-                  public void scan() {
-                      MainActivity.this.scan();
+                  public void scan(){
+                      requestPermissionsIfNeeded();
                   }
 
                   @JavascriptInterface
-                  public void stopScan() {
+                  public void stopScan(){
                       MainActivity.this.stopScan();
                   }
 
                   @JavascriptInterface
-                  public void connect(String address) {
-                      MainActivity.this.connect(address);
+                  public void connect(
+                      String address){
+
+                      MainActivity.this.connect(
+                          address
+                      );
                   }
 
                   @JavascriptInterface
-                  public void disconnect() {
+                  public void disconnect(){
                       MainActivity.this.disconnect();
                   }
 
                   @JavascriptInterface
-                  public void hex(String value) {
+                  public void power(
+                      boolean on){
 
-                      try {
-                          sendBytes(parseHex(value));
-                      } catch (Exception e) {
-                          runJs("log('INVALID HEX');");
-                      }
-                  }
-
-                  @JavascriptInterface
-                  public void power(boolean on) {
-
-                      sendBytes(
+                      send(
                           parseHex(
                               on
-                              ? "7B FF 04 01 FF FF FF FF BF"
-                              : "7B FF 04 00 FF FF FF FF BF"
+                              ?
+                              "7B FF 04 01 FF FF FF FF BF"
+                              :
+                              "7B FF 04 00 FF FF FF FF BF"
                           )
                       );
                   }
 
                   @JavascriptInterface
-                  public void mode(int mode) {
+                  public void mode(
+                      int mode){
 
-                      if (mode < 1) mode = 1;
-                      if (mode > 210) mode = 210;
-
-                      String hex =
-                          String.format(
-                              Locale.US,
-                              "7B FF 03 %02X FF FF FF FF BF",
-                              mode
+                      mode=
+                          Math.max(
+                              1,
+                              Math.min(
+                                  210,
+                                  mode
+                              )
                           );
 
-                      sendBytes(parseHex(hex));
+                      send(
+                          parseHex(
+                              String.format(
+                                  Locale.US,
+                                  "7B FF 03 %02X FF FF FF FF BF",
+                                  mode
+                              )
+                          )
+                      );
                   }
 
                   @JavascriptInterface
                   public void color(
                       int r,
                       int g,
-                      int b) {
+                      int b){
 
-                      r = clamp(r);
-                      g = clamp(g);
-                      b = clamp(b);
-
-                      String hex =
-                          String.format(
-                              Locale.US,
-                              "7B FF 07 %02X %02X %02X 00 FF BF",
-                              r,
-                              g,
-                              b
+                      r=
+                          Math.max(
+                              0,
+                              Math.min(
+                                  255,
+                                  r
+                              )
                           );
 
-                      sendBytes(parseHex(hex));
+                      g=
+                          Math.max(
+                              0,
+                              Math.min(
+                                  255,
+                                  g
+                              )
+                          );
+
+                      b=
+                          Math.max(
+                              0,
+                              Math.min(
+                                  255,
+                                  b
+                              )
+                          );
+
+                      send(
+                          parseHex(
+                              String.format(
+                                  Locale.US,
+                                  "7B FF 07 %02X %02X %02X 00 FF BF",
+                                  r,
+                                  g,
+                                  b
+                              )
+                          )
+                      );
                   }
 
                   @JavascriptInterface
-                  public void brightness(int pct) {
+                  public void brightness(
+                      int pct){
 
-                      pct =
+                      pct=
                           Math.max(
                               0,
                               Math.min(
@@ -831,24 +3502,26 @@ jobs:
                               )
                           );
 
-                      int scaled =
-                          pct * 32 / 100;
+                      int scaled=
+                          pct*32/100;
 
-                      String hex =
-                          String.format(
-                              Locale.US,
-                              "7B FF 01 %02X %02X 00 FF FF BF",
-                              scaled,
-                              pct
-                          );
-
-                      sendBytes(parseHex(hex));
+                      send(
+                          parseHex(
+                              String.format(
+                                  Locale.US,
+                                  "7B FF 01 %02X %02X 00 FF FF BF",
+                                  scaled,
+                                  pct
+                              )
+                          )
+                      );
                   }
 
                   @JavascriptInterface
-                  public void speed(int value) {
+                  public void speed(
+                      int value){
 
-                      value =
+                      value=
                           Math.max(
                               0,
                               Math.min(
@@ -857,30 +3530,33 @@ jobs:
                               )
                           );
 
-                      String hex =
-                          String.format(
-                              Locale.US,
-                              "7B FF 02 %02X 00 FF FF FF BF",
-                              value
-                          );
-
-                      sendBytes(parseHex(hex));
+                      send(
+                          parseHex(
+                              String.format(
+                                  Locale.US,
+                                  "7B FF 02 %02X 00 FF FF FF BF",
+                                  value
+                              )
+                          )
+                      );
                   }
 
                   @JavascriptInterface
-                  public void direction(int dir) {
+                  public void direction(
+                      int dir){
 
-                      dir =
-                          dir == 0 ? 0 : 1;
+                      dir=
+                          dir==0?0:1;
 
-                      String hex =
-                          String.format(
-                              Locale.US,
-                              "7B FF 0D %02X FF FF FF FF BF",
-                              dir
-                          );
-
-                      sendBytes(parseHex(hex));
+                      send(
+                          parseHex(
+                              String.format(
+                                  Locale.US,
+                                  "7B FF 0D %02X FF FF FF FF BF",
+                                  dir
+                              )
+                          )
+                      );
                   }
 
                   @JavascriptInterface
@@ -889,27 +3565,46 @@ jobs:
                       int r,
                       int g,
                       int b,
-                      int total) {
+                      int total){
 
-                      String hex =
-                          String.format(
-                              Locale.US,
-                              "7B %02X 0E FD %02X %02X %02X %02X BF",
-                              position,
-                              r,
-                              g,
-                              b,
-                              total
+                      position=
+                          Math.max(
+                              1,
+                              Math.min(
+                                  255,
+                                  position
+                              )
                           );
 
-                      sendBytes(parseHex(hex));
+                      total=
+                          Math.max(
+                              1,
+                              Math.min(
+                                  255,
+                                  total
+                              )
+                          );
+
+                      send(
+                          parseHex(
+                              String.format(
+                                  Locale.US,
+                                  "7B %02X 0E FD %02X %02X %02X %02X BF",
+                                  position,
+                                  r&255,
+                                  g&255,
+                                  b&255,
+                                  total
+                              )
+                          )
+                      );
                   }
 
                   @JavascriptInterface
                   public void customMode(
-                      int ordinal) {
+                      int ordinal){
 
-                      ordinal =
+                      ordinal=
                           Math.max(
                               0,
                               Math.min(
@@ -918,1059 +3613,155 @@ jobs:
                               )
                           );
 
-                      String hex =
-                          String.format(
-                              Locale.US,
-                              "7B FF 13 %02X FF FF FF FF BF",
-                              ordinal
+                      send(
+                          parseHex(
+                              String.format(
+                                  Locale.US,
+                                  "7B FF 13 %02X FF FF FF FF BF",
+                                  ordinal
+                              )
+                          )
+                      );
+                  }
+
+                  @JavascriptInterface
+                  public void hex(
+                      String value){
+
+                      try{
+
+                          send(
+                              parseHex(value)
                           );
 
-                      sendBytes(parseHex(hex));
-                  }
+                      }catch(Exception e){
 
-                  @JavascriptInterface
-                  public String rawTx() {
-
-                      StringBuilder s =
-                          new StringBuilder();
-
-                      for (String x : rawTx) {
-                          s.append("TX  ")
-                           .append(x)
-                           .append("\n");
+                          runJs(
+                              "logDevice("+
+                              js(
+                                  "INVALID HEX"
+                              )+
+                              ");"
+                          );
                       }
-
-                      return s.toString();
                   }
 
                   @JavascriptInterface
-                  public String rawRx() {
+                  public String modes(){
 
-                      StringBuilder s =
+                      StringBuilder out=
                           new StringBuilder();
 
-                      for (String x : rawRx) {
-                          s.append("RX  ")
-                           .append(x)
-                           .append("\n");
-                      }
+                      try{
 
-                      return s.toString();
-                  }
-
-                  @JavascriptInterface
-                  public String modes() {
-
-                      StringBuilder s =
-                          new StringBuilder();
-
-                      try {
-
-                          InputStream in =
+                          InputStream input=
                               getAssets()
-                                  .open("modes.txt");
+                              .open(
+                                  "modes.txt"
+                              );
 
-                          BufferedReader r =
+                          BufferedReader reader=
                               new BufferedReader(
                                   new InputStreamReader(
-                                      in,
+                                      input,
                                       "UTF-8"
                                   )
                               );
 
                           String line;
 
-                          while ((line = r.readLine())
-                                  != null) {
+                          while(
+                              (line=
+                                  reader.readLine())
+                                  !=null
+                          ){
 
-                              s.append(line)
-                               .append("\n");
+                              out.append(
+                                  line
+                              );
+
+                              out.append(
+                                  "\n"
+                              );
                           }
 
-                          r.close();
+                          reader.close();
 
-                      } catch (Exception ignored) {}
+                      }catch(Exception ignored){}
 
-                      return s.toString();
-                  }
-
-                  int clamp(int v) {
-                      return Math.max(
-                          0,
-                          Math.min(
-                              255,
-                              v
-                          )
-                      );
+                      return out.toString();
                   }
               }
-
-              static final String HTML =
-                  "<!doctype html>" +
-                  "<html>" +
-                  "<head>" +
-                  "<meta name='viewport' " +
-                  "content='width=device-width,initial-scale=1," +
-                  "maximum-scale=1,user-scalable=no'>" +
-
-                  "<style>" +
-
-                  "*{box-sizing:border-box}" +
-
-                  "body{" +
-                  "margin:0;" +
-                  "background:#050505;" +
-                  "color:#fff;" +
-                  "font-family:Arial,sans-serif;" +
-                  "overflow-x:hidden" +
-                  "}" +
-
-                  ".top{" +
-                  "height:64px;" +
-                  "display:flex;" +
-                  "align-items:center;" +
-                  "padding:0 14px;" +
-                  "border-bottom:1px solid #222;" +
-                  "position:sticky;" +
-                  "top:0;" +
-                  "z-index:20;" +
-                  "background:#050505" +
-                  "}" +
-
-                  ".hamb{" +
-                  "font-size:30px;" +
-                  "width:45px;" +
-                  "background:none;" +
-                  "border:0;" +
-                  "color:white" +
-                  "}" +
-
-                  ".title{" +
-                  "font-size:19px;" +
-                  "font-weight:bold;" +
-                  "letter-spacing:1px;" +
-                  "flex:1" +
-                  "}" +
-
-                  ".status{" +
-                  "font-size:11px;" +
-                  "padding:7px 9px;" +
-                  "border:1px solid #333;" +
-                  "border-radius:15px;" +
-                  "color:#aaa" +
-                  "}" +
-
-                  ".page{" +
-                  "display:none;" +
-                  "padding:16px;" +
-                  "padding-bottom:90px" +
-                  "}" +
-
-                  ".page.active{display:block}" +
-
-                  ".drawer{" +
-                  "position:fixed;" +
-                  "top:0;" +
-                  "left:-310px;" +
-                  "width:290px;" +
-                  "height:100%;" +
-                  "background:#0b0b0b;" +
-                  "z-index:100;" +
-                  "transition:.2s;" +
-                  "padding:22px;" +
-                  "box-shadow:10px 0 40px #000" +
-                  "}" +
-
-                  ".drawer.open{left:0}" +
-
-                  ".drawer button{" +
-                  "width:100%;" +
-                  "text-align:left;" +
-                  "padding:15px;" +
-                  "margin:4px 0;" +
-                  "border:0;" +
-                  "border-radius:12px;" +
-                  "background:#151515;" +
-                  "color:white;" +
-                  "font-size:15px" +
-                  "}" +
-
-                  ".card{" +
-                  "background:#101010;" +
-                  "border:1px solid #242424;" +
-                  "border-radius:18px;" +
-                  "padding:15px;" +
-                  "margin-bottom:14px" +
-                  "}" +
-
-                  "h2{font-size:21px;margin:5px 0 13px}" +
-
-                  "h3{font-size:14px;color:#aaa;" +
-                  "letter-spacing:1px;" +
-                  "margin:4px 0 12px}" +
-
-                  "button,.btn{" +
-                  "border:1px solid #333;" +
-                  "background:#171717;" +
-                  "color:white;" +
-                  "border-radius:12px;" +
-                  "padding:12px 14px;" +
-                  "font-size:14px" +
-                  "}" +
-
-                  ".primary{" +
-                  "background:#fff;" +
-                  "color:#000;" +
-                  "border:0;" +
-                  "font-weight:bold" +
-                  "}" +
-
-                  ".grid{" +
-                  "display:grid;" +
-                  "grid-template-columns:1fr 1fr;" +
-                  "gap:10px" +
-                  "}" +
-
-                  ".rgb{" +
-                  "height:160px;" +
-                  "border-radius:18px;" +
-                  "margin-bottom:14px;" +
-                  "background:linear-gradient(90deg," +
-                  "red,orange,yellow,green,cyan,blue," +
-                  "purple,red);" +
-                  "position:relative;" +
-                  "touch-action:none" +
-                  "}" +
-
-                  ".rgb:after{" +
-                  "content:'';" +
-                  "position:absolute;" +
-                  "inset:0;" +
-                  "border-radius:18px;" +
-                  "background:radial-gradient(" +
-                  "circle at center,#fff0,black);" +
-                  "}" +
-
-                  ".wheelDot{" +
-                  "position:absolute;" +
-                  "width:15px;" +
-                  "height:15px;" +
-                  "border:2px solid white;" +
-                  "border-radius:50%;" +
-                  "transform:translate(-50%,-50%);" +
-                  "z-index:3" +
-                  "}" +
-
-                  "input[type=range]{width:100%}" +
-
-                  ".strip{" +
-                  "height:110px;" +
-                  "border-radius:20px;" +
-                  "padding:20px 9px;" +
-                  "background:#090909;" +
-                  "border:1px solid #222;" +
-                  "display:flex;" +
-                  "gap:5px;" +
-                  "overflow:hidden;" +
-                  "align-items:center" +
-                  "}" +
-
-                  ".led{" +
-                  "height:42px;" +
-                  "min-width:12px;" +
-                  "flex:1;" +
-                  "border-radius:9px;" +
-                  "background:#111;" +
-                  "box-shadow:0 0 5px #111;" +
-                  "transition:.08s" +
-                  "}" +
-
-                  ".modePreview{" +
-                  "height:130px;" +
-                  "display:flex;" +
-                  "align-items:center;" +
-                  "gap:5px;" +
-                  "overflow:hidden;" +
-                  "background:#070707;" +
-                  "border-radius:16px;" +
-                  "padding:14px" +
-                  "}" +
-
-                  ".modePreview .led{height:65px}" +
-
-                  ".modes{" +
-                  "display:grid;" +
-                  "grid-template-columns:1fr 1fr;" +
-                  "gap:9px;" +
-                  "max-height:520px;" +
-                  "overflow:auto" +
-                  "}" +
-
-                  ".mode{" +
-                  "padding:12px;" +
-                  "background:#141414;" +
-                  "border:1px solid #252525;" +
-                  "border-radius:12px" +
-                  "}" +
-
-                  ".mode b{display:block;font-size:12px}" +
-                  ".mode small{color:#777}" +
-
-                  ".frames{" +
-                  "display:flex;" +
-                  "gap:8px;" +
-                  "overflow:auto;" +
-                  "padding-bottom:5px" +
-                  "}" +
-
-                  ".frame{" +
-                  "min-width:82px;" +
-                  "height:55px;" +
-                  "border-radius:10px;" +
-                  "border:1px solid #333" +
-                  "}" +
-
-                  "textarea{" +
-                  "width:100%;" +
-                  "min-height:160px;" +
-                  "background:#090909;" +
-                  "color:#fff;" +
-                  "border:1px solid #333;" +
-                  "border-radius:12px;" +
-                  "padding:12px;" +
-                  "font-family:monospace" +
-                  "}" +
-
-                  ".log{" +
-                  "background:#000;" +
-                  "border:1px solid #222;" +
-                  "border-radius:12px;" +
-                  "padding:12px;" +
-                  "font-family:monospace;" +
-                  "font-size:11px;" +
-                  "white-space:pre-wrap;" +
-                  "max-height:330px;" +
-                  "overflow:auto" +
-                  "}" +
-
-                  ".device{" +
-                  "padding:13px;" +
-                  "border:1px solid #292929;" +
-                  "border-radius:12px;" +
-                  "margin:7px 0;" +
-                  "background:#111" +
-                  "}" +
-
-                  ".pill{" +
-                  "display:inline-block;" +
-                  "padding:6px 9px;" +
-                  "border:1px solid #333;" +
-                  "border-radius:12px;" +
-                  "font-size:11px;" +
-                  "margin:3px" +
-                  "}" +
-
-                  "</style>" +
-                  "</head>" +
-
-                  "<body>" +
-
-                  "<div class='top'>" +
-                  "<button class='hamb' onclick='drawer()'>☰</button>" +
-                  "<div class='title'>LEDDMX AI PRO</div>" +
-                  "<div id='status' class='status'>DISCONNECTED</div>" +
-                  "</div>" +
-
-                  "<div id='drawer' class='drawer'>" +
-                  "<h2>LEDDMX AI PRO</h2>" +
-
-                  "<button onclick=\"page('home')\">🏠 HOME</button>" +
-                  "<button onclick=\"page('effects')\">✨ 210 EFFECTS</button>" +
-                  "<button onclick=\"page('custom')\">🎨 CUSTOM STUDIO</button>" +
-                  "<button onclick=\"page('slots')\">💾 MY MODES 171–210</button>" +
-                  "<button onclick=\"page('ai')\">🤖 AI SCENE</button>" +
-
-                  "<hr style='border-color:#222'>" +
-
-                  "<button onclick=\"page('analyzer')\">🧠 MODULE / MCU ANALYZER</button>" +
-                  "<button onclick=\"page('protocol')\">🧪 PROTOCOL LAB</button>" +
-                  "<button onclick=\"page('gatt')\">📡 GATT / BLE INSPECTOR</button>" +
-                  "<button onclick=\"page('ota')\">🔧 OTA / FIRMWARE</button>" +
-                  "<button onclick=\"page('settings')\">⚙ SETTINGS</button>" +
-
-                  "</div>" +
-
-                  "<section id='home' class='page active'>" +
-
-                  "<div class='card'>" +
-                  "<h2>Control Center</h2>" +
-                  "<div class='grid'>" +
-                  "<button class='primary' onclick='power(true)'>POWER ON</button>" +
-                  "<button onclick='power(false)'>POWER OFF</button>" +
-                  "</div>" +
-                  "</div>" +
-
-                  "<div class='card'>" +
-                  "<h3>RGB COLOR</h3>" +
-                  "<div id='wheel' class='rgb'>" +
-                  "<div id='dot' class='wheelDot' " +
-                  "style='left:50%;top:50%'></div>" +
-                  "</div>" +
-
-                  "<div class='grid'>" +
-                  "<button onclick='setRGB(255,0,0)'>RED</button>" +
-                  "<button onclick='setRGB(0,255,0)'>GREEN</button>" +
-                  "<button onclick='setRGB(0,0,255)'>BLUE</button>" +
-                  "<button onclick='setRGB(255,255,255)'>WHITE</button>" +
-                  "</div>" +
-                  "</div>" +
-
-                  "<div class='card'>" +
-                  "<h3>BRIGHTNESS <span id='brightVal'>100%</span></h3>" +
-                  "<input id='bright' type='range' min='0' max='100' value='100' " +
-                  "oninput='brightVal.innerText=this.value+\"%\"' " +
-                  "onchange='LED.brightness(+this.value)'>" +
-
-                  "<h3>SPEED <span id='speedVal'>128</span></h3>" +
-                  "<input id='speed' type='range' min='0' max='255' value='128' " +
-                  "oninput='speedVal.innerText=this.value' " +
-                  "onchange='LED.speed(+this.value)'>" +
-
-                  "<div class='grid'>" +
-                  "<button onclick='LED.direction(0)'>→ FORWARD</button>" +
-                  "<button onclick='LED.direction(1)'>← REVERSE</button>" +
-                  "</div>" +
-                  "</div>" +
-
-                  "<div class='card'>" +
-                  "<h3>LIVE LED PREVIEW</h3>" +
-                  "<div id='homeStrip' class='strip'></div>" +
-                  "</div>" +
-
-                  "<div class='card'>" +
-                  "<h3>BLUETOOTH</h3>" +
-                  "<button class='primary' onclick='scan()'>SCAN LEDDMX</button>" +
-                  "<div id='devices'></div>" +
-                  "</div>" +
-
-                  "</section>" +
-
-                  "<section id='effects' class='page'>" +
-
-                  "<div class='card'>" +
-                  "<h2>210 EFFECTS</h2>" +
-                  "<div id='modePreview' class='modePreview'></div>" +
-                  "<p id='modeName' style='color:#aaa'>SELECT EFFECT</p>" +
-                  "<div class='modes' id='modes'></div>" +
-                  "</div>" +
-
-                  "</section>" +
-
-                  "<section id='custom' class='page'>" +
-
-                  "<div class='card'>" +
-                  "<h2>Custom Animation Studio</h2>" +
-
-                  "<div id='customStrip' class='strip'></div>" +
-
-                  "<p style='color:#777;font-size:12px'>" +
-                  "EDITOR LEFT / RIGHT • WHOLE / BOTH • LIVE PREVIEW" +
-                  "</p>" +
-
-                  "<div class='grid'>" +
-                  "<button onclick='template(\"belang\")'>BELANG</button>" +
-                  "<button onclick='template(\"chase\")'>CHASE</button>" +
-                  "<button onclick='template(\"rainbow\")'>RAINBOW</button>" +
-                  "<button onclick='template(\"wave\")'>WAVE</button>" +
-                  "<button onclick='template(\"comet\")'>COMET</button>" +
-                  "<button onclick='template(\"scanner\")'>SCANNER</button>" +
-                  "<button onclick='template(\"pulse\")'>PULSE</button>" +
-                  "<button onclick='template(\"fade\")'>FADE</button>" +
-                  "</div>" +
-
-                  "<h3>OUTPUT</h3>" +
-
-                  "<div class='grid'>" +
-                  "<button id='whole' onclick='output=\"WHOLE\"'>WHOLE</button>" +
-                  "<button onclick='output=\"BOTH\"'>BOTH</button>" +
-                  "<button onclick='output=\"LEFT\"'>LEFT</button>" +
-                  "<button onclick='output=\"RIGHT\"'>RIGHT</button>" +
-                  "</div>" +
-
-                  "<h3>COLORS</h3>" +
-                  "<div id='customWheel' class='rgb'>" +
-                  "<div id='customDot' class='wheelDot' " +
-                  "style='left:50%;top:50%'></div>" +
-                  "</div>" +
-
-                  "<div id='chips'></div>" +
-
-                  "<div class='grid'>" +
-                  "<button onclick='addColor()'>＋ ADD COLOR</button>" +
-                  "<button onclick='clearColors()'>CLEAR COLORS</button>" +
-                  "</div>" +
-
-                  "<h3>FRAMES</h3>" +
-                  "<div id='frames' class='frames'></div>" +
-
-                  "<div class='grid'>" +
-                  "<button onclick='addFrame()'>＋ FRAME</button>" +
-                  "<button onclick='removeFrame()'>− FRAME</button>" +
-                  "</div>" +
-
-                  "<h3>FRAME DURATION</h3>" +
-                  "<input id='duration' type='range' min='50' max='1500' value='250'>" +
-
-                  "<div class='grid'>" +
-                  "<button class='primary' onclick='previewCustom()'>▶ PREVIEW</button>" +
-                  "<button onclick='sendCustom()'>⚡ SEND</button>" +
-                  "</div>" +
-
-                  "</div>" +
-
-                  "</section>" +
-
-                  "<section id='slots' class='page'>" +
-
-                  "<div class='card'>" +
-                  "<h2>MY MODES 171–210</h2>" +
-                  "<p style='color:#777;font-size:12px'>" +
-                  "Slot tersimpan lokal di HP. Permanent module storage hanya " +
-                  "digunakan jika command storage benar-benar terbukti." +
-                  "</p>" +
-
-                  "<div id='slotsList'></div>" +
-
-                  "</div>" +
-
-                  "</section>" +
-
-                  "<section id='ai' class='page'>" +
-
-                  "<div class='card'>" +
-                  "<h2>AI SCENE COMPOSER</h2>" +
-                  "<p style='color:#777'>" +
-                  "Offline command parser. Tidak membutuhkan API AI." +
-                  "</p>" +
-
-                  "<textarea id='aiText' " +
-                  "placeholder='Contoh: belang merah biru cepat, kiri merah kanan biru'></textarea>" +
-
-                  "<br><br>" +
-
-                  "<button class='primary' onclick='generateAI()'>✨ GENERATE</button>" +
-                  "<button onclick='previewCustom()'>▶ PREVIEW</button>" +
-                  "<button onclick='sendCustom()'>⚡ SEND</button>" +
-
-                  "</div>" +
-
-                  "</section>" +
-
-                  "<section id='analyzer' class='page'>" +
-
-                  "<div class='card'>" +
-                  "<h2>MODULE / MCU ANALYZER</h2>" +
-
-                  "<span class='pill'>SOURCE: DEVICE</span>" +
-                  "<span class='pill'>LIVE BLE</span>" +
-
-                  "<p style='color:#777;font-size:12px'>" +
-                  "Data RX/TX di halaman ini berasal dari komunikasi aktual " +
-                  "dengan modul. Aplikasi tidak mengisi data perangkat secara " +
-                  "fiktif." +
-                  "</p>" +
-
-                  "<h3>RAW RX — MODULE → PHONE</h3>" +
-                  "<div id='rxlog' class='log'>" +
-                  "NOT EXPOSED BY DEVICE" +
-                  "</div>" +
-
-                  "<h3>RAW TX — PHONE → MODULE</h3>" +
-                  "<div id='txlog' class='log'>" +
-                  "NO PACKET SENT" +
-                  "</div>" +
-
-                  "<div class='grid'>" +
-                  "<button onclick='copyText(\"rxlog\")'>COPY RX</button>" +
-                  "<button onclick='copyText(\"txlog\")'>COPY TX</button>" +
-                  "</div>" +
-
-                  "</div>" +
-
-                  "</section>" +
-
-                  "<section id='protocol' class='page'>" +
-
-                  "<div class='card'>" +
-                  "<h2>PROTOCOL LAB</h2>" +
-
-                  "<p style='color:#777;font-size:12px'>" +
-                  "Draft packet tidak dikirim otomatis. SEND hanya terjadi " +
-                  "ketika tombol SEND ditekan." +
-                  "</p>" +
-
-                  "<textarea id='hex' " +
-                  "placeholder='7B FF 03 01 FF FF FF FF BF'></textarea>" +
-
-                  "<br><br>" +
-
-                  "<button class='primary' onclick='sendHex()'>SEND HEX</button>" +
-
-                  "</div>" +
-
-                  "</section>" +
-
-                  "<section id='gatt' class='page'>" +
-
-                  "<div class='card'>" +
-                  "<h2>GATT / BLE INSPECTOR</h2>" +
-
-                  "<p>Service utama:</p>" +
-                  "<div class='pill'>0000FFE0...</div>" +
-
-                  "<p>Write characteristic:</p>" +
-                  "<div class='pill'>0000FFE1...</div>" +
-
-                  "<p>OTA service:</p>" +
-                  "<div class='pill'>5833FF01...</div>" +
-
-                  "<p style='color:#777;font-size:12px'>" +
-                  "Exact characteristics ditampilkan berdasarkan GATT yang " +
-                  "ditemukan dari device." +
-                  "</p>" +
-
-                  "</div>" +
-
-                  "</section>" +
-
-                  "<section id='ota' class='page'>" +
-
-                  "<div class='card'>" +
-                  "<h2>OTA / FIRMWARE</h2>" +
-
-                  "<div id='otaState'>" +
-                  "OTA STATUS: NOT EXPOSED BY DEVICE" +
-                  "</div>" +
-
-                  "<p style='color:#777;font-size:12px'>" +
-                  "OTA tidak akan mem-flash firmware sembarangan. " +
-                  "Firmware hanya dapat dipertimbangkan jika format bootloader " +
-                  "dan kompatibilitas modul sudah terbukti." +
-                  "</p>" +
-
-                  "</div>" +
-
-                  "</section>" +
-
-                  "<section id='settings' class='page'>" +
-
-                  "<div class='card'>" +
-                  "<h2>SETTINGS</h2>" +
-
-                  "<button onclick='scan()'>RECONNECT / SCAN</button>" +
-                  "<button onclick='disconnect()'>DISCONNECT</button>" +
-
-                  "<h3>LANGUAGE</h3>" +
-                  "<div class='grid'>" +
-                  "<button>INDONESIA</button>" +
-                  "<button>ENGLISH</button>" +
-                  "</div>" +
-
-                  "<h3>APP</h3>" +
-                  "<span class='pill'>LEDDMX AI PRO FINAL</span>" +
-                  "<span class='pill'>BLE FFE0 / FFE1</span>" +
-                  "<span class='pill'>210 EFFECTS</span>" +
-                  "<span class='pill'>CUSTOM 171–210</span>" +
-
-                  "</div>" +
-
-                  "</section>" +
-
-                  "<script>" +
-
-                  "let rgb=[255,0,0];" +
-                  "let output='WHOLE';" +
-                  "let colors=[[255,0,0],[0,0,255]];" +
-                  "let frames=[];" +
-                  "let frameIndex=0;" +
-                  "let previewTimer=null;" +
-
-                  "function drawer(){" +
-                  "document.getElementById('drawer').classList.toggle('open')" +
-                  "}" +
-
-                  "function page(id){" +
-                  "document.querySelectorAll('.page').forEach(" +
-                  "x=>x.classList.remove('active'));" +
-                  "document.getElementById(id).classList.add('active');" +
-                  "document.getElementById('drawer').classList.remove('open');" +
-                  "if(id==='effects')loadModes();" +
-                  "if(id==='slots')loadSlots();" +
-                  "}" +
-
-                  "function log(x){" +
-                  "let el=document.getElementById('rxlog');" +
-                  "if(el.innerText==='NOT EXPOSED BY DEVICE')el.innerText='';" +
-                  "el.innerText+=x+'\\n';" +
-                  "el.scrollTop=el.scrollHeight;" +
-                  "}" +
-
-                  "function tx(x){" +
-                  "let el=document.getElementById('txlog');" +
-                  "if(el.innerText==='NO PACKET SENT')el.innerText='';" +
-                  "el.innerText+=x+'\\n';" +
-                  "el.scrollTop=el.scrollHeight;" +
-                  "}" +
-
-                  "function rx(x){log('RX  '+x)}" +
-
-                  "function deviceFound(name,address){" +
-                  "let d=document.getElementById('devices');" +
-                  "d.innerHTML+='<div class=\"device\">'+name+" +
-                  "'<br><small>'+address+'</small><br><br>'+" +
-                  "'<button onclick=\"LED.connect(\\''+address+" +
-                  "\\')\">CONNECT</button></div>';" +
-                  "}" +
-
-                  "function scan(){" +
-                  "document.getElementById('devices').innerHTML=" +
-                  "'<p style=\"color:#777\">SCANNING...</p>';" +
-                  "LED.scan()" +
-                  "}" +
-
-                  "function scanStarted(){log('DEVICE SCAN STARTED')}" +
-                  "function scanStopped(){log('DEVICE SCAN FINISHED')}" +
-                  "function scanBusy(){log('SCAN COOLDOWN')}" +
-                  "function scanError(x){log('SCAN ERROR '+x)}" +
-                  "function bluetoothOff(){log('BLUETOOTH OFF')}" +
-
-                  "function connectionState(ok){" +
-                  "let s=document.getElementById('status');" +
-                  "s.innerText=ok?'CONNECTED':'DISCONNECTED';" +
-                  "s.style.color=ok?'#fff':'#aaa';" +
-                  "}" +
-
-                  "function moduleReady(write,ota){" +
-                  "log(write?'FFE1 READY':'FFE1 NOT FOUND');" +
-                  "document.getElementById('otaState').innerText=" +
-                  "ota?'OTA SERVICE DETECTED':'OTA STATUS: NOT EXPOSED BY DEVICE';" +
-                  "}" +
-
-                  "function disconnect(){LED.disconnect()}" +
-
-                  "function power(v){LED.power(v)}" +
-
-                  "function setRGB(r,g,b){" +
-                  "rgb=[r,g,b];" +
-                  "LED.color(r,g,b);" +
-                  "drawStrip(rgb);" +
-                  "}" +
-
-                  "function clamp(v){" +
-                  "return Math.max(0,Math.min(255,v))" +
-                  "}" +
-
-                  "function hsvToRgb(h,s,v){" +
-                  "let f=(n,k=(n+h/60)%6)=>v-v*s*Math.max(" +
-                  "Math.min(k,4-k,1),0);" +
-                  "return [f(5)*255,f(3)*255,f(1)*255].map(Math.round)" +
-                  "}" +
-
-                  "function wheelEvent(el,dot,e){" +
-                  "let r=el.getBoundingClientRect();" +
-                  "let x=e.clientX-r.left;" +
-                  "let y=e.clientY-r.top;" +
-                  "let cx=r.width/2;" +
-                  "let cy=r.height/2;" +
-                  "let dx=x-cx;" +
-                  "let dy=y-cy;" +
-                  "let hue=(Math.atan2(dy,dx)*180/Math.PI+360)%360;" +
-                  "let rr=Math.sqrt(dx*dx+dy*dy);" +
-                  "let sat=Math.min(1,rr/(Math.min(r.width,r.height)/2));" +
-                  "rgb=hsvToRgb(hue,sat,1);" +
-                  "dot.style.left=x+'px';" +
-                  "dot.style.top=y+'px';" +
-                  "setRGB(rgb[0],rgb[1],rgb[2]);" +
-                  "}" +
-
-                  "['wheel','customWheel'].forEach(id=>{" +
-                  "let el=document.getElementById(id);" +
-                  "let dot=document.getElementById(" +
-                  "id==='wheel'?'dot':'customDot');" +
-                  "el.addEventListener('pointerdown',e=>{" +
-                  "el.setPointerCapture(e.pointerId);" +
-                  "wheelEvent(el,dot,e)" +
-                  "});" +
-                  "el.addEventListener('pointermove',e=>{" +
-                  "if(e.buttons)wheelEvent(el,dot,e)" +
-                  "})" +
-                  "});" +
-
-                  "function drawStrip(c,phase=0){" +
-                  "['homeStrip','customStrip','modePreview'].forEach(id=>{" +
-                  "let el=document.getElementById(id);" +
-                  "if(!el)return;" +
-                  "el.innerHTML='';" +
-                  "let n=id==='modePreview'?18:24;" +
-                  "for(let i=0;i<n;i++){" +
-                  "let d=document.createElement('div');" +
-                  "d.className='led';" +
-                  "let k=(i+phase)%n;" +
-                  "let factor=id==='modePreview'?" +
-                  "((k%6)===0?1:.12):1;" +
-                  "d.style.background='rgb('+c[0]*factor+','+" +
-                  "c[1]*factor+','+c[2]*factor+')';" +
-                  "d.style.boxShadow='0 0 16px rgb('+c[0]*factor+','+" +
-                  "c[1]*factor+','+c[2]*factor+')';" +
-                  "el.appendChild(d)" +
-                  "}" +
-                  "})" +
-                  "}" +
-
-                  "let livePhase=0;" +
-                  "setInterval(()=>{" +
-                  "livePhase=(livePhase+1)%24;" +
-                  "drawStrip(rgb,livePhase);" +
-                  "if(frames.length)drawFrames();" +
-                  "},120);" +
-
-                  "function loadModes(){" +
-                  "let raw=LED.modes();" +
-                  "let box=document.getElementById('modes');" +
-                  "if(box.children.length)return;" +
-                  "raw.trim().split('\\n').forEach(line=>{" +
-                  "let p=line.split('|');" +
-                  "if(p.length<2)return;" +
-                  "let b=document.createElement('button');" +
-                  "b.className='mode';" +
-                  "b.innerHTML='<b>'+p[0]+'</b><small>'+p.slice(1).join('|')+'</small>';" +
-                  "b.onclick=()=>{" +
-                  "LED.mode(+p[0]);" +
-                  "document.getElementById('modeName').innerText=" +
-                  "p[0]+' • '+p.slice(1).join('|');" +
-                  "};" +
-                  "box.appendChild(b);" +
-                  "})" +
-                  "}" +
-
-                  "function addFrame(){" +
-                  "frames.push({" +
-                  "l:[...colors[0]]," +
-                  "r:[...colors[1]]," +
-                  "d:+document.getElementById('duration').value" +
-                  "});" +
-                  "drawFrames()" +
-                  "}" +
-
-                  "function removeFrame(){" +
-                  "if(frames.length){frames.pop();drawFrames()}" +
-                  "}" +
-
-                  "function drawFrames(){" +
-                  "let box=document.getElementById('frames');" +
-                  "box.innerHTML='';" +
-                  "frames.forEach((f,i)=>{" +
-                  "let x=document.createElement('div');" +
-                  "x.className='frame';" +
-                  "x.style.background='linear-gradient(90deg," +
-                  "rgb('+f.l+'),rgb('+f.r+'))';" +
-                  "x.onclick=()=>frameIndex=i;" +
-                  "box.appendChild(x)" +
-                  "})" +
-                  "}" +
-
-                  "function template(type){" +
-                  "frames=[];" +
-                  "if(type==='belang'){" +
-                  "for(let i=0;i<12;i++)frames.push({" +
-                  "l:i%2?[255,255,255]:[255,0,0]," +
-                  "r:i%2?[255,255,255]:[0,0,255],d:250" +
-                  "})" +
-                  "}else if(type==='rainbow'){" +
-                  "for(let i=0;i<24;i++){" +
-                  "let c=hsvToRgb(i*15,1,1);" +
-                  "frames.push({l:c,r:c,d:150})" +
-                  "}" +
-                  "}else if(type==='chase'){" +
-                  "for(let i=0;i<24;i++){" +
-                  "frames.push({" +
-                  "l:i%3===0?[255,0,0]:[0,0,0]," +
-                  "r:i%3===1?[0,0,255]:[0,0,0]," +
-                  "d:100" +
-                  "})" +
-                  "}" +
-                  "}else if(type==='wave'){" +
-                  "for(let i=0;i<18;i++){" +
-                  "let c=hsvToRgb(i*20,1,1);" +
-                  "frames.push({l:c,r:hsvToRgb(i*20+180,1,1),d:180})" +
-                  "}" +
-                  "}else if(type==='comet'||type==='scanner'){" +
-                  "for(let i=0;i<20;i++){" +
-                  "frames.push({" +
-                  "l:i%8===0?[255,0,0]:[30,0,0]," +
-                  "r:i%8===4?[0,0,255]:[0,0,30]," +
-                  "d:100" +
-                  "})" +
-                  "}" +
-                  "}else if(type==='pulse'){" +
-                  "for(let i=0;i<12;i++){" +
-                  "let v=Math.round(255*Math.abs(Math.sin(i/11*Math.PI)));" +
-                  "frames.push({l:[v,0,0],r:[0,0,v],d:100})" +
-                  "}" +
-                  "}else if(type==='fade'){" +
-                  "for(let i=0;i<20;i++){" +
-                  "let v=Math.round(255*i/19);" +
-                  "frames.push({l:[v,0,0],r:[0,0,v],d:100})" +
-                  "}" +
-                  "}" +
-                  "drawFrames();" +
-                  "}" +
-
-                  "function clearColors(){" +
-                  "colors=[];renderChips()" +
-                  "}" +
-
-                  "function addColor(){" +
-                  "colors.push([...rgb]);" +
-                  "renderChips()" +
-                  "}" +
-
-                  "function renderChips(){" +
-                  "let c=document.getElementById('chips');" +
-                  "c.innerHTML='';" +
-                  "colors.forEach(x=>{" +
-                  "let p=document.createElement('span');" +
-                  "p.className='pill';" +
-                  "p.style.background='rgb('+x+')';" +
-                  "p.style.color='#000';" +
-                  "p.innerText=x.join(',');" +
-                  "c.appendChild(p)" +
-                  "})" +
-                  "}" +
-
-                  "function previewCustom(){" +
-                  "if(!frames.length)addFrame();" +
-                  "let i=0;" +
-                  "clearInterval(previewTimer);" +
-                  "previewTimer=setInterval(()=>{" +
-                  "let f=frames[i++%frames.length];" +
-                  "drawStrip(f.l.concat(),0);" +
-                  "},Math.max(50,frames[0].d));" +
-                  "}" +
-
-                  "function sendCustom(){" +
-                  "if(!frames.length){addFrame()}" +
-                  "let i=0;" +
-                  "clearInterval(previewTimer);" +
-                  "previewTimer=setInterval(()=>{" +
-                  "let f=frames[i++%frames.length];" +
-                  "let r=Math.round((f.l[0]+f.r[0])/2);" +
-                  "let g=Math.round((f.l[1]+f.r[1])/2);" +
-                  "let b=Math.round((f.l[2]+f.r[2])/2);" +
-                  "LED.color(r,g,b);" +
-                  "},Math.max(60,frames[0].d));" +
-                  "}" +
-
-                  "function saveSlot(n){" +
-                  "localStorage.setItem('slot'+n,JSON.stringify(frames))" +
-                  "}" +
-
-                  "function loadSlot(n){" +
-                  "let x=localStorage.getItem('slot'+n);" +
-                  "if(!x)return false;" +
-                  "try{frames=JSON.parse(x);drawFrames();return true}" +
-                  "catch(e){return false}" +
-                  "}" +
-
-                  "function loadSlots(){" +
-                  "let box=document.getElementById('slotsList');" +
-                  "box.innerHTML='';" +
-                  "for(let n=171;n<=210;n++){" +
-                  "let row=document.createElement('div');" +
-                  "row.className='card';" +
-                  "let has=!!localStorage.getItem('slot'+n);" +
-                  "row.innerHTML='<b>SLOT '+n+'</b> • '+" +
-                  "'<span style=\"color:#777\">'+(has?'SAVED':'EMPTY')+'</span>'+" +
-                  "'<br><br><button onclick=\"loadSlot('+n+')\">LOAD</button> '+" +
-                  "'<button onclick=\"saveSlot('+n+')\">SAVE</button>';" +
-                  "box.appendChild(row)" +
-                  "}" +
-                  "}" +
-
-                  "function generateAI(){" +
-                  "let s=document.getElementById('aiText').value.toLowerCase();" +
-                  "frames=[];" +
-
-                  "let fast=s.includes('super cepat')?60:" +
-                  "s.includes('cepat')?100:" +
-                  "s.includes('pelan')||s.includes('lambat')?600:250;" +
-
-                  "let findColor=(text,fallback)=>{" +
-                  "if(text.includes('merah')||text.includes('red'))return [255,0,0];" +
-                  "if(text.includes('hijau')||text.includes('green'))return [0,255,0];" +
-                  "if(text.includes('biru')||text.includes('blue'))return [0,0,255];" +
-                  "if(text.includes('putih')||text.includes('white'))return [255,255,255];" +
-                  "if(text.includes('kuning')||text.includes('yellow'))return [255,255,0];" +
-                  "if(text.includes('ungu')||text.includes('purple'))return [255,0,255];" +
-                  "if(text.includes('cyan'))return [0,255,255];" +
-                  "return fallback" +
-                  "};" +
-
-                  "if(s.includes('rainbow')||s.includes('pelangi')){" +
-                  "template('rainbow');return" +
-                  "}" +
-
-                  "if(s.includes('belang')||s.includes('stripe')||" +
-                  "s.includes('bergantian')){" +
-                  "let a=findColor(s,[255,0,0]);" +
-                  "let b=s.includes('biru')?[0,0,255]:" +
-                  "s.includes('putih')?[255,255,255]:[0,0,255];" +
-                  "for(let i=0;i<16;i++)frames.push({" +
-                  "l:i%2?a:b,r:i%2?b:a,d:fast" +
-                  "});" +
-                  "drawFrames();return" +
-                  "}" +
-
-                  "if(s.includes('chase')||s.includes('jalan')||s.includes('running')){" +
-                  "template('chase');return" +
-                  "}" +
-
-                  "if(s.includes('fade')||s.includes('memudar')){" +
-                  "template('fade');return" +
-                  "}" +
-
-                  "let a=findColor(s,[255,0,0]);" +
-                  "for(let i=0;i<8;i++)frames.push({l:a,r:a,d:fast});" +
-                  "drawFrames()" +
-                  "}" +
-
-                  "function sendHex(){" +
-                  "let x=document.getElementById('hex').value;" +
-                  "LED.hex(x)" +
-                  "}" +
-
-                  "function copyText(id){" +
-                  "navigator.clipboard.writeText(" +
-                  "document.getElementById(id).innerText)" +
-                  "}" +
-
-                  "colors=[[255,0,0],[0,0,255]];" +
-                  "template('belang');" +
-                  "renderChips();" +
-                  "drawStrip(rgb);" +
-
-                  "</script>" +
-                  "</body>" +
-                  "</html>";
           }
           EOF
+
+      - name: Download exact LEDDMX mode names
+        shell: bash
+        run: |
+          curl -L -s \
+            https://raw.githubusercontent.com/user154lt/LEDDMX-00/main/PatternList.kt \
+            -o /tmp/PatternList.kt || true
+
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          out = Path("app/src/main/assets/modes.txt")
+
+          src = ""
+
+          p = Path("/tmp/PatternList.kt")
+
+          if p.exists():
+              src = p.read_text(
+                  encoding="utf-8",
+                  errors="ignore"
+              )
+
+          vals = re.findall(
+              r'"((?:[^"\\]|\\.)*)"',
+              src
+          )
+
+          vals = vals[:211]
+
+          lines=[]
+
+          for i in range(1,211):
+
+              idx=i-1
+
+              if idx < len(vals):
+                  name=vals[idx]
+              else:
+                  name=f"MODE {i}"
+
+              name=name.replace(
+                  '\\"',
+                  '"'
+              )
+
+              name=name.replace(
+                  '\\n',
+                  ' '
+              )
+
+              lines.append(
+                  f"{i}|{name}"
+              )
+
+          out.write_text(
+              "\n".join(lines)+"\n",
+              encoding="utf-8"
+          )
+          PY
 
       - name: Build APK
         shell: bash
         run: |
           gradle --no-daemon clean assembleDebug
 
-      - name: Upload APK
+      - name: Upload FINAL APK
         uses: actions/upload-artifact@v4
         with:
           name: LEDDMX-AI-PRO-FINAL
