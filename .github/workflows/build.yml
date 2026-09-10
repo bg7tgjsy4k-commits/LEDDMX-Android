@@ -1,4 +1,4 @@
-name: Build LEDDMX Pro v36
+name: Build LEDDMX Pro FINAL
 
 on:
   workflow_dispatch:
@@ -7,12 +7,14 @@ on:
       - main
       - master
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout Repository
         uses: actions/checkout@v4
 
@@ -22,20 +24,28 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Prepare Android Project
+      # PENTING:
+      # Jangan gunakan Gradle bawaan runner yang sekarang bisa 9.x.
+      # Kita paksa Gradle 8.9 agar cocok dengan AGP 8.7.3.
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build LEDDMX Pro FINAL
         shell: bash
         run: |
           set -e
 
-          rm -rf app build.gradle settings.gradle gradle.properties local.properties
-          rm -rf gradle gradlew gradlew.bat
+          rm -rf app
+          rm -rf build.gradle settings.gradle gradle.properties
+          rm -rf local.properties
+          rm -rf gradlew gradlew.bat gradle
 
           mkdir -p app/src/main/java/com/leddmx/pro
           mkdir -p app/src/main/res/values
 
-          echo "sdk.dir=$ANDROID_HOME" > local.properties
-
-          cat > settings.gradle <<'EOF'
+          cat > settings.gradle <<'SETTINGS'
           pluginManagement {
               repositories {
                   google()
@@ -54,21 +64,21 @@ jobs:
 
           rootProject.name = "LEDDMX-Pro"
           include(":app")
-          EOF
+          SETTINGS
 
-          cat > build.gradle <<'EOF'
+          cat > build.gradle <<'ROOT'
           plugins {
               id 'com.android.application' version '8.7.3' apply false
           }
-          EOF
+          ROOT
 
-          cat > gradle.properties <<'EOF'
+          cat > gradle.properties <<'PROPS'
           org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
           android.useAndroidX=true
           android.nonTransitiveRClass=true
-          EOF
+          PROPS
 
-          cat > app/build.gradle <<'EOF'
+          cat > app/build.gradle <<'APP'
           plugins {
               id 'com.android.application'
           }
@@ -81,38 +91,42 @@ jobs:
                   applicationId 'com.leddmx.pro'
                   minSdk 21
                   targetSdk 35
-                  versionCode 36
-                  versionName '36.0'
+                  versionCode 40
+                  versionName '40.0'
+              }
+
+              buildTypes {
+                  debug {
+                      minifyEnabled false
+                  }
+                  release {
+                      minifyEnabled false
+                  }
               }
 
               compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_17
-                  targetCompatibility JavaVersion.VERSION_17
+                  sourceCompatibility JavaVersion.VERSION_1_8
+                  targetCompatibility JavaVersion.VERSION_1_8
               }
           }
-          EOF
+          APP
 
-          cat > app/src/main/res/values/strings.xml <<'EOF'
+          cat > app/src/main/res/values/strings.xml <<'STRINGS'
           <resources>
               <string name="app_name">LEDDMX Pro Controller</string>
           </resources>
-          EOF
+          STRINGS
 
-          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          cat > app/src/main/AndroidManifest.xml <<'MANIFEST'
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
               <uses-permission android:name="android.permission.BLUETOOTH" />
               <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
 
-              <uses-permission
-                  android:name="android.permission.BLUETOOTH_SCAN"
-                  android:usesPermissionFlags="0" />
+              <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+              <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
-              <uses-permission
-                  android:name="android.permission.BLUETOOTH_CONNECT" />
-
-              <uses-permission
-                  android:name="android.permission.ACCESS_FINE_LOCATION" />
+              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
               <uses-feature
                   android:name="android.hardware.bluetooth_le"
@@ -139,12 +153,9 @@ jobs:
               </application>
 
           </manifest>
-          EOF
+          MANIFEST
 
-      - name: Write MainActivity
-        shell: bash
-        run: |
-          cat > app/src/main/java/com/leddmx/pro/MainActivity.java <<'EOF'
+          cat > app/src/main/java/com/leddmx/pro/MainActivity.java <<'JAVA'
           package com.leddmx.pro;
 
           import android.Manifest;
@@ -165,10 +176,12 @@ jobs:
           import android.graphics.Canvas;
           import android.graphics.Color;
           import android.graphics.Paint;
+          import android.graphics.Shader;
           import android.graphics.SweepGradient;
           import android.os.Build;
           import android.os.Bundle;
           import android.os.Handler;
+          import android.os.Looper;
           import android.view.Gravity;
           import android.view.MotionEvent;
           import android.view.View;
@@ -183,12 +196,10 @@ jobs:
           import android.widget.TextView;
           import android.widget.Toast;
 
-          import java.util.ArrayDeque;
           import java.util.ArrayList;
           import java.util.HashMap;
           import java.util.Locale;
           import java.util.Map;
-          import java.util.Queue;
           import java.util.UUID;
 
           public class MainActivity extends Activity {
@@ -208,74 +219,75 @@ jobs:
               private LinearLayout contentLayout;
               private LinearLayout scanDeviceListLayout;
 
-              private SharedPreferences sharedPrefs;
+              private SharedPreferences prefs;
 
-              private final Handler handler = new Handler();
-
-              private final Queue<byte[]> writeQueue = new ArrayDeque<>();
-              private boolean writing = false;
-
-              private final Map<String, BluetoothDevice> discoveredDevices =
-                      new HashMap<>();
-
-              private int currentMode = 1;
-              private int brightness = 100;
-              private int speed = 50;
-              private int pixelCount = 60;
-              private int direction = 0;
-
-              private String rgbOrder = "RGB";
-
-              private int selectedSlot = 171;
-
-              private boolean isPlaying = false;
+              private final Handler handler =
+                      new Handler(Looper.getMainLooper());
 
               private final ArrayList<AnimFrame> timelineFrames =
                       new ArrayList<>();
 
-              private PreviewView previewView;
+              private final HashMap<String, BluetoothDevice> discoveredDevices =
+                      new HashMap<>();
 
-              private final Handler previewHandler = new Handler();
+              private final HashMap<String, Button> discoveredButtons =
+                      new HashMap<>();
 
-              private Runnable previewRunnable;
+              private boolean isScanning = false;
+              private boolean isPlaying = false;
+              private boolean gattReady = false;
 
-              private boolean english = false;
+              private int currentMode = 1;
+              private int brightness = 100;
+              private int speed = 50;
+              private int direction = 0;
+              private int pixelCount = 60;
+              private int selectedSlot = 171;
+
+              private String language = "ID";
+
+              private final ArrayList<byte[]> packetQueue =
+                      new ArrayList<>();
+
+              private boolean writingPacket = false;
+
+              private int customColor = Color.RED;
 
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
 
-                  sharedPrefs =
-                          getSharedPreferences(
-                                  "LEDDMX_EXACT_SLOTS",
-                                  MODE_PRIVATE
-                          );
+                  prefs = getSharedPreferences(
+                          "LEDDMX_PRO_SETTINGS",
+                          MODE_PRIVATE
+                  );
+
+                  language = prefs.getString("language", "ID");
 
                   BluetoothManager manager =
-                          (BluetoothManager)
-                                  getSystemService(Context.BLUETOOTH_SERVICE);
+                          (BluetoothManager) getSystemService(
+                                  Context.BLUETOOTH_SERVICE
+                          );
 
                   if (manager != null) {
                       bluetoothAdapter = manager.getAdapter();
                   }
 
-                  if (timelineFrames.isEmpty()) {
-                      timelineFrames.add(
-                              new AnimFrame(
-                                      Color.RED,
-                                      Color.BLUE,
-                                      150
-                              )
-                      );
+                  timelineFrames.add(
+                          new AnimFrame(
+                                  Color.RED,
+                                  Color.BLUE,
+                                  150
+                          )
+                  );
 
-                      timelineFrames.add(
-                              new AnimFrame(
-                                      Color.BLUE,
-                                      Color.RED,
-                                      150
-                              )
-                      );
-                  }
+                  timelineFrames.add(
+                          new AnimFrame(
+                                  Color.BLUE,
+                                  Color.RED,
+                                  150
+                          )
+                  );
 
                   buildUI();
                   showHomeDashboard();
@@ -285,77 +297,46 @@ jobs:
 
               private void requestBluetoothPermissions() {
 
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                  ArrayList<String> permissions =
+                          new ArrayList<>();
 
-                      ArrayList<String> permissions =
-                              new ArrayList<>();
+                  if (Build.VERSION.SDK_INT >= 31) {
 
                       if (checkSelfPermission(
-                              Manifest.permission.BLUETOOTH_SCAN)
-                              != PackageManager.PERMISSION_GRANTED) {
-
+                              Manifest.permission.BLUETOOTH_SCAN
+                      ) != PackageManager.PERMISSION_GRANTED) {
                           permissions.add(
                                   Manifest.permission.BLUETOOTH_SCAN
                           );
                       }
 
                       if (checkSelfPermission(
-                              Manifest.permission.BLUETOOTH_CONNECT)
-                              != PackageManager.PERMISSION_GRANTED) {
-
+                              Manifest.permission.BLUETOOTH_CONNECT
+                      ) != PackageManager.PERMISSION_GRANTED) {
                           permissions.add(
                                   Manifest.permission.BLUETOOTH_CONNECT
                           );
                       }
 
-                      if (!permissions.isEmpty()) {
-                          requestPermissions(
-                                  permissions.toArray(
-                                          new String[0]
-                                  ),
-                                  100
-                          );
-                      }
-
-                  } else if (Build.VERSION.SDK_INT >=
-                          Build.VERSION_CODES.M) {
+                  } else {
 
                       if (checkSelfPermission(
-                              Manifest.permission.ACCESS_FINE_LOCATION)
-                              != PackageManager.PERMISSION_GRANTED) {
-
-                          requestPermissions(
-                                  new String[]{
-                                          Manifest.permission.ACCESS_FINE_LOCATION
-                                  },
-                                  101
+                              Manifest.permission.ACCESS_FINE_LOCATION
+                      ) != PackageManager.PERMISSION_GRANTED) {
+                          permissions.add(
+                                  Manifest.permission.ACCESS_FINE_LOCATION
                           );
                       }
                   }
-              }
 
-              private boolean bluetoothPermissionOK() {
-
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-
-                      return checkSelfPermission(
-                              Manifest.permission.BLUETOOTH_SCAN
-                      ) == PackageManager.PERMISSION_GRANTED
-                              &&
-                              checkSelfPermission(
-                                      Manifest.permission.BLUETOOTH_CONNECT
-                              ) == PackageManager.PERMISSION_GRANTED;
-
+                  if (!permissions.isEmpty()) {
+                      requestPermissions(
+                              permissions.toArray(
+                                      new String[0]
+                              ),
+                              1001
+                      );
                   }
-
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-
-                      return checkSelfPermission(
-                              Manifest.permission.ACCESS_FINE_LOCATION
-                      ) == PackageManager.PERMISSION_GRANTED;
-                  }
-
-                  return true;
               }
 
               private void buildUI() {
@@ -368,34 +349,34 @@ jobs:
                   );
 
                   root.setBackgroundColor(
-                          Color.rgb(18, 20, 24)
+                          Color.rgb(15, 18, 22)
                   );
 
-                  LinearLayout topBar =
+                  LinearLayout top =
                           new LinearLayout(this);
 
-                  topBar.setGravity(
+                  top.setGravity(
                           Gravity.CENTER_VERTICAL
                   );
 
-                  topBar.setPadding(
-                          16, 16, 16, 10
+                  top.setPadding(
+                          16, 16, 16, 8
                   );
 
                   TextView title =
                           new TextView(this);
 
                   title.setText(
-                          "LEDDMX-00-b2cd Pro v36"
+                          "LEDDMX-00-b2cd PRO"
                   );
 
                   title.setTextColor(
-                          Color.rgb(0, 229, 255)
+                          Color.CYAN
                   );
 
-                  title.setTextSize(15);
+                  title.setTextSize(16);
 
-                  topBar.addView(
+                  top.addView(
                           title,
                           new LinearLayout.LayoutParams(
                                   0,
@@ -407,16 +388,16 @@ jobs:
                   Button scan =
                           createButton(
                                   "SCAN BLE",
-                                  Color.rgb(31, 36, 48)
+                                  Color.rgb(35, 42, 52)
                           );
 
                   scan.setOnClickListener(
                           v -> showScanScreen()
                   );
 
-                  topBar.addView(scan);
+                  top.addView(scan);
 
-                  root.addView(topBar);
+                  root.addView(top);
 
                   statusText =
                           new TextView(this);
@@ -430,7 +411,7 @@ jobs:
                   );
 
                   statusText.setPadding(
-                          18, 0, 18, 10
+                          16, 0, 16, 8
                   );
 
                   root.addView(statusText);
@@ -446,15 +427,11 @@ jobs:
                   );
 
                   contentLayout.setPadding(
-                          16, 8, 16, 8
+                          16, 8, 16, 16
                   );
 
                   scroll.addView(
-                          contentLayout,
-                          new LinearLayout.LayoutParams(
-                                  -1,
-                                  -2
-                          )
+                          contentLayout
                   );
 
                   root.addView(
@@ -470,11 +447,7 @@ jobs:
                           new LinearLayout(this);
 
                   nav.setPadding(
-                          5, 5, 5, 5
-                  );
-
-                  nav.setBackgroundColor(
-                          Color.rgb(26, 29, 36)
+                          4, 4, 4, 4
                   );
 
                   String[] tabs = {
@@ -490,37 +463,35 @@ jobs:
                       Button b =
                               createButton(
                                       tab,
-                                      Color.rgb(37, 42, 52)
+                                      Color.rgb(35, 42, 52)
                               );
 
                       b.setTextSize(9);
 
-                      b.setOnClickListener(
-                              v -> {
+                      b.setOnClickListener(v -> {
 
-                                  if (tab.equals("HOME")) {
-                                      showHomeDashboard();
+                          if (tab.equals("HOME")) {
+                              showHomeDashboard();
 
-                                  } else if (tab.equals("MODES")) {
-                                      showModeScreen();
+                          } else if (tab.equals("MODES")) {
+                              showModeScreen();
 
-                                  } else if (tab.equals("EDITOR")) {
-                                      showEditorScreen();
+                          } else if (tab.equals("EDITOR")) {
+                              showEditorScreen();
 
-                                  } else if (tab.equals("AI")) {
-                                      showAIScreen();
+                          } else if (tab.equals("AI")) {
+                              showAIScreen();
 
-                                  } else {
-                                      showRawHexScreen();
-                                  }
-                              }
-                      );
+                          } else {
+                              showRawHexScreen();
+                          }
+                      });
 
                       nav.addView(
                               b,
                               new LinearLayout.LayoutParams(
                                       0,
-                                      65,
+                                      62,
                                       1
                               )
                       );
@@ -534,51 +505,32 @@ jobs:
               private void clearContent() {
 
                   stopAnimationLoop();
-                  stopPreview();
 
-                  if (contentLayout != null) {
-                      contentLayout.removeAllViews();
-                  }
+                  contentLayout.removeAllViews();
               }
 
-              private TextView createHeader(
-                      String text
-              ) {
+              private TextView header(String text) {
 
                   TextView t =
                           new TextView(this);
 
                   t.setText(text);
-
-                  t.setTextColor(
-                          Color.rgb(0, 229, 255)
-                  );
-
+                  t.setTextColor(Color.CYAN);
                   t.setTextSize(17);
-
-                  t.setPadding(
-                          0, 12, 0, 12
-                  );
+                  t.setPadding(0, 12, 0, 12);
 
                   return t;
               }
 
-              private TextView createLabel(
-                      String text
-              ) {
+              private TextView label(String text) {
 
                   TextView t =
                           new TextView(this);
 
                   t.setText(text);
-
                   t.setTextColor(Color.WHITE);
-
                   t.setTextSize(13);
-
-                  t.setPadding(
-                          0, 8, 0, 4
-                  );
+                  t.setPadding(0, 7, 0, 4);
 
                   return t;
               }
@@ -592,31 +544,22 @@ jobs:
                           new Button(this);
 
                   b.setText(text);
-
                   b.setTextColor(Color.WHITE);
-
                   b.setBackgroundColor(color);
 
                   return b;
               }
 
-              private EditText createEditText(
-                      String text
-              ) {
+              private EditText edit(String text) {
 
                   EditText e =
                           new EditText(this);
 
                   e.setText(text);
-
                   e.setTextColor(Color.WHITE);
-
-                  e.setHintTextColor(
-                          Color.GRAY
-                  );
-
+                  e.setHintTextColor(Color.GRAY);
                   e.setBackgroundColor(
-                          Color.rgb(31, 36, 48)
+                          Color.rgb(30, 35, 43)
                   );
 
                   return e;
@@ -627,59 +570,53 @@ jobs:
                   clearContent();
 
                   contentLayout.addView(
-                          createHeader(
-                                  "DASHBOARD HARDWARE / FFE1"
-                          )
+                          header("HARDWARE CONTROL • FFE1")
                   );
 
-                  LinearLayout powerRow =
+                  LinearLayout power =
                           new LinearLayout(this);
 
                   Button on =
                           createButton(
                                   "POWER ON",
-                                  Color.rgb(0, 200, 83)
+                                  Color.rgb(0, 170, 70)
                           );
-
-                  on.setOnClickListener(
-                          v -> sendCommand(
-                                  packetPower(true)
-                          )
-                  );
 
                   Button off =
                           createButton(
                                   "POWER OFF",
-                                  Color.rgb(213, 0, 0)
+                                  Color.rgb(190, 20, 20)
                           );
 
-                  off.setOnClickListener(
-                          v -> sendCommand(
-                                  packetPower(false)
-                          )
+                  on.setOnClickListener(
+                          v -> sendPower(true)
                   );
 
-                  powerRow.addView(
+                  off.setOnClickListener(
+                          v -> sendPower(false)
+                  );
+
+                  power.addView(
                           on,
                           new LinearLayout.LayoutParams(
                                   0, -2, 1
                           )
                   );
 
-                  powerRow.addView(
+                  power.addView(
                           off,
                           new LinearLayout.LayoutParams(
                                   0, -2, 1
                           )
                   );
 
-                  contentLayout.addView(powerRow);
+                  contentLayout.addView(power);
 
                   contentLayout.addView(
-                          createLabel(
-                                  "Brightness: "
-                                          + brightness
-                                          + "%"
+                          label(
+                                  "Brightness: " +
+                                  brightness +
+                                  "%"
                           )
                   );
 
@@ -687,7 +624,9 @@ jobs:
                           new SeekBar(this);
 
                   bright.setMax(100);
-                  bright.setProgress(brightness);
+                  bright.setProgress(
+                          brightness
+                  );
 
                   bright.setOnSeekBarChangeListener(
                           new SeekBar.OnSeekBarChangeListener() {
@@ -707,10 +646,8 @@ jobs:
                               public void onStopTrackingTouch(
                                       SeekBar s
                               ) {
-                                  sendCommand(
-                                          packetBrightness(
-                                                  brightness
-                                          )
+                                  sendBrightness(
+                                          brightness
                                   );
                               }
                           }
@@ -719,16 +656,16 @@ jobs:
                   contentLayout.addView(bright);
 
                   contentLayout.addView(
-                          createLabel(
-                                  "Speed: "
-                                          + speed
+                          label(
+                                  "Speed: " +
+                                  speed
                           )
                   );
 
                   SeekBar speedBar =
                           new SeekBar(this);
 
-                  speedBar.setMax(255);
+                  speedBar.setMax(100);
                   speedBar.setProgress(speed);
 
                   speedBar.setOnSeekBarChangeListener(
@@ -749,214 +686,147 @@ jobs:
                               public void onStopTrackingTouch(
                                       SeekBar s
                               ) {
-                                  sendCommand(
-                                          packetSpeed(
-                                                  speed
-                                          )
-                                  );
+                                  sendSpeed(speed);
                               }
                           }
                   );
 
                   contentLayout.addView(speedBar);
 
-                  Button directionButton =
+                  Button dir =
                           createButton(
-                                  "Direction: "
-                                          + (
-                                          direction == 0
-                                                  ? "Forward"
-                                                  : "Reverse"
-                                  ),
-                                  Color.rgb(31, 36, 48)
+                                  direction == 0
+                                  ? "DIRECTION: FORWARD"
+                                  : "DIRECTION: REVERSE",
+                                  Color.rgb(35, 42, 52)
                           );
 
-                  directionButton.setOnClickListener(
-                          v -> {
+                  dir.setOnClickListener(v -> {
 
-                              direction =
-                                      direction == 0
-                                              ? 1
-                                              : 0;
+                      direction =
+                              direction == 0
+                              ? 1
+                              : 0;
 
-                              sendCommand(
-                                      packetDirection(
-                                              direction
-                                      )
-                              );
+                      sendDirection(direction);
 
-                              showHomeDashboard();
-                          }
-                  );
+                      showHomeDashboard();
+                  });
+
+                  contentLayout.addView(dir);
 
                   contentLayout.addView(
-                          directionButton
+                          label("Pixel Count")
                   );
 
-                  contentLayout.addView(
-                          createLabel(
-                                  "Pixel Count"
-                          )
-                  );
-
-                  EditText pixel =
-                          createEditText(
+                  EditText pixels =
+                          edit(
                                   String.valueOf(
                                           pixelCount
                                   )
                           );
 
-                  contentLayout.addView(pixel);
+                  contentLayout.addView(pixels);
 
-                  Button pixelButton =
+                  Button applyPixels =
                           createButton(
-                                  "KIRIM PIXEL CONFIG",
-                                  Color.rgb(0, 131, 143)
+                                  "APPLY PIXEL CONFIG",
+                                  Color.rgb(0, 120, 140)
                           );
 
-                  pixelButton.setOnClickListener(
-                          v -> {
+                  applyPixels.setOnClickListener(v -> {
 
-                              try {
-
-                                  pixelCount =
-                                          Integer.parseInt(
-                                                  pixel.getText()
-                                                          .toString()
-                                          );
-
-                                  if (pixelCount < 1) {
-                                      pixelCount = 1;
-                                  }
-
-                                  if (pixelCount > 65535) {
-                                      pixelCount = 65535;
-                                  }
-
-                              } catch (Exception ignored) {
-                              }
-
-                              sendCommand(
-                                      packetPixelConfig(
-                                              pixelCount
-                                      )
-                              );
-                          }
-                  );
-
-                  contentLayout.addView(
-                          pixelButton
-                  );
-
-                  contentLayout.addView(
-                          createLabel(
-                                  "RGB Order"
-                          )
-                  );
-
-                  String[] orders = {
-                          "RGB",
-                          "RBG",
-                          "GRB",
-                          "GBR",
-                          "BRG",
-                          "BGR"
-                  };
-
-                  LinearLayout orderRow =
-                          new LinearLayout(this);
-
-                  for (int i = 0;
-                       i < orders.length;
-                       i++) {
-
-                      final int order =
-                              i + 1;
-
-                      final String name =
-                              orders[i];
-
-                      Button b =
-                              createButton(
-                                      name,
-                                      name.equals(
-                                              rgbOrder
-                                      )
-                                              ? Color.rgb(
-                                              0, 229, 255
-                                      )
-                                              : Color.rgb(
-                                              31, 36, 48
-                                      )
-                              );
-
-                      b.setOnClickListener(
-                              v -> {
-
-                                  rgbOrder = name;
-
-                                  sendCommand(
-                                          packetRGBOrder(
-                                                  order
-                                          )
+                      try {
+                          pixelCount =
+                                  Integer.parseInt(
+                                          pixels.getText()
+                                                  .toString()
+                                                  .trim()
                                   );
+                      } catch (Exception ignored) {}
 
-                                  showHomeDashboard();
-                              }
+                      sendPixelConfig(
+                              pixelCount
                       );
-
-                      orderRow.addView(
-                              b,
-                              new LinearLayout.LayoutParams(
-                                      0,
-                                      60,
-                                      1
-                              )
-                      );
-                  }
+                  });
 
                   contentLayout.addView(
-                          orderRow
+                          applyPixels
                   );
 
                   contentLayout.addView(
-                          createLabel(
-                                  "Current Mode: "
-                                          + currentMode
+                          header("COLOR PICKER")
+                  );
+
+                  ColorWheelView wheel =
+                          new ColorWheelView(this);
+
+                  wheel.setOnColorChangedListener(
+                          color -> customColor = color
+                  );
+
+                  contentLayout.addView(
+                          wheel,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  420
                           )
                   );
 
-                  Button modeButton =
+                  Button sendColor =
                           createButton(
-                                  "OPEN MODE 1-210",
-                                  Color.rgb(
-                                          0, 131, 143
-                                  )
+                                  "SEND RGB",
+                                  Color.rgb(0, 130, 150)
                           );
 
-                  modeButton.setOnClickListener(
-                          v -> showModeScreen()
+                  sendColor.setOnClickListener(
+                          v -> sendRGB(
+                                  customColor
+                          )
                   );
 
                   contentLayout.addView(
-                          modeButton
+                          sendColor
                   );
 
-                  Button colorButton =
+                  Button english =
                           createButton(
-                                  "RGB / HSV COLOR STUDIO",
-                                  Color.rgb(
-                                          65, 70, 85
-                                  )
+                                  language.equals("ID")
+                                  ? "ENGLISH"
+                                  : "INDONESIA",
+                                  Color.rgb(45, 50, 60)
                           );
 
-                  colorButton.setOnClickListener(
-                          v -> showColorStudio()
+                  english.setOnClickListener(v -> {
+
+                      language =
+                              language.equals("ID")
+                              ? "EN"
+                              : "ID";
+
+                      prefs.edit()
+                              .putString(
+                                      "language",
+                                      language
+                              )
+                              .apply();
+
+                      showHomeDashboard();
+                  });
+
+                  contentLayout.addView(english);
+
+                  Button pin =
+                          createButton(
+                                  "APP PIN",
+                                  Color.rgb(45, 50, 60)
+                          );
+
+                  pin.setOnClickListener(
+                          v -> showPinSettings()
                   );
 
-                  contentLayout.addView(
-                          colorButton
-                  );
+                  contentLayout.addView(pin);
               }
 
               private void showModeScreen() {
@@ -964,13 +834,11 @@ jobs:
                   clearContent();
 
                   contentLayout.addView(
-                          createHeader(
-                                  "BUILT-IN MODES 1 - 210"
-                          )
+                          header("BUILT-IN MODE 1 - 210")
                   );
 
                   EditText search =
-                          createEditText("");
+                          edit("");
 
                   search.setHint(
                           "Cari mode..."
@@ -1011,23 +879,22 @@ jobs:
                                   populateModes(
                                           grid,
                                           s.toString()
-                                                  .trim()
                                   );
                               }
 
                               public void afterTextChanged(
-                                      android.text.Editable s
+                                      android.text.Editable e
                               ) {}
                           }
                   );
               }
 
               private void populateModes(
-                      LinearLayout container,
+                      LinearLayout grid,
                       String query
               ) {
 
-                  container.removeAllViews();
+                  grid.removeAllViews();
 
                   LinearLayout row = null;
 
@@ -1042,7 +909,7 @@ jobs:
                                       mode
                               );
 
-                      if (!query.isEmpty()
+                      if (!query.trim().isEmpty()
                               &&
                               !title.toLowerCase(
                                       Locale.US
@@ -1055,8 +922,7 @@ jobs:
                       }
 
                       if (row == null
-                              ||
-                              row.getChildCount() >= 3) {
+                              || row.getChildCount() == 3) {
 
                           row =
                                   new LinearLayout(
@@ -1067,44 +933,44 @@ jobs:
                                   LinearLayout.HORIZONTAL
                           );
 
-                          container.addView(row);
+                          grid.addView(row);
                       }
 
                       Button b =
                               createButton(
-                                      String.valueOf(
-                                              mode
-                                      ),
+                                      String.valueOf(mode),
                                       mode == currentMode
-                                              ? Color.rgb(
-                                              0, 229, 255
+                                      ? Color.rgb(
+                                              0,
+                                              150,
+                                              180
                                       )
-                                              : Color.rgb(
-                                              31, 36, 48
+                                      : Color.rgb(
+                                              35,
+                                              42,
+                                              52
                                       )
                               );
 
-                      b.setOnClickListener(
-                              v -> {
+                      b.setOnClickListener(v -> {
 
-                                  currentMode =
-                                          mode;
+                          currentMode = mode;
 
-                                  sendCommand(
-                                          packetMode(
-                                                  mode
-                                          )
-                                  );
+                          sendMode(mode);
 
-                                  Toast.makeText(
-                                          MainActivity.this,
-                                          "Mode "
-                                                  + mode
-                                                  + " dikirim",
-                                          Toast.LENGTH_SHORT
-                                  ).show();
-                              }
-                      );
+                          Toast.makeText(
+                                  MainActivity.this,
+                                  "Mode " +
+                                  mode +
+                                  " sent",
+                                  Toast.LENGTH_SHORT
+                          ).show();
+
+                          populateModes(
+                                  grid,
+                                  query
+                          );
+                      });
 
                       row.addView(
                               b,
@@ -1117,34 +983,854 @@ jobs:
                   }
               }
 
+              private void showScanScreen() {
+
+                  clearContent();
+
+                  contentLayout.addView(
+                          header(
+                                  "SCAN BLE • LEDDMX"
+                          )
+                  );
+
+                  scanDeviceListLayout =
+                          new LinearLayout(this);
+
+                  scanDeviceListLayout.setOrientation(
+                          LinearLayout.VERTICAL
+                  );
+
+                  contentLayout.addView(
+                          scanDeviceListLayout
+                  );
+
+                  Button scan =
+                          createButton(
+                                  "START SCAN",
+                                  Color.rgb(35, 42, 52)
+                          );
+
+                  scan.setOnClickListener(
+                          v -> startBleScan()
+                  );
+
+                  contentLayout.addView(scan);
+
+                  Button stop =
+                          createButton(
+                                  "STOP SCAN",
+                                  Color.rgb(180, 60, 20)
+                          );
+
+                  stop.setOnClickListener(
+                          v -> stopBleScan()
+                  );
+
+                  contentLayout.addView(stop);
+
+                  Button back =
+                          createButton(
+                                  "BACK",
+                                  Color.rgb(100, 30, 30)
+                          );
+
+                  back.setOnClickListener(
+                          v -> showHomeDashboard()
+                  );
+
+                  contentLayout.addView(back);
+
+                  startBleScan();
+              }
+
+              private void startBleScan() {
+
+                  if (bluetoothAdapter == null) {
+                      toast("Bluetooth unavailable");
+                      return;
+                  }
+
+                  if (!bluetoothAdapter.isEnabled()) {
+                      toast("Bluetooth belum aktif");
+                      return;
+                  }
+
+                  if (Build.VERSION.SDK_INT >= 31) {
+
+                      if (checkSelfPermission(
+                              Manifest.permission.BLUETOOTH_SCAN
+                      ) != PackageManager.PERMISSION_GRANTED) {
+
+                          requestBluetoothPermissions();
+                          return;
+                      }
+                  }
+
+                  try {
+
+                      bleScanner =
+                              bluetoothAdapter
+                                      .getBluetoothLeScanner();
+
+                      if (bleScanner == null) {
+                          toast("BLE scanner unavailable");
+                          return;
+                      }
+
+                      discoveredDevices.clear();
+                      discoveredButtons.clear();
+
+                      if (scanDeviceListLayout != null) {
+                          scanDeviceListLayout.removeAllViews();
+                      }
+
+                      isScanning = true;
+
+                      statusText.setText(
+                              "Status: Scanning..."
+                      );
+
+                      bleScanner.startScan(
+                              scanCallback
+                      );
+
+                      handler.postDelayed(
+                              () -> stopBleScan(),
+                              12000
+                      );
+
+                  } catch (Exception e) {
+
+                      toast(
+                              "Scan error: " +
+                              e.getMessage()
+                      );
+                  }
+              }
+
+              private final ScanCallback scanCallback =
+                      new ScanCallback() {
+
+                          @Override
+                          public void onScanResult(
+                                  int callbackType,
+                                  ScanResult result
+                          ) {
+
+                              BluetoothDevice device =
+                                      result.getDevice();
+
+                              String name = "";
+
+                              try {
+                                  if (device.getName() != null) {
+                                      name =
+                                              device.getName();
+                                  }
+                              } catch (SecurityException ignored) {}
+
+                              if ((name == null
+                                      || name.isEmpty())
+                                      &&
+                                      result.getScanRecord()
+                                              != null) {
+
+                                  name =
+                                          result
+                                          .getScanRecord()
+                                          .getDeviceName();
+                              }
+
+                              if (name == null) {
+                                  name = "";
+                              }
+
+                              String address = "";
+
+                              try {
+                                  address =
+                                          device.getAddress();
+                              } catch (SecurityException ignored) {}
+
+                              String upper =
+                                      name.toUpperCase(
+                                              Locale.US
+                                      );
+
+                              boolean likelyLEDDMX =
+                                      upper.contains("LEDDMX")
+                                      ||
+                                      upper.contains("B2CD");
+
+                              if (!likelyLEDDMX) {
+
+                                  if (result.getScanRecord()
+                                          != null) {
+
+                                      byte[] data =
+                                              result
+                                              .getScanRecord()
+                                              .getBytes();
+
+                                      String raw =
+                                              bytesToHex(data);
+
+                                      likelyLEDDMX =
+                                              raw.contains(
+                                                      "FFE0"
+                                              );
+                                  }
+                              }
+
+                              final String displayName =
+                                      name.isEmpty()
+                                      ? "BLE DEVICE"
+                                      : name;
+
+                              final String displayAddress =
+                                      address;
+
+                              if (!likelyLEDDMX) {
+                                  return;
+                              }
+
+                              runOnUiThread(() -> {
+
+                                  if (discoveredDevices
+                                          .containsKey(
+                                                  displayAddress
+                                          )) {
+                                      return;
+                                  }
+
+                                  discoveredDevices.put(
+                                          displayAddress,
+                                          device
+                                  );
+
+                                  Button deviceButton =
+                                          createButton(
+                                                  displayName +
+                                                  "\n" +
+                                                  displayAddress,
+                                                  Color.rgb(
+                                                          0,
+                                                          120,
+                                                          140
+                                                  )
+                                          );
+
+                                  deviceButton.setTextSize(
+                                          11
+                                  );
+
+                                  deviceButton
+                                          .setOnClickListener(
+                                                  v -> {
+
+                                                      stopBleScan();
+
+                                                      BluetoothDevice selected =
+                                                              discoveredDevices
+                                                              .get(
+                                                                      displayAddress
+                                                              );
+
+                                                      if (selected != null) {
+                                                          connectDevice(
+                                                                  selected
+                                                          );
+                                                      }
+                                                  }
+                                          );
+
+                                  discoveredButtons.put(
+                                          displayAddress,
+                                          deviceButton
+                                  );
+
+                                  if (scanDeviceListLayout != null) {
+                                      scanDeviceListLayout
+                                              .addView(
+                                                      deviceButton
+                                              );
+                                  }
+                              });
+                          }
+
+                          @Override
+                          public void onScanFailed(
+                                  int errorCode
+                          ) {
+
+                              runOnUiThread(() -> {
+
+                                  isScanning = false;
+
+                                  statusText.setText(
+                                          "Status: Scan failed " +
+                                          errorCode
+                                  );
+
+                                  toast(
+                                          "BLE scan failed: " +
+                                          errorCode
+                                  );
+                              });
+                          }
+                      };
+
+              private void stopBleScan() {
+
+                  if (!isScanning) {
+                      return;
+                  }
+
+                  isScanning = false;
+
+                  try {
+
+                      if (bleScanner != null) {
+                          bleScanner.stopScan(
+                                  scanCallback
+                          );
+                      }
+
+                  } catch (Exception ignored) {}
+
+                  runOnUiThread(() ->
+                          statusText.setText(
+                                  "Status: Scan stopped"
+                          )
+                  );
+              }
+
+              private void connectDevice(
+                      BluetoothDevice device
+              ) {
+
+                  stopBleScan();
+
+                  gattReady = false;
+                  targetChar = null;
+
+                  runOnUiThread(() ->
+                          statusText.setText(
+                                  "Status: Connecting..."
+                          )
+                  );
+
+                  try {
+
+                      if (bluetoothGatt != null) {
+                          try {
+                              bluetoothGatt.disconnect();
+                              bluetoothGatt.close();
+                          } catch (Exception ignored) {}
+
+                          bluetoothGatt = null;
+                      }
+
+                      bluetoothGatt =
+                              device.connectGatt(
+                                      MainActivity.this,
+                                      false,
+                                      gattCallback
+                              );
+
+                  } catch (Exception e) {
+
+                      toast(
+                              "Connection error: " +
+                              e.getMessage()
+                      );
+                  }
+              }
+
+              private final BluetoothGattCallback gattCallback =
+                      new BluetoothGattCallback() {
+
+                          @Override
+                          public void onConnectionStateChange(
+                                  BluetoothGatt gatt,
+                                  int status,
+                                  int newState
+                          ) {
+
+                              if (newState ==
+                                      BluetoothGatt.STATE_CONNECTED) {
+
+                                  bluetoothGatt = gatt;
+
+                                  runOnUiThread(() ->
+                                          statusText.setText(
+                                                  "Status: Connected - discovering FFE1..."
+                                          )
+                                  );
+
+                                  try {
+                                      if (Build.VERSION.SDK_INT >= 21) {
+                                          gatt.requestConnectionPriority(
+                                                  BluetoothGatt
+                                                          .CONNECTION_PRIORITY_HIGH
+                                          );
+                                      }
+                                  } catch (Exception ignored) {}
+
+                                  try {
+                                      gatt.discoverServices();
+                                  } catch (Exception e) {
+
+                                      runOnUiThread(() ->
+                                              statusText.setText(
+                                                      "Status: Service discovery error"
+                                              )
+                                      );
+                                  }
+
+                              } else if (
+                                      newState ==
+                                      BluetoothGatt.STATE_DISCONNECTED
+                              ) {
+
+                                  gattReady = false;
+                                  targetChar = null;
+
+                                  try {
+                                      gatt.close();
+                                  } catch (Exception ignored) {}
+
+                                  bluetoothGatt = null;
+
+                                  runOnUiThread(() ->
+                                          statusText.setText(
+                                                  "Status: Disconnected"
+                                          )
+                                  );
+                              }
+                          }
+
+                          @Override
+                          public void onServicesDiscovered(
+                                  BluetoothGatt gatt,
+                                  int status
+                          ) {
+
+                              if (status !=
+                                      BluetoothGatt.GATT_SUCCESS) {
+
+                                  runOnUiThread(() ->
+                                          statusText.setText(
+                                                  "Status: GATT error " +
+                                                  status
+                                          )
+                                  );
+
+                                  return;
+                              }
+
+                              BluetoothGattCharacteristic found =
+                                      null;
+
+                              for (BluetoothGattService service :
+                                      gatt.getServices()) {
+
+                                  if (service.getUuid()
+                                          .equals(
+                                                  SERVICE_FFE0
+                                          )
+                                          ||
+                                          service.getUuid()
+                                                  .toString()
+                                                  .toLowerCase(
+                                                          Locale.US
+                                                  )
+                                                  .contains(
+                                                          "ffe0"
+                                                  )) {
+
+                                      for (
+                                              BluetoothGattCharacteristic c :
+                                              service.getCharacteristics()
+                                      ) {
+
+                                          if (c.getUuid()
+                                                  .equals(
+                                                          CHAR_FFE1
+                                                  )
+                                                  ||
+                                                  c.getUuid()
+                                                          .toString()
+                                                          .toLowerCase(
+                                                                  Locale.US
+                                                          )
+                                                          .contains(
+                                                                  "ffe1"
+                                                          )) {
+
+                                              found = c;
+                                              break;
+                                          }
+                                      }
+                                  }
+
+                                  if (found != null) {
+                                      break;
+                                  }
+                              }
+
+                              if (found == null) {
+
+                                  gattReady = false;
+
+                                  runOnUiThread(() -> {
+
+                                      statusText.setText(
+                                              "Status: FFE1 not found"
+                                      );
+
+                                      toast(
+                                              "FFE1 characteristic tidak ditemukan"
+                                      );
+                                  });
+
+                                  return;
+                              }
+
+                              targetChar = found;
+                              gattReady = true;
+
+                              runOnUiThread(() -> {
+
+                                  statusText.setText(
+                                          "Status: CONNECTED • FFE1 READY"
+                                  );
+
+                                  toast(
+                                          "LEDDMX connected!"
+                                  );
+
+                                  showHomeDashboard();
+                              });
+
+                              drainPacketQueue();
+                          }
+                      };
+
+              private void enqueuePacket(
+                      byte[] packet
+              ) {
+
+                  if (!gattReady
+                          || bluetoothGatt == null
+                          || targetChar == null) {
+
+                      toast(
+                              "Belum terhubung ke FFE1"
+                      );
+
+                      return;
+                  }
+
+                  synchronized (packetQueue) {
+
+                      packetQueue.add(
+                              packet
+                      );
+                  }
+
+                  drainPacketQueue();
+              }
+
+              private void drainPacketQueue() {
+
+                  if (writingPacket) {
+                      return;
+                  }
+
+                  byte[] packet = null;
+
+                  synchronized (packetQueue) {
+
+                      if (!packetQueue.isEmpty()) {
+                          packet =
+                                  packetQueue.remove(0);
+                      }
+                  }
+
+                  if (packet == null) {
+                      return;
+                  }
+
+                  if (bluetoothGatt == null
+                          || targetChar == null
+                          || !gattReady) {
+                      return;
+                  }
+
+                  writingPacket = true;
+
+                  try {
+
+                      int properties =
+                              targetChar.getProperties();
+
+                      if ((properties &
+                              BluetoothGattCharacteristic
+                                      .PROPERTY_WRITE)
+                              != 0) {
+
+                          targetChar.setWriteType(
+                                  BluetoothGattCharacteristic
+                                          .WRITE_TYPE_DEFAULT
+                          );
+
+                      } else {
+
+                          targetChar.setWriteType(
+                                  BluetoothGattCharacteristic
+                                          .WRITE_TYPE_NO_RESPONSE
+                          );
+                      }
+
+                      targetChar.setValue(packet);
+
+                      bluetoothGatt.writeCharacteristic(
+                              targetChar
+                      );
+
+                  } catch (Exception e) {
+
+                      writingPacket = false;
+
+                      handler.postDelayed(
+                              this::drainPacketQueue,
+                              80
+                      );
+                  }
+
+                  handler.postDelayed(() -> {
+
+                      writingPacket = false;
+                      drainPacketQueue();
+
+                  }, 55);
+              }
+
+              /*
+               * =========================================================
+               * PROVEN LEDDMX DIALECT-B PACKETS
+               * =========================================================
+               */
+
+              private void sendPower(
+                      boolean on
+              ) {
+
+                  byte[] p = {
+                          0x7B,
+                          (byte) 0xFF,
+                          0x04,
+                          (byte) (on ? 0x01 : 0x00),
+                          (byte) 0xFF,
+                          (byte) 0xFF,
+                          (byte) 0xFF,
+                          (byte) 0xFF,
+                          (byte) 0xBF
+                  };
+
+                  enqueuePacket(p);
+              }
+
+              private void sendBrightness(
+                      int value
+              ) {
+
+                  value =
+                          Math.max(
+                                  0,
+                                  Math.min(
+                                          100,
+                                          value
+                                  )
+                          );
+
+                  int scaled =
+                          (value * 32) / 100;
+
+                  byte[] p = {
+                          0x7B,
+                          (byte) 0xFF,
+                          0x01,
+                          (byte) scaled,
+                          (byte) value,
+                          0x01,
+                          (byte) 0xFF,
+                          (byte) 0xFF,
+                          (byte) 0xBF
+                  };
+
+                  enqueuePacket(p);
+              }
+
+              private void sendSpeed(
+                      int value
+              ) {
+
+                  value =
+                          Math.max(
+                                  0,
+                                  Math.min(
+                                          100,
+                                          value
+                                  )
+                          );
+
+                  byte[] p = {
+                          0x7B,
+                          (byte) 0xFF,
+                          0x02,
+                          (byte) value,
+                          0x00,
+                          (byte) 0xFF,
+                          (byte) 0xFF,
+                          (byte) 0xFF,
+                          (byte) 0xBF
+                  };
+
+                  enqueuePacket(p);
+              }
+
+              private void sendMode(
+                      int mode
+              ) {
+
+                  mode =
+                          Math.max(
+                                  1,
+                                  Math.min(
+                                          210,
+                                          mode
+                                  )
+                          );
+
+                  byte[] p = {
+                          0x7B,
+                          (byte) 0xFF,
+                          0x03,
+                          (byte) mode,
+                          (byte) 0xFF,
+                          (byte) 0xFF,
+                          (byte) 0xFF,
+                          (byte) 0xFF,
+                          (byte) 0xBF
+                  };
+
+                  enqueuePacket(p);
+              }
+
+              private void sendDirection(
+                      int dir
+              ) {
+
+                  byte[] p = {
+                          0x7B,
+                          (byte) 0xFF,
+                          0x0D,
+                          (byte) dir,
+                          (byte) 0xFF,
+                          (byte) 0xFF,
+                          (byte) 0xFF,
+                          (byte) 0xFF,
+                          (byte) 0xBF
+                  };
+
+                  enqueuePacket(p);
+              }
+
+              private void sendRGB(
+                      int color
+              ) {
+
+                  int r = Color.red(color);
+                  int g = Color.green(color);
+                  int b = Color.blue(color);
+
+                  byte[] p = {
+                          0x7B,
+                          (byte) 0xFF,
+                          0x07,
+                          (byte) r,
+                          (byte) g,
+                          (byte) b,
+                          0x00,
+                          (byte) 0xFF,
+                          (byte) 0xBF
+                  };
+
+                  enqueuePacket(p);
+              }
+
+              private void sendPixelConfig(
+                      int pixels
+              ) {
+
+                  pixels =
+                          Math.max(
+                                  1,
+                                  Math.min(
+                                          65535,
+                                          pixels
+                                  )
+                          );
+
+                  int hi =
+                          (pixels >> 8) & 0xFF;
+
+                  int lo =
+                          pixels & 0xFF;
+
+                  /*
+                   * 0x05 frame:
+                   * 7B FF 05 TYPE PIX_HI PIX_LO SORT FF BF
+                   *
+                   * TYPE/SORT kept at documented neutral defaults.
+                   */
+
+                  byte[] p = {
+                          0x7B,
+                          (byte) 0xFF,
+                          0x05,
+                          0x00,
+                          (byte) hi,
+                          (byte) lo,
+                          0x00,
+                          (byte) 0xFF,
+                          (byte) 0xBF
+                  };
+
+                  enqueuePacket(p);
+              }
+
+              /*
+               * =========================================================
+               * EDITOR
+               * =========================================================
+               */
+
               private void showEditorScreen() {
 
                   clearContent();
 
                   contentLayout.addView(
-                          createHeader(
-                                  "CUSTOM ANIMATION / SLOT 171-210"
+                          header(
+                                  "CUSTOM ANIMATION • SLOT 171-210"
                           )
                   );
 
-                  previewView =
-                          new PreviewView(
-                                  this
-                          );
-
                   contentLayout.addView(
-                          previewView,
-                          new LinearLayout.LayoutParams(
-                                  -1,
-                                  220
-                          )
-                  );
-
-                  startPreview();
-
-                  contentLayout.addView(
-                          createLabel(
-                                  "Slot lokal HP"
+                          label(
+                                  "Slot disimpan lokal di HP."
                           )
                   );
 
@@ -1154,13 +1840,10 @@ jobs:
                   String[] slots =
                           new String[40];
 
-                  for (int i = 0;
-                       i < 40;
-                       i++) {
-
+                  for (int i = 0; i < 40; i++) {
                       slots[i] =
-                              "Custom Slot "
-                                      + (171 + i);
+                              "Custom Slot " +
+                              (171 + i);
                   }
 
                   ArrayAdapter<String> adapter =
@@ -1181,8 +1864,8 @@ jobs:
                           new AdapterView.OnItemSelectedListener() {
 
                               public void onItemSelected(
-                                      AdapterView<?> p,
-                                      View v,
+                                      AdapterView<?> parent,
+                                      View view,
                                       int position,
                                       long id
                               ) {
@@ -1193,12 +1876,10 @@ jobs:
                                   loadSlotFromLocal(
                                           selectedSlot
                                   );
-
-                                  showEditorScreen();
                               }
 
                               public void onNothingSelected(
-                                      AdapterView<?> p
+                                      AdapterView<?> parent
                               ) {}
                           }
                   );
@@ -1209,32 +1890,30 @@ jobs:
 
                   Button add =
                           createButton(
-                                  "+ TAMBAH FRAME",
-                                  Color.rgb(
-                                          31, 36, 48
-                                  )
+                                  "+ ADD FRAME",
+                                  Color.rgb(35, 42, 52)
                           );
 
-                  add.setOnClickListener(
-                          v -> {
+                  add.setOnClickListener(v -> {
 
-                              timelineFrames.add(
-                                      new AnimFrame(
-                                              Color.RED,
-                                              Color.BLUE,
-                                              150
-                                      )
-                              );
+                      timelineFrames.add(
+                              new AnimFrame(
+                                      Color.RED,
+                                      Color.BLUE,
+                                      150
+                              )
+                      );
 
-                              showEditorScreen();
-                          }
-                  );
+                      showEditorScreen();
+                  });
 
                   contentLayout.addView(add);
 
-                  for (int i = 0;
-                       i < timelineFrames.size();
-                       i++) {
+                  for (
+                          int i = 0;
+                          i < timelineFrames.size();
+                          i++
+                  ) {
 
                       final int index = i;
 
@@ -1242,9 +1921,7 @@ jobs:
                               timelineFrames.get(i);
 
                       LinearLayout card =
-                              new LinearLayout(
-                                      this
-                              );
+                              new LinearLayout(this);
 
                       card.setOrientation(
                               LinearLayout.VERTICAL
@@ -1256,21 +1933,21 @@ jobs:
 
                       card.setBackgroundColor(
                               Color.rgb(
-                                      26, 29, 36
+                                      27,
+                                      31,
+                                      38
                               )
                       );
 
                       card.addView(
-                              createLabel(
-                                      "FRAME "
-                                              + (index + 1)
+                              label(
+                                      "FRAME " +
+                                      (i + 1)
                               )
                       );
 
-                      LinearLayout colorRow =
-                              new LinearLayout(
-                                      this
-                              );
+                      LinearLayout colors =
+                              new LinearLayout(this);
 
                       Button left =
                               createButton(
@@ -1278,133 +1955,181 @@ jobs:
                                       frame.leftColor
                               );
 
-                      left.setOnClickListener(
-                              v -> {
-
-                                  showColorPickerForFrame(
-                                          index,
-                                          true
-                                  );
-                              }
-                      );
-
                       Button right =
                               createButton(
                                       "RIGHT",
                                       frame.rightColor
                               );
 
+                      left.setOnClickListener(
+                              v -> {
+
+                                  frame.leftColor =
+                                          nextColor(
+                                                  frame.leftColor
+                                          );
+
+                                  showEditorScreen();
+                              }
+                      );
+
                       right.setOnClickListener(
                               v -> {
 
-                                  showColorPickerForFrame(
-                                          index,
-                                          false
-                                  );
+                                  frame.rightColor =
+                                          nextColor(
+                                                  frame.rightColor
+                                          );
+
+                                  showEditorScreen();
                               }
                       );
 
-                      colorRow.addView(
+                      colors.addView(
                               left,
                               new LinearLayout.LayoutParams(
-                                      0,
-                                      75,
-                                      1
+                                      0, 82, 1
                               )
                       );
 
-                      colorRow.addView(
+                      colors.addView(
                               right,
                               new LinearLayout.LayoutParams(
-                                      0,
-                                      75,
-                                      1
+                                      0, 82, 1
                               )
                       );
 
-                      card.addView(
-                              colorRow
-                      );
+                      card.addView(colors);
 
-                      SeekBar duration =
-                              new SeekBar(this);
-
-                      duration.setMax(1000);
-
-                      duration.setProgress(
-                              Math.min(
-                                      1000,
-                                      Math.max(
-                                              80,
+                      EditText duration =
+                              edit(
+                                      String.valueOf(
                                               frame.duration
                                       )
-                              )
-                      );
+                              );
 
-                      duration.setOnSeekBarChangeListener(
-                              new SeekBar.OnSeekBarChangeListener() {
-
-                                  public void onProgressChanged(
-                                          SeekBar s,
-                                          int p,
-                                          boolean fromUser
-                                  ) {
-                                      if (fromUser) {
-                                          frame.duration =
-                                                  Math.max(
-                                                          80,
-                                                          p
-                                                  );
-                                      }
-                                  }
-
-                                  public void onStartTrackingTouch(
-                                          SeekBar s
-                                  ) {}
-
-                                  public void onStopTrackingTouch(
-                                          SeekBar s
-                                  ) {}
-                              }
+                      duration.setHint(
+                              "Duration ms"
                       );
 
                       card.addView(duration);
 
-                      Button delete =
+                      Button update =
                               createButton(
-                                      "HAPUS FRAME",
+                                      "UPDATE DURATION",
                                       Color.rgb(
-                                              213, 0, 0
+                                              45,
+                                              50,
+                                              60
                                       )
                               );
 
-                      delete.setOnClickListener(
+                      update.setOnClickListener(
+                              v -> {
+
+                                  try {
+
+                                      frame.duration =
+                                              Math.max(
+                                                      50,
+                                                      Integer.parseInt(
+                                                              duration
+                                                              .getText()
+                                                              .toString()
+                                                      )
+                                              );
+
+                                  } catch (Exception ignored) {}
+
+                                  showEditorScreen();
+                              }
+                      );
+
+                      card.addView(update);
+
+                      Button del =
+                              createButton(
+                                      "DELETE FRAME",
+                                      Color.rgb(
+                                              160,
+                                              25,
+                                              25
+                                      )
+                              );
+
+                      del.setOnClickListener(
                               v -> {
 
                                   if (timelineFrames.size()
                                           > 1) {
 
-                                      timelineFrames.remove(
-                                              index
-                                      );
+                                      timelineFrames
+                                              .remove(index);
 
                                       showEditorScreen();
                                   }
                               }
                       );
 
-                      card.addView(delete);
+                      card.addView(del);
 
-                      contentLayout.addView(
-                              card
-                      );
+                      contentLayout.addView(card);
                   }
+
+                  contentLayout.addView(
+                          header("DUAL PREVIEW")
+                  );
+
+                  LinearLayout preview =
+                          new LinearLayout(this);
+
+                  preview.setOrientation(
+                          LinearLayout.HORIZONTAL
+                  );
+
+                  TextView leftPreview =
+                          previewBox(
+                                  "LEFT",
+                                  timelineFrames.get(0)
+                                          .leftColor
+                          );
+
+                  TextView rightPreview =
+                          previewBox(
+                                  "RIGHT",
+                                  timelineFrames.get(0)
+                                          .rightColor
+                          );
+
+                  preview.addView(
+                          leftPreview,
+                          new LinearLayout.LayoutParams(
+                                  0,
+                                  180,
+                                  1
+                          )
+                  );
+
+                  preview.addView(
+                          rightPreview,
+                          new LinearLayout.LayoutParams(
+                                  0,
+                                  180,
+                                  1
+                          )
+                  );
+
+                  contentLayout.addView(
+                          preview
+                  );
 
                   Button save =
                           createButton(
-                                  "💾 SIMPAN SLOT LOKAL",
+                                  "SAVE TO LOCAL SLOT",
                                   Color.rgb(
-                                          0, 131, 143
+                                          0,
+                                          120,
+                                          140
                                   )
                           );
 
@@ -1415,13 +2140,10 @@ jobs:
                                       selectedSlot
                               );
 
-                              Toast.makeText(
-                                      MainActivity.this,
-                                      "Slot "
-                                              + selectedSlot
-                                              + " tersimpan di HP",
-                                      Toast.LENGTH_SHORT
-                              ).show();
+                              toast(
+                                      "Saved Slot " +
+                                      selectedSlot
+                              );
                           }
                   );
 
@@ -1429,9 +2151,11 @@ jobs:
 
                   Button play =
                           createButton(
-                                  "▶ PLAY LIVE",
+                                  "PLAY / APPLY LIVE",
                                   Color.rgb(
-                                          0, 200, 83
+                                          0,
+                                          170,
+                                          70
                                   )
                           );
 
@@ -1443,9 +2167,11 @@ jobs:
 
                   Button stop =
                           createButton(
-                                  "⏹ STOP",
+                                  "STOP",
                                   Color.rgb(
-                                          213, 0, 0
+                                          180,
+                                          20,
+                                          20
                                   )
                           );
 
@@ -1456,14 +2182,71 @@ jobs:
                   contentLayout.addView(stop);
               }
 
+              private TextView previewBox(
+                      String text,
+                      int color
+              ) {
+
+                  TextView t =
+                          new TextView(this);
+
+                  t.setText(
+                          text
+                  );
+
+                  t.setTextColor(
+                          Color.WHITE
+                  );
+
+                  t.setTextSize(
+                          18
+                  );
+
+                  t.setGravity(
+                          Gravity.CENTER
+                  );
+
+                  t.setBackgroundColor(
+                          color
+                  );
+
+                  return t;
+              }
+
+              private int nextColor(
+                      int color
+              ) {
+
+                  if (color == Color.RED)
+                      return Color.GREEN;
+
+                  if (color == Color.GREEN)
+                      return Color.BLUE;
+
+                  if (color == Color.BLUE)
+                      return Color.YELLOW;
+
+                  if (color == Color.YELLOW)
+                      return Color.CYAN;
+
+                  if (color == Color.CYAN)
+                      return Color.MAGENTA;
+
+                  return Color.RED;
+              }
+
+              /*
+               * =========================================================
+               * TEMPLATES
+               * =========================================================
+               */
+
               private void showTemplatesScreen() {
 
                   clearContent();
 
                   contentLayout.addView(
-                          createHeader(
-                                  "TEMPLATE EFFECT STUDIO"
-                          )
+                          header("ANIMATION TEMPLATES")
                   );
 
                   String[] templates = {
@@ -1485,26 +2268,22 @@ jobs:
                           "Random"
                   };
 
-                  for (String template :
-                          templates) {
-
-                      final String name =
-                              template;
+                  for (String name : templates) {
 
                       Button b =
                               createButton(
                                       name,
                                       Color.rgb(
-                                              31, 36, 48
+                                              35,
+                                              42,
+                                              52
                                       )
                               );
 
                       b.setOnClickListener(
                               v -> {
 
-                                  loadTemplate(
-                                          name
-                                  );
+                                  loadTemplate(name);
 
                                   showEditorScreen();
                               }
@@ -1520,22 +2299,51 @@ jobs:
 
                   timelineFrames.clear();
 
-                  if (name.equals("Rainbow")
+                  String n =
+                          name.toLowerCase(
+                                  Locale.US
+                          );
+
+                  if (n.contains("rainbow")) {
+
+                      int[] c = {
+                              Color.RED,
+                              Color.YELLOW,
+                              Color.GREEN,
+                              Color.CYAN,
+                              Color.BLUE,
+                              Color.MAGENTA
+                      };
+
+                      for (int i = 0; i < c.length; i++) {
+
+                          timelineFrames.add(
+                                  new AnimFrame(
+                                          c[i],
+                                          c[(i + 2) % c.length],
+                                          120
+                                  )
+                          );
+                      }
+
+                  } else if (
+                          n.contains("belang")
                           ||
-                          name.equals("Rainbow Flow")) {
+                          n.contains("chase")
+                  ) {
 
                       timelineFrames.add(
                               new AnimFrame(
                                       Color.RED,
-                                      Color.MAGENTA,
+                                      Color.BLUE,
                                       100
                               )
                       );
 
                       timelineFrames.add(
                               new AnimFrame(
-                                      Color.YELLOW,
                                       Color.BLUE,
+                                      Color.RED,
                                       100
                               )
                       );
@@ -1543,29 +2351,8 @@ jobs:
                       timelineFrames.add(
                               new AnimFrame(
                                       Color.GREEN,
-                                      Color.CYAN,
+                                      Color.YELLOW,
                                       100
-                              )
-                      );
-
-                  } else if (
-                          name.equals("Belang")
-                                  ||
-                                  name.equals("Chase")) {
-
-                      timelineFrames.add(
-                              new AnimFrame(
-                                      Color.RED,
-                                      Color.BLUE,
-                                      120
-                              )
-                      );
-
-                      timelineFrames.add(
-                              new AnimFrame(
-                                      Color.BLUE,
-                                      Color.RED,
-                                      120
                               )
                       );
 
@@ -1573,31 +2360,53 @@ jobs:
                               new AnimFrame(
                                       Color.YELLOW,
                                       Color.GREEN,
-                                      120
+                                      100
                               )
                       );
 
                   } else if (
-                          name.equals("Police")) {
+                          n.contains("police")
+                  ) {
 
                       timelineFrames.add(
                               new AnimFrame(
                                       Color.RED,
-                                      Color.BLACK,
-                                      120
+                                      Color.BLUE,
+                                      100
+                              )
+                      );
+
+                      timelineFrames.add(
+                              new AnimFrame(
+                                      Color.BLUE,
+                                      Color.RED,
+                                      100
+                              )
+                      );
+
+                  } else if (
+                          n.contains("strobe")
+                  ) {
+
+                      timelineFrames.add(
+                              new AnimFrame(
+                                      Color.WHITE,
+                                      Color.WHITE,
+                                      70
                               )
                       );
 
                       timelineFrames.add(
                               new AnimFrame(
                                       Color.BLACK,
-                                      Color.BLUE,
-                                      120
+                                      Color.BLACK,
+                                      70
                               )
                       );
 
                   } else if (
-                          name.equals("Fire")) {
+                          n.contains("fire")
+                  ) {
 
                       timelineFrames.add(
                               new AnimFrame(
@@ -1607,34 +2416,19 @@ jobs:
                                               80,
                                               0
                                       ),
-                                      90
-                              )
-                      );
-
-                      timelineFrames.add(
-                              new AnimFrame(
-                                      Color.YELLOW,
-                                      Color.RED,
                                       120
                               )
                       );
 
-                  } else if (
-                          name.equals("Water")) {
-
                       timelineFrames.add(
                               new AnimFrame(
-                                      Color.CYAN,
-                                      Color.BLUE,
-                                      140
-                              )
-                      );
-
-                      timelineFrames.add(
-                              new AnimFrame(
-                                      Color.BLUE,
-                                      Color.WHITE,
-                                      140
+                                      Color.rgb(
+                                              255,
+                                              120,
+                                              0
+                                      ),
+                                      Color.RED,
+                                      150
                               )
                       );
 
@@ -1666,44 +2460,66 @@ jobs:
                   }
               }
 
+              /*
+               * =========================================================
+               * OFFLINE AI
+               * =========================================================
+               */
+
               private void showAIScreen() {
 
                   clearContent();
 
                   contentLayout.addView(
-                          createHeader(
+                          header(
                                   "AI ANIMATION GENERATOR"
                           )
                   );
 
                   contentLayout.addView(
-                          createLabel(
-                                  "Contoh: belang merah biru cepat"
+                          label(
+                                  "Contoh: \"buat belang merah biru\""
                           )
                   );
 
-                  EditText prompt =
-                          createEditText("");
-
-                  prompt.setHint(
-                          "Tulis perintah animasi..."
+                  contentLayout.addView(
+                          label(
+                                  "\"buat rainbow cepat\""
+                          )
                   );
 
-                  contentLayout.addView(prompt);
+                  contentLayout.addView(
+                          label(
+                                  "\"police merah biru\""
+                          )
+                  );
+
+                  EditText command =
+                          edit("");
+
+                  command.setHint(
+                          "Tulis perintah..."
+                  );
+
+                  contentLayout.addView(
+                          command
+                  );
 
                   Button generate =
                           createButton(
-                                  "GENERATE ANIMATION",
+                                  "GENERATE",
                                   Color.rgb(
-                                          0, 131, 143
+                                          0,
+                                          130,
+                                          150
                                   )
                           );
 
                   generate.setOnClickListener(
                           v -> {
 
-                              generateFromNaturalLanguage(
-                                      prompt.getText()
+                              generateFromAI(
+                                      command.getText()
                                               .toString()
                               );
 
@@ -1714,362 +2530,190 @@ jobs:
                   contentLayout.addView(
                           generate
                   );
+
+                  Button templates =
+                          createButton(
+                                  "OPEN TEMPLATES",
+                                  Color.rgb(
+                                          45,
+                                          50,
+                                          60
+                                  )
+                          );
+
+                  templates.setOnClickListener(
+                          v -> showTemplatesScreen()
+                  );
+
+                  contentLayout.addView(
+                          templates
+                  );
               }
 
-              private void generateFromNaturalLanguage(
-                      String text
+              private void generateFromAI(
+                      String command
               ) {
 
-                  String q =
-                          text.toLowerCase(
+                  String c =
+                          command.toLowerCase(
                                   Locale.US
                           );
 
                   timelineFrames.clear();
 
-                  int c1 = Color.RED;
-                  int c2 = Color.BLUE;
-
-                  if (q.contains("hijau")
-                          &&
-                          q.contains("biru")) {
-
-                      c1 = Color.GREEN;
-                      c2 = Color.BLUE;
-
-                  } else if (
-                          q.contains("kuning")
-                                  &&
-                                  q.contains("biru")) {
-
-                      c1 = Color.YELLOW;
-                      c2 = Color.BLUE;
-
-                  } else if (
-                          q.contains("putih")
-                                  &&
-                                  q.contains("merah")) {
-
-                      c1 = Color.WHITE;
-                      c2 = Color.RED;
-
-                  } else if (
-                          q.contains("cyan")) {
-
-                      c1 = Color.CYAN;
-                      c2 = Color.BLUE;
-
-                  } else if (
-                          q.contains("ungu")
-                                  ||
-                                  q.contains("purple")) {
-
-                      c1 = Color.MAGENTA;
-                      c2 = Color.BLUE;
-                  }
-
-                  int duration = 150;
-
-                  if (q.contains("cepat")
+                  boolean red =
+                          c.contains("merah")
                           ||
-                          q.contains("fast")) {
+                          c.contains("red");
 
-                      duration = 80;
-
-                  } else if (
-                          q.contains("lambat")
-                                  ||
-                                  q.contains("slow")) {
-
-                      duration = 350;
-                  }
-
-                  timelineFrames.add(
-                          new AnimFrame(
-                                  c1,
-                                  c2,
-                                  duration
-                          )
-                  );
-
-                  timelineFrames.add(
-                          new AnimFrame(
-                                  c2,
-                                  c1,
-                                  duration
-                          )
-                  );
-
-                  if (q.contains("rainbow")
+                  boolean blue =
+                          c.contains("biru")
                           ||
-                          q.contains("pelangi")) {
+                          c.contains("blue");
+
+                  boolean green =
+                          c.contains("hijau")
+                          ||
+                          c.contains("green");
+
+                  boolean yellow =
+                          c.contains("kuning")
+                          ||
+                          c.contains("yellow");
+
+                  int first =
+                          red
+                          ? Color.RED
+                          : green
+                          ? Color.GREEN
+                          : yellow
+                          ? Color.YELLOW
+                          : Color.RED;
+
+                  int second =
+                          blue
+                          ? Color.BLUE
+                          : green
+                          ? Color.GREEN
+                          : Color.BLUE;
+
+                  int duration =
+                          c.contains("cepat")
+                          ||
+                          c.contains("fast")
+                          ? 70
+                          : 150;
+
+                  if (c.contains("rainbow")) {
 
                       loadTemplate(
                               "Rainbow"
                       );
-                  }
 
-                  if (q.contains("police")
-                          ||
-                          q.contains("polisi")) {
+                  } else if (
+                          c.contains("police")
+                  ) {
 
                       loadTemplate(
                               "Police"
                       );
-                  }
 
-                  if (q.contains("api")
+                  } else if (
+                          c.contains("belang")
                           ||
-                          q.contains("fire")) {
+                          c.contains("stripe")
+                  ) {
+
+                      timelineFrames.add(
+                              new AnimFrame(
+                                      first,
+                                      second,
+                                      duration
+                              )
+                      );
+
+                      timelineFrames.add(
+                              new AnimFrame(
+                                      second,
+                                      first,
+                                      duration
+                              )
+                      );
+
+                  } else if (
+                          c.contains("chase")
+                  ) {
+
+                      loadTemplate(
+                              "Chase"
+                      );
+
+                  } else if (
+                          c.contains("strobe")
+                  ) {
+
+                      loadTemplate(
+                              "Strobe"
+                      );
+
+                  } else if (
+                          c.contains("fire")
+                  ) {
 
                       loadTemplate(
                               "Fire"
                       );
-                  }
 
-                  if (q.contains("air")
-                          ||
-                          q.contains("water")) {
-
-                      loadTemplate(
-                              "Water"
-                      );
-                  }
-
-                  if (q.contains("belang")
-                          ||
-                          q.contains("stripe")
-                          ||
-                          q.contains("chase")) {
-
-                      timelineFrames.clear();
+                  } else {
 
                       timelineFrames.add(
                               new AnimFrame(
-                                      c1,
-                                      c2,
+                                      first,
+                                      second,
                                       duration
                               )
                       );
 
                       timelineFrames.add(
                               new AnimFrame(
-                                      c2,
-                                      c1,
-                                      duration
-                              )
-                      );
-
-                      timelineFrames.add(
-                              new AnimFrame(
-                                      c1,
-                                      c2,
+                                      second,
+                                      first,
                                       duration
                               )
                       );
                   }
               }
 
-              private void showColorStudio() {
-
-                  clearContent();
-
-                  contentLayout.addView(
-                          createHeader(
-                                  "RGB / HSV COLOR STUDIO"
-                          )
-                  );
-
-                  ColorWheelView wheel =
-                          new ColorWheelView(
-                                  this
-                          );
-
-                  contentLayout.addView(
-                          wheel,
-                          new LinearLayout.LayoutParams(
-                                  -1,
-                                  430
-                          )
-                  );
-
-                  TextView selected =
-                          createLabel(
-                                  "Color: #FF0000"
-                          );
-
-                  contentLayout.addView(
-                          selected
-                  );
-
-                  Button send =
-                          createButton(
-                                  "KIRIM RGB",
-                                  Color.rgb(
-                                          0, 200, 83
-                                  )
-                          );
-
-                  send.setOnClickListener(
-                          v -> {
-
-                              int color =
-                                      wheel.getColor();
-
-                              sendRGBColor(
-                                      color
-                              );
-                          }
-                  );
-
-                  contentLayout.addView(send);
-
-                  Button leftFrame =
-                          createButton(
-                                  "SET FRAME LEFT",
-                                  Color.rgb(
-                                          31, 36, 48
-                                  )
-                          );
-
-                  leftFrame.setOnClickListener(
-                          v -> {
-
-                              if (!timelineFrames.isEmpty()) {
-
-                                  timelineFrames.get(
-                                          0
-                                  ).leftColor =
-                                          wheel.getColor();
-                              }
-                          }
-                  );
-
-                  contentLayout.addView(
-                          leftFrame
-                  );
-
-                  Button rightFrame =
-                          createButton(
-                                  "SET FRAME RIGHT",
-                                  Color.rgb(
-                                          31, 36, 48
-                                  )
-                          );
-
-                  rightFrame.setOnClickListener(
-                          v -> {
-
-                              if (!timelineFrames.isEmpty()) {
-
-                                  timelineFrames.get(
-                                          0
-                                  ).rightColor =
-                                          wheel.getColor();
-                              }
-                          }
-                  );
-
-                  contentLayout.addView(
-                          rightFrame
-                  );
-
-                  wheel.setOnColorChangedListener(
-                          color -> {
-
-                              selected.setText(
-                                      String.format(
-                                              Locale.US,
-                                              "Color: #%06X",
-                                              0xFFFFFF
-                                                      &
-                                                      color
-                                      )
-                              );
-                          }
-                  );
-              }
-
-              private void showColorPickerForFrame(
-                      int index,
-                      boolean left
-              ) {
-
-                  if (index < 0
-                          ||
-                          index >= timelineFrames.size()) {
-                      return;
-                  }
-
-                  final AnimFrame frame =
-                          timelineFrames.get(
-                                  index
-                          );
-
-                  ColorWheelView wheel =
-                          new ColorWheelView(
-                                  this
-                          );
-
-                  wheel.setColor(
-                          left
-                                  ? frame.leftColor
-                                  : frame.rightColor
-                  );
-
-                  new android.app.AlertDialog.Builder(
-                          this
-                  )
-                          .setTitle(
-                                  left
-                                          ? "FRAME LEFT"
-                                          : "FRAME RIGHT"
-                          )
-                          .setView(wheel)
-                          .setPositiveButton(
-                                  "APPLY",
-                                  (d, w) -> {
-
-                                      if (left) {
-                                          frame.leftColor =
-                                                  wheel.getColor();
-                                      } else {
-                                          frame.rightColor =
-                                                  wheel.getColor();
-                                      }
-
-                                      showEditorScreen();
-                                  }
-                          )
-                          .setNegativeButton(
-                                  "CANCEL",
-                                  null
-                          )
-                          .show();
-              }
+              /*
+               * =========================================================
+               * RAW HEX
+               * =========================================================
+               */
 
               private void showRawHexScreen() {
 
                   clearContent();
 
                   contentLayout.addView(
-                          createHeader(
-                                  "RAW HEX / DEBUG"
+                          header(
+                                  "RAW HEX • FFE1"
                           )
                   );
 
-                  EditText hex =
-                          createEditText(
+                  EditText input =
+                          edit(
                                   "7B FF 04 01 FF FF FF FF BF"
                           );
 
-                  contentLayout.addView(hex);
+                  contentLayout.addView(input);
 
                   Button send =
                           createButton(
-                                  "KIRIM RAW HEX",
+                                  "SEND RAW HEX",
                                   Color.rgb(
-                                          0, 131, 143
+                                          0,
+                                          120,
+                                          140
                                   )
                           );
 
@@ -2078,1200 +2722,92 @@ jobs:
 
                               try {
 
-                                  String[] parts =
-                                          hex.getText()
-                                                  .toString()
-                                                  .trim()
-                                                  .split(
-                                                          "\\s+"
-                                                  );
+                                  byte[] packet =
+                                          parseHex(
+                                                  input.getText()
+                                                          .toString()
+                              );
 
-                                  byte[] data =
-                                          new byte[
-                                                  parts.length
-                                          ];
-
-                                  for (int i = 0;
-                                       i < parts.length;
-                                       i++) {
-
-                                      data[i] =
-                                              (byte)
-                                                      Integer.parseInt(
-                                                              parts[i],
-                                                              16
-                                                      );
+                                  if (packet.length == 0) {
+                                      throw new Exception();
                                   }
 
-                                  sendCommand(data);
+                                  enqueuePacket(packet);
 
-                                  Toast.makeText(
-                                          MainActivity.this,
-                                          "HEX terkirim",
-                                          Toast.LENGTH_SHORT
-                                  ).show();
+                                  toast(
+                                          "HEX sent"
+                                  );
 
                               } catch (Exception e) {
 
-                                  Toast.makeText(
-                                          MainActivity.this,
-                                          "Format HEX salah",
-                                          Toast.LENGTH_SHORT
-                                  ).show();
+                                  toast(
+                                          "Format HEX salah"
+                                  );
                               }
                           }
                   );
 
                   contentLayout.addView(send);
-              }
-
-              private void showScanScreen() {
-
-                  clearContent();
 
                   contentLayout.addView(
-                          createHeader(
-                                  "SCAN BLE"
+                          label(
+                                  "Format contoh:"
                           )
                   );
 
                   contentLayout.addView(
-                          createLabel(
-                                  "Cari LEDDMX-00-b2cd / FFE0"
+                          label(
+                                  "7B FF 07 R G B 00 FF BF"
                           )
                   );
 
-                  scanDeviceListLayout =
-                          new LinearLayout(
-                                  this
-                          );
-
-                  scanDeviceListLayout.setOrientation(
-                          LinearLayout.VERTICAL
-                  );
-
                   contentLayout.addView(
-                          scanDeviceListLayout
+                          label(
+                                  "Live custom animation tidak memakai 0x08 karena command dual-channel hardware belum terbukti untuk modul ini."
+                          )
                   );
-
-                  Button start =
-                          createButton(
-                                  "MULAI SCAN",
-                                  Color.rgb(
-                                          31, 36, 48
-                                  )
-                          );
-
-                  start.setOnClickListener(
-                          v -> startBleScan()
-                  );
-
-                  contentLayout.addView(start);
-
-                  Button stop =
-                          createButton(
-                                  "STOP SCAN",
-                                  Color.rgb(
-                                          213, 0, 0
-                                  )
-                          );
-
-                  stop.setOnClickListener(
-                          v -> stopBleScan()
-                  );
-
-                  contentLayout.addView(stop);
-
-                  Button back =
-                          createButton(
-                                  "KEMBALI",
-                                  Color.rgb(
-                                          65, 70, 85
-                                  )
-                          );
-
-                  back.setOnClickListener(
-                          v -> showHomeDashboard()
-                  );
-
-                  contentLayout.addView(back);
-
-                  startBleScan();
               }
 
-              private void startBleScan() {
-
-                  if (!bluetoothPermissionOK()) {
-
-                      requestBluetoothPermissions();
-
-                      Toast.makeText(
-                              this,
-                              "Permission Bluetooth diperlukan",
-                              Toast.LENGTH_SHORT
-                      ).show();
-
-                      return;
-                  }
-
-                  if (bluetoothAdapter == null
-                          ||
-                          !bluetoothAdapter.isEnabled()) {
-
-                      Toast.makeText(
-                              this,
-                              "Aktifkan Bluetooth",
-                              Toast.LENGTH_SHORT
-                      ).show();
-
-                      return;
-                  }
-
-                  try {
-
-                      bleScanner =
-                              bluetoothAdapter
-                                      .getBluetoothLeScanner();
-
-                  } catch (SecurityException e) {
-
-                      return;
-                  }
-
-                  if (bleScanner == null) {
-                      return;
-                  }
-
-                  discoveredDevices.clear();
-
-                  if (scanDeviceListLayout != null) {
-                      scanDeviceListLayout.removeAllViews();
-                  }
-
-                  statusText.setText(
-                          "Status: Scanning BLE..."
-                  );
-
-                  try {
-
-                      bleScanner.startScan(
-                              new ScanCallback() {
-
-                                  @Override
-                                  public void onScanResult(
-                                          int callbackType,
-                                          ScanResult result
-                                  ) {
-
-                                      BluetoothDevice device =
-                                              result.getDevice();
-
-                                      String deviceName =
-                                              "";
-
-                                      try {
-
-                                          if (device.getName()
-                                                  != null) {
-
-                                              deviceName =
-                                                      device.getName();
-                                          }
-
-                                      } catch (
-                                              SecurityException ignored
-                                      ) {}
-
-                                      if (
-                                              deviceName.isEmpty()
-                                                      &&
-                                                      result.getScanRecord()
-                                                              != null
-                                                      &&
-                                                      result.getScanRecord()
-                                                              .getDeviceName()
-                                                              != null
-                                      ) {
-
-                                          deviceName =
-                                                  result.getScanRecord()
-                                                          .getDeviceName();
-                                      }
-
-                                      if (deviceName == null) {
-                                          deviceName = "";
-                                      }
-
-                                      String address;
-
-                                      try {
-
-                                          address =
-                                                  device.getAddress();
-
-                                      } catch (
-                                              SecurityException e
-                                      ) {
-
-                                          return;
-                                      }
-
-                                      final String finalName =
-                                              deviceName;
-
-                                      final BluetoothDevice finalDevice =
-                                              device;
-
-                                      final int rssi =
-                                              result.getRssi();
-
-                                      boolean interesting =
-                                              finalName
-                                                      .toUpperCase(
-                                                              Locale.US
-                                                      )
-                                                      .contains(
-                                                              "LEDDMX"
-                                                      )
-                                                      ||
-                                                      finalName
-                                                              .toLowerCase(
-                                                                      Locale.US
-                                                              )
-                                                              .contains(
-                                                                      "b2cd"
-                                                              );
-
-                                      if (!interesting
-                                              &&
-                                              result.getScanRecord()
-                                                      != null) {
-
-                                          interesting =
-                                                  result.getScanRecord()
-                                                          .getServiceUuids()
-                                                          != null
-                                                          &&
-                                                          result.getScanRecord()
-                                                                  .getServiceUuids()
-                                                                  .toString()
-                                                                  .toLowerCase(
-                                                                          Locale.US
-                                                                  )
-                                                                  .contains(
-                                                                          "ffe0"
-                                                                  );
-                                      }
-
-                                      if (!interesting) {
-                                          return;
-                                      }
-
-                                      if (discoveredDevices.containsKey(
-                                              address
-                                      )) {
-                                          return;
-                                      }
-
-                                      discoveredDevices.put(
-                                              address,
-                                              finalDevice
-                                      );
-
-                                      runOnUiThread(
-                                              () -> addScanDevice(
-                                                      finalDevice,
-                                                      finalName,
-                                                      rssi
-                                              )
-                                      );
-                                  }
-
-                                  @Override
-                                  public void onScanFailed(
-                                          int errorCode
-                                  ) {
-
-                                      runOnUiThread(
-                                              () -> statusText.setText(
-                                                      "Status: Scan failed "
-                                                              + errorCode
-                                              )
-                                      );
-                                  }
-                              }
-                      );
-
-                      handler.postDelayed(
-                              this::stopBleScan,
-                              12000
-                      );
-
-                  } catch (SecurityException ignored) {
-                  }
-              }
-
-              private void addScanDevice(
-                      BluetoothDevice device,
-                      String name,
-                      int rssi
+              private byte[] parseHex(
+                      String text
               ) {
 
-                  if (scanDeviceListLayout == null) {
-                      return;
+                  String clean =
+                          text.trim();
+
+                  if (clean.isEmpty()) {
+                      return new byte[0];
                   }
 
-                  String shownName =
-                          name.isEmpty()
-                                  ? "LEDDMX / BLE Device"
-                                  : name;
-
-                  Button b =
-                          createButton(
-                                  shownName
-                                          + "\n"
-                                          + safeAddress(
-                                          device
-                                  )
-                                          + "   RSSI "
-                                          + rssi,
-                                  Color.rgb(
-                                          0, 131, 143
-                                  )
+                  String[] parts =
+                          clean.split(
+                                  "\\s+"
                           );
 
-                  b.setOnClickListener(
-                          v -> {
+                  byte[] data =
+                          new byte[
+                                  parts.length
+                          ];
 
-                              stopBleScan();
+                  for (int i = 0;
+                       i < parts.length;
+                       i++) {
 
-                              connectDevice(
-                                      device
+                      data[i] =
+                              (byte) Integer.parseInt(
+                                      parts[i],
+                                      16
                               );
-                          }
-                  );
-
-                  scanDeviceListLayout.addView(
-                          b
-                  );
-              }
-
-              private String safeAddress(
-                      BluetoothDevice device
-              ) {
-
-                  try {
-                      return device.getAddress();
-                  } catch (SecurityException e) {
-                      return "UNKNOWN";
-                  }
-              }
-
-              private void stopBleScan() {
-
-                  if (bleScanner == null) {
-                      return;
                   }
 
-                  try {
-                      bleScanner.stopScan(
-                              new ScanCallback() {}
-                      );
-                  } catch (Exception ignored) {
-                  }
-
-                  statusText.setText(
-                          "Status: Scan stopped"
-                  );
-              }
-
-              private void connectDevice(
-                      BluetoothDevice device
-              ) {
-
-                  if (!bluetoothPermissionOK()) {
-                      requestBluetoothPermissions();
-                      return;
-                  }
-
-                  disconnectGatt();
-
-                  statusText.setText(
-                          "Status: Connecting..."
-                  );
-
-                  try {
-
-                      bluetoothGatt =
-                              device.connectGatt(
-                                      this,
-                                      false,
-                                      new BluetoothGattCallback() {
-
-                                          @Override
-                                          public void onConnectionStateChange(
-                                                  BluetoothGatt gatt,
-                                                  int status,
-                                                  int newState
-                                          ) {
-
-                                              if (
-                                                      newState
-                                                              ==
-                                                              BluetoothGatt.STATE_CONNECTED
-                                              ) {
-
-                                                  bluetoothGatt =
-                                                          gatt;
-
-                                                  runOnUiThread(
-                                                          () ->
-                                                                  statusText.setText(
-                                                                          "Status: Connected / Discovering FFE1..."
-                                                                  )
-                                                  );
-
-                                                  try {
-
-                                                      gatt.discoverServices();
-
-                                                  } catch (
-                                                          Exception ignored
-                                                  ) {}
-
-                                              } else if (
-                                                      newState
-                                                              ==
-                                                              BluetoothGatt.STATE_DISCONNECTED
-                                              ) {
-
-                                                  if (bluetoothGatt
-                                                          == gatt) {
-
-                                                      bluetoothGatt =
-                                                              null;
-
-                                                      targetChar =
-                                                              null;
-                                                  }
-
-                                                  try {
-                                                      gatt.close();
-                                                  } catch (
-                                                          Exception ignored
-                                                  ) {}
-
-                                                  runOnUiThread(
-                                                          () ->
-                                                                  statusText.setText(
-                                                                          "Status: Disconnected"
-                                                                  )
-                                                  );
-                                              }
-                                          }
-
-                                          @Override
-                                          public void onServicesDiscovered(
-                                                  BluetoothGatt gatt,
-                                                  int status
-                                          ) {
-
-                                              if (
-                                                      status
-                                                              !=
-                                                              BluetoothGatt.GATT_SUCCESS
-                                              ) {
-
-                                                  runOnUiThread(
-                                                          () ->
-                                                                  statusText.setText(
-                                                                          "GATT service error: "
-                                                                                  + status
-                                                                  )
-                                                  );
-
-                                                  return;
-                                              }
-
-                                              BluetoothGattCharacteristic found =
-                                                      null;
-
-                                              for (
-                                                      BluetoothGattService service
-                                                              :
-                                                              gatt.getServices()
-                                              ) {
-
-                                                  if (
-                                                          SERVICE_FFE0.equals(
-                                                                  service.getUuid()
-                                                          )
-                                                                  ||
-                                                                  service.getUuid()
-                                                                          .toString()
-                                                                          .equalsIgnoreCase(
-                                                                                  SERVICE_FFE0.toString()
-                                                                          )
-                                                  ) {
-
-                                                      for (
-                                                              BluetoothGattCharacteristic c
-                                                                      :
-                                                                      service.getCharacteristics()
-                                                      ) {
-
-                                                          if (
-                                                                  CHAR_FFE1.equals(
-                                                                          c.getUuid()
-                                                                  )
-                                                                          ||
-                                                                          c.getUuid()
-                                                                                  .toString()
-                                                                                  .equalsIgnoreCase(
-                                                                                          CHAR_FFE1.toString()
-                                                                                  )
-                                                          ) {
-
-                                                              found = c;
-                                                              break;
-                                                          }
-                                                      }
-                                                  }
-
-                                                  if (found != null) {
-                                                      break;
-                                                  }
-                                              }
-
-                                              targetChar =
-                                                      found;
-
-                                              if (found != null) {
-
-                                                  try {
-
-                                                      if (
-                                                              (found.getProperties()
-                                                                      &
-                                                                      BluetoothGattCharacteristic.PROPERTY_WRITE)
-                                                                      !=
-                                                                      0
-                                                      ) {
-
-                                                          found.setWriteType(
-                                                                  BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
-                                                          );
-
-                                                      } else {
-
-                                                          found.setWriteType(
-                                                                  BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
-                                                          );
-                                                      }
-
-                                                  } catch (Exception ignored) {
-                                                  }
-
-                                                  runOnUiThread(
-                                                          () -> {
-
-                                                              statusText.setText(
-                                                                      "Status: CONNECTED / FFE1 READY"
-                                                              );
-
-                                                              Toast.makeText(
-                                                                      MainActivity.this,
-                                                                      "LEDDMX FFE1 siap",
-                                                                      Toast.LENGTH_SHORT
-                                                              ).show();
-
-                                                              showHomeDashboard();
-                                                          }
-                                                  );
-
-                                              } else {
-
-                                                  runOnUiThread(
-                                                          () ->
-                                                                  statusText.setText(
-                                                                          "Status: Connected, FFE1 tidak ditemukan"
-                                                                  )
-                                                  );
-                                              }
-                                          }
-
-                                          @Override
-                                          public void onCharacteristicWrite(
-                                                  BluetoothGatt gatt,
-                                                  BluetoothGattCharacteristic characteristic,
-                                                  int status
-                                          ) {
-
-                                              handler.postDelayed(
-                                                      () -> {
-
-                                                          writing =
-                                                                  false;
-
-                                                          drainWriteQueue();
-
-                                                      },
-                                                      45
-                                              );
-                                          }
-                                      }
-                              );
-
-                  } catch (SecurityException ignored) {
-                  }
-              }
-
-              private void disconnectGatt() {
-
-                  if (bluetoothGatt != null) {
-
-                      try {
-                          bluetoothGatt.disconnect();
-                      } catch (Exception ignored) {
-                      }
-
-                      try {
-                          bluetoothGatt.close();
-                      } catch (Exception ignored) {
-                      }
-                  }
-
-                  bluetoothGatt = null;
-                  targetChar = null;
-
-                  writeQueue.clear();
-                  writing = false;
-              }
-
-              private void sendCommand(
-                      byte[] data
-              ) {
-
-                  if (
-                          bluetoothGatt == null
-                                  ||
-                                  targetChar == null
-                  ) {
-
-                      Toast.makeText(
-                              this,
-                              "Belum terhubung ke FFE1",
-                              Toast.LENGTH_SHORT
-                      ).show();
-
-                      return;
-                  }
-
-                  synchronized (writeQueue) {
-
-                      writeQueue.add(
-                              data.clone()
-                      );
-                  }
-
-                  drainWriteQueue();
-              }
-
-              private void drainWriteQueue() {
-
-                  if (writing) {
-                      return;
-                  }
-
-                  if (writeQueue.isEmpty()) {
-                      return;
-                  }
-
-                  if (
-                          bluetoothGatt == null
-                                  ||
-                                  targetChar == null
-                  ) {
-
-                      writeQueue.clear();
-                      return;
-                  }
-
-                  byte[] data;
-
-                  synchronized (writeQueue) {
-                      data = writeQueue.poll();
-                  }
-
-                  if (data == null) {
-                      return;
-                  }
-
-                  writing = true;
-
-                  try {
-
-                      if (
-                              (targetChar.getProperties()
-                                      &
-                                      BluetoothGattCharacteristic.PROPERTY_WRITE)
-                                      != 0
-                      ) {
-
-                          targetChar.setWriteType(
-                                  BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
-                          );
-
-                      } else {
-
-                          targetChar.setWriteType(
-                                  BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
-                          );
-                      }
-
-                      targetChar.setValue(data);
-
-                      boolean accepted =
-                              bluetoothGatt.writeCharacteristic(
-                                      targetChar
-                              );
-
-                      if (!accepted) {
-
-                          writing = false;
-
-                          handler.postDelayed(
-                                  this::drainWriteQueue,
-                                  80
-                          );
-                      }
-
-                  } catch (Exception e) {
-
-                      writing = false;
-
-                      handler.postDelayed(
-                              this::drainWriteQueue,
-                              100
-                      );
-                  }
+                  return data;
               }
 
               /*
-               * Proven LEDDMX Dialect-B style packets.
+               * =========================================================
+               * LOCAL SLOTS
+               * =========================================================
                */
-
-              private byte[] packetPower(
-                      boolean on
-              ) {
-
-                  return new byte[]{
-                          (byte) 0x7B,
-                          (byte) 0xFF,
-                          (byte) 0x04,
-                          (byte) (on ? 0x01 : 0x00),
-                          (byte) 0xFF,
-                          (byte) 0xFF,
-                          (byte) 0xFF,
-                          (byte) 0xFF,
-                          (byte) 0xBF
-                  };
-              }
-
-              private byte[] packetMode(
-                      int mode
-              ) {
-
-                  mode =
-                          Math.max(
-                                  1,
-                                  Math.min(
-                                          210,
-                                          mode
-                                  )
-                          );
-
-                  return new byte[]{
-                          (byte) 0x7B,
-                          (byte) 0xFF,
-                          (byte) 0x03,
-                          (byte) mode,
-                          (byte) 0xFF,
-                          (byte) 0xFF,
-                          (byte) 0xFF,
-                          (byte) 0xFF,
-                          (byte) 0xBF
-                  };
-              }
-
-              private byte[] packetBrightness(
-                      int percent
-              ) {
-
-                  percent =
-                          Math.max(
-                                  0,
-                                  Math.min(
-                                          100,
-                                          percent
-                                  )
-                          );
-
-                  int scaled =
-                          Math.round(
-                                  percent * 32f / 100f
-                          );
-
-                  return new byte[]{
-                          (byte) 0x7B,
-                          (byte) 0xFF,
-                          (byte) 0x01,
-                          (byte) scaled,
-                          (byte) percent,
-                          (byte) 0x01,
-                          (byte) 0xFF,
-                          (byte) 0xFF,
-                          (byte) 0xBF
-                  };
-              }
-
-              private byte[] packetSpeed(
-                      int value
-              ) {
-
-                  value =
-                          Math.max(
-                                  0,
-                                  Math.min(
-                                          255,
-                                          value
-                                  )
-                          );
-
-                  return new byte[]{
-                          (byte) 0x7B,
-                          (byte) 0xFF,
-                          (byte) 0x02,
-                          (byte) value,
-                          (byte) 0x00,
-                          (byte) 0xFF,
-                          (byte) 0xFF,
-                          (byte) 0xFF,
-                          (byte) 0xBF
-                  };
-              }
-
-              private byte[] packetDirection(
-                      int dir
-              ) {
-
-                  dir =
-                          dir == 0
-                                  ? 0
-                                  : 1;
-
-                  return new byte[]{
-                          (byte) 0x7B,
-                          (byte) 0xFF,
-                          (byte) 0x0D,
-                          (byte) dir,
-                          (byte) 0xFF,
-                          (byte) 0xFF,
-                          (byte) 0xFF,
-                          (byte) 0xFF,
-                          (byte) 0xBF
-                  };
-              }
-
-              private byte[] packetRGB(
-                      int r,
-                      int g,
-                      int b
-              ) {
-
-                  r =
-                          Math.max(
-                                  0,
-                                  Math.min(
-                                          255,
-                                          r
-                                  )
-                          );
-
-                  g =
-                          Math.max(
-                                  0,
-                                  Math.min(
-                                          255,
-                                          g
-                                  )
-                          );
-
-                  b =
-                          Math.max(
-                                  0,
-                                  Math.min(
-                                          255,
-                                          b
-                                  )
-                          );
-
-                  return new byte[]{
-                          (byte) 0x7B,
-                          (byte) 0xFF,
-                          (byte) 0x07,
-                          (byte) r,
-                          (byte) g,
-                          (byte) b,
-                          (byte) 0x00,
-                          (byte) 0xFF,
-                          (byte) 0xBF
-                  };
-              }
-
-              private byte[] packetPixelConfig(
-                      int pixels
-              ) {
-
-                  pixels =
-                          Math.max(
-                                  1,
-                                  Math.min(
-                                          65535,
-                                          pixels
-                                  )
-                          );
-
-                  return new byte[]{
-                          (byte) 0x7B,
-                          (byte) 0xFF,
-                          (byte) 0x05,
-                          (byte) 0x01,
-                          (byte) ((pixels >> 8) & 0xFF),
-                          (byte) (pixels & 0xFF),
-                          (byte) 0x00,
-                          (byte) 0xFF,
-                          (byte) 0xBF
-                  };
-              }
-
-              private byte[] packetRGBOrder(
-                      int order
-              ) {
-
-                  order =
-                          Math.max(
-                                  1,
-                                  Math.min(
-                                          6,
-                                          order
-                                  )
-                          );
-
-                  return new byte[]{
-                          (byte) 0x7B,
-                          (byte) 0xFF,
-                          (byte) 0x07,
-                          (byte) order,
-                          (byte) 0xFF,
-                          (byte) 0xFF,
-                          (byte) 0xFF,
-                          (byte) 0xFF,
-                          (byte) 0xBF
-                  };
-              }
-
-              private void sendRGBColor(
-                      int color
-              ) {
-
-                  sendCommand(
-                          packetRGB(
-                                  Color.red(color),
-                                  Color.green(color),
-                                  Color.blue(color)
-                          )
-                  );
-              }
-
-              private void startAnimationLoop() {
-
-                  if (timelineFrames.isEmpty()) {
-                      return;
-                  }
-
-                  isPlaying = true;
-
-                  handler.removeCallbacksAndMessages(
-                          null
-                  );
-
-                  handler.post(
-                          new Runnable() {
-
-                              int index = 0;
-
-                              @Override
-                              public void run() {
-
-                                  if (
-                                          !isPlaying
-                                                  ||
-                                                  timelineFrames.isEmpty()
-                                  ) {
-                                      return;
-                                  }
-
-                                  AnimFrame frame =
-                                          timelineFrames.get(
-                                                  index
-                                                          %
-                                                          timelineFrames.size()
-                                          );
-
-                                  int r1 =
-                                          Color.red(
-                                                  frame.leftColor
-                                          );
-
-                                  int g1 =
-                                          Color.green(
-                                                  frame.leftColor
-                                          );
-
-                                  int b1 =
-                                          Color.blue(
-                                                  frame.leftColor
-                                          );
-
-                                  int r2 =
-                                          Color.red(
-                                                  frame.rightColor
-                                          );
-
-                                  int g2 =
-                                          Color.green(
-                                                  frame.rightColor
-                                          );
-
-                                  int b2 =
-                                          Color.blue(
-                                                  frame.rightColor
-                                          );
-
-                                  /*
-                                   * Exact independent LEFT/RIGHT
-                                   * hardware packet is not assumed.
-                                   *
-                                   * Therefore preview remains dual-channel,
-                                   * while live hardware sends a safe proven
-                                   * 0x07 RGB packet using the average color.
-                                   */
-
-                                  int r =
-                                          (r1 + r2) / 2;
-
-                                  int g =
-                                          (g1 + g2) / 2;
-
-                                  int b =
-                                          (b1 + b2) / 2;
-
-                                  sendCommand(
-                                          packetRGB(
-                                                  r,
-                                                  g,
-                                                  b
-                                          )
-                                  );
-
-                                  index++;
-
-                                  handler.postDelayed(
-                                          this,
-                                          Math.max(
-                                                  80,
-                                                  frame.duration
-                                          )
-                                  );
-                              }
-                          }
-                  );
-              }
-
-              private void stopAnimationLoop() {
-
-                  isPlaying = false;
-
-                  handler.removeCallbacksAndMessages(
-                          null
-                  );
-              }
-
-              private void startPreview() {
-
-                  stopPreview();
-
-                  if (previewView == null) {
-                      return;
-                  }
-
-                  previewRunnable =
-                          new Runnable() {
-
-                              int index = 0;
-
-                              @Override
-                              public void run() {
-
-                                  if (
-                                          previewView == null
-                                                  ||
-                                                  timelineFrames.isEmpty()
-                                  ) {
-                                      return;
-                                  }
-
-                                  AnimFrame f =
-                                          timelineFrames.get(
-                                                  index
-                                                          %
-                                                          timelineFrames.size()
-                                          );
-
-                                  previewView.setColors(
-                                          f.leftColor,
-                                          f.rightColor
-                                  );
-
-                                  index++;
-
-                                  previewHandler.postDelayed(
-                                          this,
-                                          Math.max(
-                                                  80,
-                                                  f.duration
-                                          )
-                                  );
-                              }
-                          };
-
-                  previewHandler.post(
-                          previewRunnable
-                  );
-              }
-
-              private void stopPreview() {
-
-                  if (previewRunnable != null) {
-
-                      previewHandler.removeCallbacks(
-                              previewRunnable
-                      );
-
-                      previewRunnable = null;
-                  }
-              }
 
               private void saveSlotToLocal(
                       int slot
@@ -3280,28 +2816,25 @@ jobs:
                   StringBuilder sb =
                           new StringBuilder();
 
-                  for (
-                          AnimFrame frame
-                                  :
-                          timelineFrames
-                  ) {
+                  for (AnimFrame f :
+                          timelineFrames) {
 
                       sb.append(
-                                      frame.leftColor
-                              )
-                              .append(",")
-                              .append(
-                                      frame.rightColor
-                              )
-                              .append(",")
-                              .append(
-                                      frame.duration
-                              )
-                              .append(";");
+                              f.leftColor
+                      )
+                      .append(",")
+                      .append(
+                              f.rightColor
+                      )
+                      .append(",")
+                      .append(
+                              f.duration
+                      )
+                      .append(";");
+
                   }
 
-                  sharedPrefs
-                          .edit()
+                  prefs.edit()
                           .putString(
                                   "slot_" + slot,
                                   sb.toString()
@@ -3314,38 +2847,22 @@ jobs:
               ) {
 
                   String data =
-                          sharedPrefs.getString(
+                          prefs.getString(
                                   "slot_" + slot,
                                   ""
                           );
 
-                  timelineFrames.clear();
-
                   if (data.isEmpty()) {
-
-                      timelineFrames.add(
-                              new AnimFrame(
-                                      Color.RED,
-                                      Color.BLUE,
-                                      150
-                              )
-                      );
-
-                      timelineFrames.add(
-                              new AnimFrame(
-                                      Color.BLUE,
-                                      Color.RED,
-                                      150
-                              )
-                      );
-
                       return;
                   }
+
+                  timelineFrames.clear();
 
                   String[] rows =
                           data.split(";");
 
-                  for (String row : rows) {
+                  for (String row :
+                          rows) {
 
                       try {
 
@@ -3369,8 +2886,7 @@ jobs:
                               );
                           }
 
-                      } catch (Exception ignored) {
-                      }
+                      } catch (Exception ignored) {}
                   }
 
                   if (timelineFrames.isEmpty()) {
@@ -3385,147 +2901,198 @@ jobs:
                   }
               }
 
-              @Override
-              protected void onDestroy() {
+              /*
+               * =========================================================
+               * LIVE ANIMATION
+               * =========================================================
+               */
+
+              private void startAnimationLoop() {
+
+                  if (timelineFrames.isEmpty()) {
+                      return;
+                  }
+
+                  if (!gattReady) {
+                      toast(
+                              "Connect ke LEDDMX dulu"
+                      );
+                      return;
+                  }
 
                   stopAnimationLoop();
-                  stopPreview();
-                  disconnectGatt();
 
-                  super.onDestroy();
+                  isPlaying = true;
+
+                  handler.post(
+                          new Runnable() {
+
+                              int index = 0;
+
+                              @Override
+                              public void run() {
+
+                                  if (!isPlaying) {
+                                      return;
+                                  }
+
+                                  if (timelineFrames
+                                          .isEmpty()) {
+                                      return;
+                                  }
+
+                                  AnimFrame f =
+                                          timelineFrames.get(
+                                                  index %
+                                                  timelineFrames.size()
+                                          );
+
+                                  /*
+                                   * Exact LEFT/RIGHT hardware command
+                                   * belum terbukti pada LEDDMX-00-b2cd.
+                                   *
+                                   * Karena itu live hardware memakai
+                                   * RGB frame 0x07 yang terbukti.
+                                   *
+                                   * Preview editor tetap LEFT/RIGHT.
+                                   */
+
+                                  int r =
+                                          (
+                                              Color.red(
+                                                      f.leftColor
+                                              )
+                                              +
+                                              Color.red(
+                                                      f.rightColor
+                                              )
+                                          ) / 2;
+
+                                  int g =
+                                          (
+                                              Color.green(
+                                                      f.leftColor
+                                              )
+                                              +
+                                              Color.green(
+                                                      f.rightColor
+                                              )
+                                          ) / 2;
+
+                                  int b =
+                                          (
+                                              Color.blue(
+                                                      f.leftColor
+                                              )
+                                              +
+                                              Color.blue(
+                                                      f.rightColor
+                                              )
+                                          ) / 2;
+
+                                  byte[] packet = {
+                                          0x7B,
+                                          (byte) 0xFF,
+                                          0x07,
+                                          (byte) r,
+                                          (byte) g,
+                                          (byte) b,
+                                          0x00,
+                                          (byte) 0xFF,
+                                          (byte) 0xBF
+                                  };
+
+                                  enqueuePacket(packet);
+
+                                  index++;
+
+                                  handler.postDelayed(
+                                          this,
+                                          Math.max(
+                                                  80,
+                                                  f.duration
+                                          )
+                                  );
+                              }
+                          }
+                  );
               }
 
-              private static class AnimFrame {
+              private void stopAnimationLoop() {
 
-                  int leftColor;
-                  int rightColor;
-                  int duration;
+                  isPlaying = false;
 
-                  AnimFrame(
-                          int left,
-                          int right,
-                          int duration
-                  ) {
-
-                      this.leftColor = left;
-                      this.rightColor = right;
-                      this.duration = duration;
-                  }
+                  handler.removeCallbacksAndMessages(
+                          null
+                  );
               }
 
-              public interface ColorChangedListener {
+              /*
+               * =========================================================
+               * PIN
+               * =========================================================
+               */
 
-                  void onColorChanged(int color);
+              private void showPinSettings() {
+
+                  final EditText pin =
+                          edit("");
+
+                  pin.setHint(
+                          "Set PIN 4 digit"
+                  );
+
+                  new android.app.AlertDialog.Builder(
+                          this
+                  )
+                          .setTitle(
+                                  "APP PIN"
+                          )
+                          .setView(pin)
+                          .setPositiveButton(
+                                  "SAVE",
+                                  (dialog, which) -> {
+
+                                      String value =
+                                              pin.getText()
+                                                      .toString()
+                                                      .trim();
+
+                                      if (value.matches(
+                                              "\\d{4}"
+                                      )) {
+
+                                          prefs.edit()
+                                                  .putString(
+                                                          "pin",
+                                                          value
+                                                  )
+                                                  .apply();
+
+                                          toast(
+                                                  "PIN saved"
+                                          );
+
+                                      } else {
+
+                                          toast(
+                                                  "PIN harus 4 angka"
+                                          );
+                                      }
+                                  }
+                          )
+                          .setNegativeButton(
+                                  "CANCEL",
+                                  null
+                          )
+                          .show();
               }
 
-              private static class PreviewView
-                      extends View {
-
-                  private final Paint paint =
-                          new Paint(
-                                  Paint.ANTI_ALIAS_FLAG
-                          );
-
-                  private int leftColor =
-                          Color.RED;
-
-                  private int rightColor =
-                          Color.BLUE;
-
-                  PreviewView(
-                          Context context
-                  ) {
-
-                      super(context);
-
-                      setBackgroundColor(
-                              Color.rgb(
-                                      10, 12, 16
-                              )
-                      );
-                  }
-
-                  void setColors(
-                          int left,
-                          int right
-                  ) {
-
-                      leftColor = left;
-                      rightColor = right;
-
-                      postInvalidate();
-                  }
-
-                  @Override
-                  protected void onDraw(
-                          Canvas canvas
-                  ) {
-
-                      super.onDraw(canvas);
-
-                      float w =
-                              getWidth();
-
-                      float h =
-                              getHeight();
-
-                      float radius =
-                              Math.min(
-                                      w / 4f,
-                                      h / 2.5f
-                              );
-
-                      paint.setColor(
-                              leftColor
-                      );
-
-                      canvas.drawCircle(
-                              w * 0.28f,
-                              h * 0.5f,
-                              radius,
-                              paint
-                      );
-
-                      paint.setColor(
-                              rightColor
-                      );
-
-                      canvas.drawCircle(
-                              w * 0.72f,
-                              h * 0.5f,
-                              radius,
-                              paint
-                      );
-
-                      paint.setStyle(
-                              Paint.Style.STROKE
-                      );
-
-                      paint.setStrokeWidth(4);
-
-                      paint.setColor(
-                              Color.WHITE
-                      );
-
-                      canvas.drawCircle(
-                              w * 0.28f,
-                              h * 0.5f,
-                              radius,
-                              paint
-                      );
-
-                      canvas.drawCircle(
-                              w * 0.72f,
-                              h * 0.5f,
-                              radius,
-                              paint
-                      );
-
-                      paint.setStyle(
-                              Paint.Style.FILL
-                      );
-                  }
-              }
+              /*
+               * =========================================================
+               * COLOR WHEEL
+               * =========================================================
+               */
 
               private static class ColorWheelView
                       extends View {
@@ -3535,20 +3102,35 @@ jobs:
                                   Paint.ANTI_ALIAS_FLAG
                           );
 
-                  private final float[] hsv =
-                          new float[]{
-                                  0f,
-                                  1f,
-                                  1f
-                          };
+                  private final Paint selector =
+                          new Paint(
+                                  Paint.ANTI_ALIAS_FLAG
+                          );
 
-                  private ColorChangedListener listener;
+                  private Shader shader;
+
+                  private float hue = 0f;
+                  private float saturation = 1f;
+
+                  private OnColorChangedListener listener;
+
+                  interface OnColorChangedListener {
+                      void onColorChanged(int color);
+                  }
 
                   ColorWheelView(
                           Context context
                   ) {
-
                       super(context);
+
+                      selector.setStyle(
+                              Paint.Style.STROKE
+                      );
+
+                      selector.setStrokeWidth(6);
+                      selector.setColor(
+                              Color.WHITE
+                      );
 
                       setLayerType(
                               View.LAYER_TYPE_SOFTWARE,
@@ -3556,29 +3138,9 @@ jobs:
                       );
                   }
 
-                  int getColor() {
-
-                      return Color.HSVToColor(
-                              hsv
-                      );
-                  }
-
-                  void setColor(
-                          int color
-                  ) {
-
-                      Color.colorToHSV(
-                              color,
-                              hsv
-                      );
-
-                      invalidate();
-                  }
-
                   void setOnColorChangedListener(
-                          ColorChangedListener l
+                          OnColorChangedListener l
                   ) {
-
                       listener = l;
                   }
 
@@ -3601,30 +3163,36 @@ jobs:
                                       cy
                               ) - 20;
 
-                      int[] colors =
-                              new int[361];
+                      int[] colors = {
+                              Color.RED,
+                              Color.MAGENTA,
+                              Color.BLUE,
+                              Color.CYAN,
+                              Color.GREEN,
+                              Color.YELLOW,
+                              Color.RED
+                      };
 
-                      for (int i = 0;
-                           i <= 360;
-                           i++) {
+                      float[] positions = {
+                              0f,
+                              .166f,
+                              .333f,
+                              .5f,
+                              .666f,
+                              .833f,
+                              1f
+                      };
 
-                          colors[i] =
-                                  Color.HSVToColor(
-                                          new float[]{
-                                                  i,
-                                                  1f,
-                                                  1f
-                                          }
-                                  );
-                      }
-
-                      paint.setShader(
+                      shader =
                               new SweepGradient(
                                       cx,
                                       cy,
                                       colors,
-                                      null
-                              )
+                                      positions
+                              );
+
+                      paint.setShader(
+                              shader
                       );
 
                       canvas.drawCircle(
@@ -3636,49 +3204,50 @@ jobs:
 
                       paint.setShader(null);
 
-                      float angle =
-                              (float)
-                                      Math.toRadians(
-                                              hsv[0] - 90
-                                      );
-
-                      float x =
-                              cx
-                                      +
-                                      (float)
-                                              Math.cos(
-                                                      angle
-                                              )
-                                              * radius;
-
-                      float y =
-                              cy
-                                      +
-                                      (float)
-                                              Math.sin(
-                                                      angle
-                                              )
-                                              * radius;
-
-                      paint.setStyle(
-                              Paint.Style.STROKE
-                      );
-
-                      paint.setStrokeWidth(8);
-
                       paint.setColor(
-                              Color.WHITE
+                              Color.argb(
+                                      130,
+                                      0,
+                                      0,
+                                      0
+                              )
                       );
 
                       canvas.drawCircle(
-                              x,
-                              y,
-                              14,
+                              cx,
+                              cy,
+                              radius * 0.42f,
                               paint
                       );
 
-                      paint.setStyle(
-                              Paint.Style.FILL
+                      double angle =
+                              Math.toRadians(
+                                      hue
+                              );
+
+                      float sx =
+                              cx +
+                              (float)
+                              Math.cos(angle)
+                              *
+                              radius
+                              *
+                              saturation;
+
+                      float sy =
+                              cy +
+                              (float)
+                              Math.sin(angle)
+                              *
+                              radius
+                              *
+                              saturation;
+
+                      canvas.drawCircle(
+                              sx,
+                              sy,
+                              12,
+                              selector
                       );
                   }
 
@@ -3689,12 +3258,11 @@ jobs:
 
                       if (
                               event.getAction()
-                                      != MotionEvent.ACTION_DOWN
-                                      &&
-                                      event.getAction()
-                                              != MotionEvent.ACTION_MOVE
+                              != MotionEvent.ACTION_DOWN
+                              &&
+                              event.getAction()
+                              != MotionEvent.ACTION_MOVE
                       ) {
-
                           return true;
                       }
 
@@ -3710,7 +3278,19 @@ jobs:
                       float dy =
                               event.getY() - cy;
 
-                      double angle =
+                      float distance =
+                              (float)
+                              Math.sqrt(
+                                      dx * dx +
+                                      dy * dy
+                              );
+
+                      if (distance < 10) {
+                          return true;
+                      }
+
+                      hue =
+                              (float)
                               Math.toDegrees(
                                       Math.atan2(
                                               dy,
@@ -3718,70 +3298,178 @@ jobs:
                                       )
                               );
 
-                      angle += 90;
-
-                      if (angle < 0) {
-                          angle += 360;
+                      if (hue < 0) {
+                          hue += 360;
                       }
 
-                      hsv[0] =
-                              (float)
-                                      angle;
+                      float radius =
+                              Math.min(
+                                      cx,
+                                      cy
+                              ) - 20;
 
-                      hsv[1] = 1f;
-                      hsv[2] = 1f;
+                      saturation =
+                              Math.min(
+                                      1f,
+                                      distance /
+                                      radius
+                              );
 
-                      invalidate();
+                      float[] hsv = {
+                              hue,
+                              saturation,
+                              1f
+                      };
+
+                      int color =
+                              Color.HSVToColor(
+                                      hsv
+                              );
 
                       if (listener != null) {
                           listener.onColorChanged(
-                                  getColor()
+                                  color
                           );
                       }
+
+                      invalidate();
 
                       return true;
                   }
               }
+
+              private static class AnimFrame {
+
+                  int leftColor;
+                  int rightColor;
+                  int duration;
+
+                  AnimFrame(
+                          int left,
+                          int right,
+                          int duration
+                  ) {
+
+                      this.leftColor =
+                              left;
+
+                      this.rightColor =
+                              right;
+
+                      this.duration =
+                              duration;
+                  }
+              }
+
+              private void toast(
+                      String text
+              ) {
+
+                  Toast.makeText(
+                          this,
+                          text,
+                          Toast.LENGTH_SHORT
+                  ).show();
+              }
+
+              private static String bytesToHex(
+                      byte[] data
+              ) {
+
+                  if (data == null) {
+                      return "";
+                  }
+
+                  StringBuilder sb =
+                          new StringBuilder();
+
+                  for (byte b : data) {
+
+                      sb.append(
+                              String.format(
+                                      Locale.US,
+                                      "%02X",
+                                      b & 0xFF
+                              )
+                      );
+                  }
+
+                  return sb.toString();
+              }
+
+              private void disconnect() {
+
+                  stopAnimationLoop();
+
+                  gattReady = false;
+                  targetChar = null;
+
+                  synchronized (packetQueue) {
+                      packetQueue.clear();
+                  }
+
+                  if (bluetoothGatt != null) {
+
+                      try {
+                          bluetoothGatt.disconnect();
+                      } catch (Exception ignored) {}
+
+                      try {
+                          bluetoothGatt.close();
+                      } catch (Exception ignored) {}
+
+                      bluetoothGatt = null;
+                  }
+
+                  statusText.setText(
+                          "Status: Disconnected"
+                  );
+              }
+
+              @Override
+              protected void onDestroy() {
+
+                  stopAnimationLoop();
+                  stopBleScan();
+                  disconnect();
+
+                  super.onDestroy();
+              }
           }
-          EOF
+          JAVA
 
-      - name: Generate Gradle Wrapper 8.9
-        shell: bash
-        run: |
-          set -e
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
 
-          gradle wrapper \
-            --gradle-version 8.9 \
-            --distribution-type bin
+          # Buat wrapper menggunakan Gradle 8.9 yang SUDAH dipasang,
+          # bukan Gradle 9.7.1 bawaan runner.
+          gradle wrapper --gradle-version 8.9 --distribution-type bin
 
           chmod +x ./gradlew
 
-          echo "===== WRAPPER ====="
-          cat gradle/wrapper/gradle-wrapper.properties
-
-          echo "===== GRADLE VERSION ====="
           ./gradlew --version
 
-      - name: Build APK
-        shell: bash
-        run: |
-          set -e
-
-          ./gradlew clean assembleDebug \
-            --stacktrace \
-            --warning-mode all
+          ./gradlew clean assembleDebug --stacktrace --no-daemon
 
           test -f app/build/outputs/apk/debug/app-debug.apk
 
-          echo "===================================="
-          echo "APK BUILD SUCCESS"
-          echo "===================================="
-
+          echo "=========================================="
+          echo "BUILD BERHASIL"
+          echo "APK:"
           ls -lh app/build/outputs/apk/debug/app-debug.apk
+          echo "=========================================="
+
+      - name: Rename APK
+        shell: bash
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk \
+             LEDDMX-Pro-FINAL.apk
+
+          ls -lh LEDDMX-Pro-FINAL.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: LEDDMX-Pro-v36
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: LEDDMX-Pro-FINAL
+          path: LEDDMX-Pro-FINAL.apk
           if-no-files-found: error
+          retention-days: 30
