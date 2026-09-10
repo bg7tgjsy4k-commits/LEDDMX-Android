@@ -1,39 +1,41 @@
-name: Build LEDDMX AI Pro FINAL
+name: Build LEDDMX Bypass Pro v17
 
 on:
   workflow_dispatch:
   push:
-    branches: [ main, master ]
+    branches:
+      - main
+      - master
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Java 17
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
+          distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.10.2'
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
 
-      - name: Create clean Android project
+      - name: Build APK via Gradle
         shell: bash
         run: |
           set -e
+          rm -rf app build.gradle settings.gradle gradle.properties local.properties gradlew gradlew.bat gradle
 
-          rm -rf app build.gradle settings.gradle gradle.properties
           mkdir -p app/src/main/java/com/leddmx/pro
           mkdir -p app/src/main/res/values
 
-          cat > settings.gradle <<'EOF'
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+
+          cat > settings.gradle << 'EOF'
           pluginManagement {
               repositories {
                   google()
@@ -41,7 +43,6 @@ jobs:
                   gradlePluginPortal()
               }
           }
-
           dependencyResolutionManagement {
               repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
               repositories {
@@ -49,118 +50,479 @@ jobs:
                   mavenCentral()
               }
           }
-
-          rootProject.name = 'LEDDMX-AI-Pro'
+          rootProject.name = "LEDDMX-Pro"
           include ':app'
           EOF
 
-          cat > build.gradle <<'EOF'
+          cat > build.gradle << 'EOF'
           plugins {
-              id 'com.android.application' version '8.6.1' apply false
+              id 'com.android.application' version '8.2.0' apply false
           }
           EOF
 
-          cat > gradle.properties <<'EOF'
+          cat > gradle.properties << 'EOF'
           org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
-          android.useAndroidX=false
+          android.useAndroidX=true
+          android.enableJetifier=true
           EOF
 
-          cat > app/build.gradle <<'EOF'
+          cat > app/build.gradle << 'EOF'
           plugins {
               id 'com.android.application'
           }
-
           android {
               namespace 'com.leddmx.pro'
-              compileSdk 35
-
+              compileSdk 34
               defaultConfig {
-                  applicationId 'com.leddmx.pro'
-                  minSdk 23
-                  targetSdk 35
-                  versionCode 13
-                  versionName '13.0'
+                  applicationId "com.leddmx.pro"
+                  minSdk 21
+                  targetSdk 34
+                  versionCode 1
+                  versionName "17.0"
               }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_1_8
+                  targetCompatibility JavaVersion.VERSION_1_8
+              }
+          }
+          dependencies {
+              implementation 'androidx.appcompat:appcompat:1.6.1'
           }
           EOF
 
-          cat > app/src/main/res/values/colors.xml <<'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
+          cat > app/src/main/res/values/strings.xml << 'EOF'
           <resources>
-              <color name="black">#000000</color>
-              <color name="white">#FFFFFF</color>
-              <color name="cyan">#00E5FF</color>
+              <string name="app_name">LEDDMX Bypass Pro</string>
           </resources>
           EOF
 
-          cat > app/src/main/res/values/styles.xml <<'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <resources>
-              <style name="AppTheme" parent="@android:style/Theme.Material.NoActionBar">
-                  <item name="android:fontFamily">sans</item>
-                  <item name="android:windowActionModeOverlay">true</item>
-                  <item name="android:colorAccent">#00E5FF</item>
-                  <item name="android:navigationBarColor">#000000</item>
-                  <item name="android:statusBarColor">#000000</item>
-                  <item name="android:windowLightStatusBar">false</item>
-                  <item name="android:windowBackground">#000000</item>
-              </style>
-          </resources>
-          EOF
-
-          cat > app/src/main/AndroidManifest.xml <<'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
+          cat > app/src/main/AndroidManifest.xml << 'EOF'
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
               <uses-permission android:name="android.permission.BLUETOOTH" />
               <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
-              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-
-              <uses-permission
-                  android:name="android.permission.BLUETOOTH_SCAN"
-                  android:usesPermissionFlags="neverForLocation" />
-
               <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-
+              <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+              <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
               <application
-                  android:allowBackup="false"
-                  android:label="LEDDMX AI PRO"
-                  android:theme="@style/AppTheme"
+                  android:allowBackup="true"
+                  android:label="@string/app_name"
+                  android:theme="@android:style/Theme.Material.NoActionBar"
                   android:supportsRtl="true">
-
                   <activity
                       android:name=".MainActivity"
-                      android:screenOrientation="portrait"
-                      android:exported="true">
-
+                      android:exported="true"
+                      android:screenOrientation="portrait">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
-
                   </activity>
-
               </application>
-
           </manifest>
           EOF
 
-          echo 'H4sIAGYd...' | base64 -d | gzip -d > app/src/main/java/com/leddmx/pro/MainActivity.java
+          cat > app/src/main/java/com/leddmx/pro/BluetoothService.java << 'EOF'
+          package com.leddmx.pro;
+          import android.bluetooth.BluetoothGatt;
+          import android.bluetooth.BluetoothGattCharacteristic;
+          public class BluetoothService {
+              private static BluetoothService instance;
+              public static synchronized BluetoothService getInstance() {
+                  if (instance == null) instance = new BluetoothService();
+                  return instance;
+              }
+              public BluetoothGatt gatt;
+              public BluetoothGattCharacteristic writeChar;
+              public boolean isConnected = false;
+              public int lastUsedMode = 171;
+              public int brightness = 100;
 
-      - name: Generate Gradle wrapper
-        shell: bash
-        run: |
-          gradle wrapper --gradle-version 8.10.2
+              public void sendPacket(byte[] data) {
+                  if (gatt == null || writeChar == null) return;
+                  try {
+                      writeChar.setValue(data);
+                      gatt.writeCharacteristic(writeChar);
+                  } catch (Exception ignored) {}
+              }
+          }
+          EOF
 
-      - name: Build Debug APK
-        shell: bash
-        run: |
-          chmod +x gradlew
-          ./gradlew --no-daemon clean assembleDebug
+          cat > app/src/main/java/com/leddmx/pro/MainActivity.java << 'EOF'
+          package com.leddmx.pro;
+          import android.Manifest;
+          import android.app.Activity;
+          import android.bluetooth.BluetoothAdapter;
+          import android.bluetooth.BluetoothDevice;
+          import android.bluetooth.BluetoothGatt;
+          import android.bluetooth.BluetoothGattCallback;
+          import android.bluetooth.BluetoothGattCharacteristic;
+          import android.bluetooth.BluetoothGattService;
+          import android.bluetooth.BluetoothManager;
+          import android.bluetooth.le.BluetoothLeScanner;
+          import android.bluetooth.le.ScanCallback;
+          import android.bluetooth.le.ScanResult;
+          import android.content.Context;
+          import android.content.SharedPreferences;
+          import android.graphics.Color;
+          import android.os.Bundle;
+          import android.os.Handler;
+          import android.view.Gravity;
+          import android.view.View;
+          import android.widget.Button;
+          import android.widget.LinearLayout;
+          import android.widget.ScrollView;
+          import android.widget.SeekBar;
+          import android.widget.Spinner;
+          import android.widget.TextView;
+          import android.widget.Toast;
+          import java.util.ArrayList;
 
-      - name: Upload APK
+          public class MainActivity extends Activity {
+              private final Handler handler = new Handler();
+              private BluetoothAdapter bluetoothAdapter;
+              private BluetoothLeScanner scanner;
+              private BluetoothGatt gatt;
+              private TextView status;
+              private LinearLayout content;
+              private SharedPreferences prefs;
+              private final ArrayList<Frame> frames = new ArrayList<>();
+              private int selectedSlot = 171;
+              private boolean playing = false;
+              private LinearLayout scanDeviceListLayout;
+              private final ArrayList<BluetoothDevice> foundDevices = new ArrayList<>();
+
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  prefs = getSharedPreferences("leddmx_bypass_v17", MODE_PRIVATE);
+
+                  BluetoothManager bm = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+                  if (bm != null) bluetoothAdapter = bm.getAdapter();
+                  
+                  if (frames.isEmpty()) {
+                      frames.add(new Frame(Color.RED, Color.BLACK, 150));
+                      frames.add(new Frame(Color.BLACK, Color.RED, 150));
+                      frames.add(new Frame(Color.BLUE, Color.BLACK, 150));
+                      frames.add(new Frame(Color.BLACK, Color.BLUE, 150));
+                  }
+
+                  buildRoot();
+                  showCustomStudio();
+                  
+                  if (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                      requestPermissions(new String[]{
+                          Manifest.permission.BLUETOOTH_SCAN,
+                          Manifest.permission.BLUETOOTH_CONNECT,
+                          Manifest.permission.ACCESS_FINE_LOCATION
+                      }, 100);
+                  }
+              }
+
+              private void buildRoot() {
+                  LinearLayout root = new LinearLayout(this);
+                  root.setOrientation(LinearLayout.VERTICAL);
+                  root.setBackgroundColor(Color.parseColor("#101114"));
+
+                  LinearLayout top = new LinearLayout(this);
+                  top.setGravity(Gravity.CENTER_VERTICAL);
+                  top.setPadding(24,18,24,18);
+                  TextView title = new TextView(this);
+                  title.setText("LEDDMX BYPASS KANAN-KIRI");
+                  title.setTextSize(16);
+                  title.setTextColor(Color.parseColor("#00E5FF"));
+                  top.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
+                  
+                  Button scanBtn = new Button(this);
+                  scanBtn.setText("SCAN BLE");
+                  scanBtn.setTextColor(Color.WHITE);
+                  scanBtn.setBackgroundColor(Color.parseColor("#191B20"));
+                  scanBtn.setOnClickListener(v -> showScanDialog());
+                  top.addView(scanBtn);
+                  root.addView(top);
+
+                  status = new TextView(this);
+                  status.setText("STATUS: DISCONNECTED");
+                  status.setTextColor(Color.YELLOW);
+                  status.setPadding(24,0,24,10);
+                  root.addView(status);
+
+                  ScrollView scroll = new ScrollView(this);
+                  content = new LinearLayout(this);
+                  content.setOrientation(LinearLayout.VERTICAL);
+                  content.setPadding(18,10,18,10);
+                  scroll.addView(content, new LinearLayout.LayoutParams(-1, -2));
+                  root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+
+                  setContentView(root);
+              }
+
+              private void showCustomStudio() {
+                  content.removeAllViews();
+                  
+                  TextView header = new TextView(this);
+                  header.setText("KONTROL PENUH & BYPASS SLOT MODUL (171-210)");
+                  header.setTextColor(Color.WHITE);
+                  header.setTextSize(14);
+                  content.addView(header);
+
+                  Spinner slot = new Spinner(this);
+                  String[] slots = new String[40];
+                  for (int i=0; i<40; i++) slots[i] = "SLOT MEMORI " + (171+i);
+                  android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, slots);
+                  slot.setAdapter(adapter);
+                  slot.setSelection(selectedSlot - 171);
+                  slot.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+                      public void onItemSelected(android.widget.AdapterView<?> p, View v, int pos, long id) {
+                          selectedSlot = 171 + pos;
+                          loadSlot();
+                      }
+                      public void onNothingSelected(android.widget.AdapterView<?> p) {}
+                  });
+                  content.addView(slot);
+
+                  Button addFrame = new Button(this);
+                  addFrame.setText("+ TAMBAH FRAME ANIMASI GERAK");
+                  addFrame.setTextColor(Color.WHITE);
+                  addFrame.setBackgroundColor(Color.parseColor("#191B20"));
+                  addFrame.setOnClickListener(v -> {
+                      frames.add(new Frame(Color.RED, Color.BLUE, 200));
+                      showCustomStudio();
+                  });
+                  content.addView(addFrame);
+
+                  for (int i=0; i<frames.size(); i++) {
+                      final int index = i;
+                      final Frame f = frames.get(i);
+                      
+                      LinearLayout card = new LinearLayout(this);
+                      card.setOrientation(LinearLayout.VERTICAL);
+                      card.setPadding(10, 14, 10, 14);
+                      card.setBackgroundColor(Color.parseColor("#1E222B"));
+
+                      TextView fTitle = new TextView(this);
+                      fTitle.setText("Frame " + (i+1) + " (Klik Kotak untuk Ganti Warna Kiri/Kanan)");
+                      fTitle.setTextColor(Color.WHITE);
+                      card.addView(fTitle);
+
+                      LinearLayout boxRow = new LinearLayout(this);
+                      boxRow.setOrientation(LinearLayout.HORIZONTAL);
+                      
+                      TextView box1 = new TextView(this);
+                      box1.setText("KIRI (1)"); box1.setGravity(Gravity.CENTER); box1.setTextColor(Color.WHITE); box1.setBackgroundColor(f.lamp1Color); box1.setHeight(60);
+                      box1.setOnClickListener(v -> {
+                          f.lamp1Color = (f.lamp1Color == Color.RED) ? Color.BLUE : (f.lamp1Color == Color.BLUE) ? Color.GREEN : Color.RED;
+                          showCustomStudio();
+                      });
+
+                      TextView box2 = new TextView(this);
+                      box2.setText("KANAN (2)"); box2.setGravity(Gravity.CENTER); box2.setTextColor(Color.WHITE); box2.setBackgroundColor(f.lamp2Color); box2.setHeight(60);
+                      box2.setOnClickListener(v -> {
+                          f.lamp2Color = (f.lamp2Color == Color.BLUE) ? Color.RED : (f.lamp2Color == Color.RED) ? Color.YELLOW : Color.BLUE;
+                          showCustomStudio();
+                      });
+
+                      boxRow.addView(box1, new LinearLayout.LayoutParams(0, -1, 1));
+                      boxRow.addView(box2, new LinearLayout.LayoutParams(0, -1, 1));
+                      card.addView(boxRow);
+
+                      Button del = new Button(this);
+                      del.setText("Hapus Frame ini");
+                      del.setTextColor(Color.RED);
+                      del.setBackgroundColor(Color.parseColor("#2A2E39"));
+                      del.setOnClickListener(v -> {
+                          frames.remove(index);
+                          showCustomStudio();
+                      });
+                      card.addView(del);
+
+                      content.addView(card);
+                  }
+
+                  Button saveBtn = new Button(this);
+                  saveBtn.setText("💾 SIMPAN KE SLOT MEMORI MODUL");
+                  saveBtn.setTextColor(Color.WHITE);
+                  saveBtn.setBackgroundColor(Color.parseColor("#191B20"));
+                  saveBtn.setOnClickListener(v -> saveSlot());
+                  content.addView(saveBtn);
+
+                  Button sendLive = new Button(this);
+                  sendLive.setText("⚡ BYPASS & KIRIM KONTROL LIVE KE MODUL");
+                  sendLive.setTextColor(Color.WHITE);
+                  sendLive.setBackgroundColor(Color.parseColor("#00838F"));
+                  sendLive.setOnClickListener(v -> executeBypassControl());
+                  content.addView(sendLive);
+              }
+
+              private void saveSlot() {
+                  StringBuilder sb = new StringBuilder();
+                  for (Frame f : frames) {
+                      sb.append(f.lamp1Color).append(",").append(f.lamp2Color).append(",").append(f.duration).append(";");
+                  }
+                  prefs.edit().putString("bypass_slot_" + selectedSlot, sb.toString()).apply();
+                  Toast.makeText(this, "Slot " + selectedSlot + " Berhasil Disimpan ke Memori!", Toast.LENGTH_SHORT).show();
+              }
+
+              private void loadSlot() {
+                  frames.clear();
+                  String s = prefs.getString("bypass_slot_" + selectedSlot, "");
+                  if (s.isEmpty()) {
+                      frames.add(new Frame(Color.RED, Color.BLACK, 150));
+                      frames.add(new Frame(Color.BLACK, Color.RED, 150));
+                      return;
+                  }
+                  String[] rows = s.split(";");
+                  for (String r : rows) {
+                      try {
+                          String[] p = r.split(",");
+                          if (p.length >= 3) {
+                              frames.add(new Frame(Integer.parseInt(p[0]), Integer.parseInt(p[1]), Integer.parseInt(p[2])));
+                          }
+                      } catch (Exception ignored) {}
+                  }
+              }
+
+              private void executeBypassControl() {
+                  if (frames.isEmpty()) return;
+                  sendModePacket(selectedSlot);
+
+                  playing = true;
+                  handler.post(new Runnable() {
+                      int idx = 0;
+                      public void run() {
+                          if (!playing || frames.isEmpty()) return;
+                          Frame f = frames.get(idx % frames.size());
+                          sendDualChannelPacket(f.lamp1Color, f.lamp2Color);
+                          idx++;
+                          handler.postDelayed(this, Math.max(50, f.duration));
+                      }
+                  });
+                  Toast.makeText(this, "Bypass Aktif: Kontrol Kanan-Kiri Mengalir!", Toast.LENGTH_SHORT).show();
+              }
+
+              private void sendModePacket(int mode) {
+                  byte[] packet = {0x7B, (byte)0xFF, 0x03, (byte)mode, (byte)0xFF, (byte)0xFF, (byte)0xFF, (byte)0xFF, (byte)0xBF};
+                  sendBle(packet);
+              }
+
+              private void sendDualChannelPacket(int col1, int col2) {
+                  int r1 = Color.red(col1); int g1 = Color.green(col1); int b1 = Color.blue(col1);
+                  int r2 = Color.red(col2); int g2 = Color.green(col2); int b2 = Color.blue(col2);
+
+                  byte[] packet = {
+                      (byte)0x7B, (byte)0xFF, (byte)0x08, 
+                      (byte)r1, (byte)g1, (byte)b1, 
+                      (byte)r2, (byte)g2, (byte)b2, 
+                      (byte)0xBF
+                  };
+                  sendBle(packet);
+              }
+
+              private void sendBle(byte[] data) {
+                  if (BluetoothService.getInstance().gatt == null || BluetoothService.getInstance().writeChar == null) {
+                      Toast.makeText(this, "Modul Belum Terhubung!", Toast.LENGTH_SHORT).show();
+                      return;
+                  }
+                  BluetoothService.getInstance().sendPacket(data);
+              }
+
+              private void showScanDialog() {
+                  content.removeAllViews();
+                  TextView t = new TextView(this);
+                  t.setText("CARI PERANGKAT BLUETOOTH MODUL LEDDMX");
+                  t.setTextColor(Color.WHITE);
+                  content.addView(t);
+
+                  scanDeviceListLayout = new LinearLayout(this);
+                  scanDeviceListLayout.setOrientation(LinearLayout.VERTICAL);
+                  content.addView(scanDeviceListLayout);
+
+                  Button scanBtn = new Button(this);
+                  scanBtn.setText("MULAI SCAN");
+                  scanBtn.setTextColor(Color.WHITE);
+                  scanBtn.setBackgroundColor(Color.parseColor("#191B20"));
+                  scanBtn.setOnClickListener(v -> startBleScan());
+                  content.addView(scanBtn);
+
+                  Button back = new Button(this);
+                  back.setText("KEMBALI");
+                  back.setTextColor(Color.WHITE);
+                  back.setBackgroundColor(Color.parseColor("#191B20"));
+                  back.setOnClickListener(v -> showCustomStudio());
+                  content.addView(back);
+
+                  startBleScan();
+              }
+
+              private void startBleScan() {
+                  if (bluetoothAdapter == null) return;
+                  scanner = bluetoothAdapter.getBluetoothLeScanner();
+                  if (scanner == null) return;
+                  foundDevices.clear();
+                  scanDeviceListLayout.removeAllViews();
+
+                  try {
+                      scanner.startScan(new ScanCallback() {
+                          public void onScanResult(int type, ScanResult result) {
+                              BluetoothDevice d = result.getDevice();
+                              if (!foundDevices.contains(d)) {
+                                  foundDevices.add(d);
+                                  Button b = new Button(MainActivity.this);
+                                  String name = "LEDDMX Device";
+                                  try { if (d.getName() != null) name = d.getName(); } catch(Exception ignored){}
+                                  b.setText(name + "\n[" + d.getAddress() + "]");
+                                  b.setTextColor(Color.WHITE);
+                                  b.setBackgroundColor(Color.parseColor("#1E222B"));
+                                  b.setOnClickListener(v -> {
+                                      scanner.stopScan(this);
+                                      status.setText("STATUS: CONNECTING...");
+                                      gatt = d.connectGatt(MainActivity.this, false, new BluetoothGattCallback() {
+                                          public void onConnectionStateChange(BluetoothGatt g, int statusVal, int newState) {
+                                              if (newState == BluetoothGatt.STATE_CONNECTED) {
+                                                  BluetoothService.getInstance().gatt = g;
+                                                  BluetoothService.getInstance().isConnected = true;
+                                                  g.discoverServices();
+                                                  runOnUiThread(() -> {
+                                                      status.setText("STATUS: CONNECTED / TERHUBUNG");
+                                                      Toast.makeText(MainActivity.this, "Berhasil Terhubung!", Toast.LENGTH_SHORT).show();
+                                                      showCustomStudio();
+                                                  });
+                                              }
+                                          }
+                                          public void onServicesDiscovered(BluetoothGatt g, int statusVal) {
+                                              for (BluetoothGattService s : g.getServices()) {
+                                                  for (BluetoothGattCharacteristic c : s.getCharacteristics()) {
+                                                      if ((c.getProperties() & (BluetoothGattCharacteristic.PROPERTY_WRITE | BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE)) > 0) {
+                                                          BluetoothService.getInstance().writeChar = c;
+                                                      }
+                                                  }
+                                              }
+                                          }
+                                      });
+                                  });
+                                  scanDeviceListLayout.addView(b);
+                              }
+                          }
+                      });
+                  } catch (Exception ignored) {}
+              }
+
+              private static class Frame {
+                  int lamp1Color, lamp2Color, duration;
+                  Frame(int l1, int l2, int dur) {
+                      this.lamp1Color = l1;
+                      this.lamp2Color = l2;
+                      this.duration = dur;
+                  }
+              }
+          }
+          EOF
+
+          ./gradlew assembleDebug --stacktrace
+
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: LEDDMX-AI-Pro-v13
+          name: LEDDMX-Bypass-Pro-v17
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
