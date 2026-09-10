@@ -1,4 +1,4 @@
-name: Build LEDDMX Ultimate Stable v33
+name: Build LEDDMX Final Wrapper Fix v34
 
 on:
   workflow_dispatch:
@@ -21,7 +21,7 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Build APK v33 Stable
+      - name: Build APK v34 with Wrapper
         shell: bash
         run: |
           set -e
@@ -71,7 +71,7 @@ jobs:
                   minSdkVersion 21
                   targetSdkVersion 33
                   versionCode 1
-                  versionName "33.0"
+                  versionName "34.0"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_1_8
@@ -685,11 +685,14 @@ jobs:
           }
           EOF
 
+          # Generate Gradle Wrapper secara eksplisit sebelum build
+          gradle wrapper --gradle-version 7.5
+          chmod +x ./gradlew
           ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: LEDDMX-Pro-v33
+          name: LEDDMX-Pro-v34
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
