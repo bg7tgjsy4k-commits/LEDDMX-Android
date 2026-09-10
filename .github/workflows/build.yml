@@ -1,4 +1,4 @@
-name: Build LEDDMX Bypass Pro v17
+name: Build LEDDMX Anti Gagal v18
 
 on:
   workflow_dispatch:
@@ -24,7 +24,7 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Build APK via Gradle
+      - name: Build APK Clean
         shell: bash
         run: |
           set -e
@@ -36,27 +36,25 @@ jobs:
           echo "sdk.dir=$ANDROID_HOME" > local.properties
 
           cat > settings.gradle << 'EOF'
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
           rootProject.name = "LEDDMX-Pro"
           include ':app'
           EOF
 
           cat > build.gradle << 'EOF'
-          plugins {
-              id 'com.android.application' version '8.2.0' apply false
+          buildscript {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+              dependencies {
+                  classpath 'com.android.tools.build:gradle:7.4.2'
+              }
+          }
+          allprojects {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
           }
           EOF
 
@@ -67,24 +65,23 @@ jobs:
           EOF
 
           cat > app/build.gradle << 'EOF'
-          plugins {
-              id 'com.android.application'
-          }
+          apply plugin: 'com.android.application'
+
           android {
-              namespace 'com.leddmx.pro'
-              compileSdk 34
+              compileSdkVersion 33
               defaultConfig {
                   applicationId "com.leddmx.pro"
-                  minSdk 21
-                  targetSdk 34
+                  minSdkVersion 21
+                  targetSdkVersion 33
                   versionCode 1
-                  versionName "17.0"
+                  versionName "18.0"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_1_8
                   targetCompatibility JavaVersion.VERSION_1_8
               }
           }
+
           dependencies {
               implementation 'androidx.appcompat:appcompat:1.6.1'
           }
@@ -97,7 +94,8 @@ jobs:
           EOF
 
           cat > app/src/main/AndroidManifest.xml << 'EOF'
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="com.leddmx.pro">
               <uses-permission android:name="android.permission.BLUETOOTH" />
               <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
               <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
@@ -137,7 +135,6 @@ jobs:
               public boolean isConnected = false;
               public int lastUsedMode = 171;
               public int brightness = 100;
-
               public void sendPacket(byte[] data) {
                   if (gatt == null || writeChar == null) return;
                   try {
@@ -172,7 +169,6 @@ jobs:
           import android.widget.Button;
           import android.widget.LinearLayout;
           import android.widget.ScrollView;
-          import android.widget.SeekBar;
           import android.widget.Spinner;
           import android.widget.TextView;
           import android.widget.Toast;
@@ -195,7 +191,7 @@ jobs:
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-                  prefs = getSharedPreferences("leddmx_bypass_v17", MODE_PRIVATE);
+                  prefs = getSharedPreferences("leddmx_bypass_v18", MODE_PRIVATE);
 
                   BluetoothManager bm = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
                   if (bm != null) bluetoothAdapter = bm.getAdapter();
@@ -203,8 +199,6 @@ jobs:
                   if (frames.isEmpty()) {
                       frames.add(new Frame(Color.RED, Color.BLACK, 150));
                       frames.add(new Frame(Color.BLACK, Color.RED, 150));
-                      frames.add(new Frame(Color.BLUE, Color.BLACK, 150));
-                      frames.add(new Frame(Color.BLACK, Color.BLUE, 150));
                   }
 
                   buildRoot();
@@ -359,13 +353,13 @@ jobs:
                   for (Frame f : frames) {
                       sb.append(f.lamp1Color).append(",").append(f.lamp2Color).append(",").append(f.duration).append(";");
                   }
-                  prefs.edit().putString("bypass_slot_" + selectedSlot, sb.toString()).apply();
-                  Toast.makeText(this, "Slot " + selectedSlot + " Berhasil Disimpan ke Memori!", Toast.LENGTH_SHORT).show();
+                  prefs.edit().putString("bypass_v18_slot_" + selectedSlot, sb.toString()).apply();
+                  Toast.makeText(this, "Slot " + selectedSlot + " Berhasil Disimpan!", Toast.LENGTH_SHORT).show();
               }
 
               private void loadSlot() {
                   frames.clear();
-                  String s = prefs.getString("bypass_slot_" + selectedSlot, "");
+                  String s = prefs.getString("bypass_v18_slot_" + selectedSlot, "");
                   if (s.isEmpty()) {
                       frames.add(new Frame(Color.RED, Color.BLACK, 150));
                       frames.add(new Frame(Color.BLACK, Color.RED, 150));
@@ -518,11 +512,12 @@ jobs:
           }
           EOF
 
-          ./gradlew assembleDebug --stacktrace
+          # Eksekusi compiler build menggunakan classpath gradle buildscript secara langsung
+          gradle assembleDebug --stacktrace
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: LEDDMX-Bypass-Pro-v17
+          name: LEDDMX-Bypass-Pro-v18
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
