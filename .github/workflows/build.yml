@@ -1,4 +1,4 @@
-name: Build LEDDMX Final Clean v23
+name: Build LEDDMX Ultimate Fix v24
 
 on:
   workflow_dispatch:
@@ -21,7 +21,7 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Build APK Clean Wrapper
+      - name: Build APK Modern
         shell: bash
         run: |
           set -e
@@ -29,7 +29,6 @@ jobs:
 
           mkdir -p app/src/main/java/com/leddmx/pro
           mkdir -p app/src/main/res/values
-          mkdir -p gradle/wrapper
 
           echo "sdk.dir=$ANDROID_HOME" > local.properties
 
@@ -54,7 +53,7 @@ jobs:
 
           cat > build.gradle << 'EOF'
           plugins {
-              id 'com.android.application' version '7.4.2' apply false
+              id 'com.android.application' version '8.1.1' apply false
           }
           EOF
 
@@ -69,13 +68,14 @@ jobs:
               id 'com.android.application'
           }
           android {
-              compileSdk 33
+              namespace 'com.leddmx.pro'
+              compileSdk 34
               defaultConfig {
                   applicationId "com.leddmx.pro"
                   minSdk 21
-                  targetSdk 33
+                  targetSdk 34
                   versionCode 1
-                  versionName "23.0"
+                  versionName "24.0"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_1_8
@@ -94,8 +94,7 @@ jobs:
           EOF
 
           cat > app/src/main/AndroidManifest.xml << 'EOF'
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-              package="com.leddmx.pro">
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <uses-permission android:name="android.permission.BLUETOOTH" />
               <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
               <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
@@ -191,7 +190,7 @@ jobs:
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-                  prefs = getSharedPreferences("leddmx_bypass_v23", MODE_PRIVATE);
+                  prefs = getSharedPreferences("leddmx_bypass_v24", MODE_PRIVATE);
 
                   BluetoothManager bm = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
                   if (bm != null) bluetoothAdapter = bm.getAdapter();
@@ -353,13 +352,13 @@ jobs:
                   for (Frame f : frames) {
                       sb.append(f.lamp1Color).append(",").append(f.lamp2Color).append(",").append(f.duration).append(";");
                   }
-                  prefs.edit().putString("bypass_v23_slot_" + selectedSlot, sb.toString()).apply();
+                  prefs.edit().putString("bypass_v24_slot_" + selectedSlot, sb.toString()).apply();
                   Toast.makeText(this, "Slot " + selectedSlot + " Berhasil Disimpan!", Toast.LENGTH_SHORT).show();
               }
 
               private void loadSlot() {
                   frames.clear();
-                  String s = prefs.getString("bypass_v23_slot_" + selectedSlot, "");
+                  String s = prefs.getString("bypass_v24_slot_" + selectedSlot, "");
                   if (s.isEmpty()) {
                       frames.add(new Frame(Color.RED, Color.BLACK, 150));
                       frames.add(new Frame(Color.BLACK, Color.RED, 150));
@@ -515,13 +514,13 @@ jobs:
           cat > gradle/wrapper/gradle-wrapper.properties << 'EOF'
           distributionBase=GRADLE_USER_HOME
           distributionPath=wrapper/dists
-          distributionUrl=https\://services.gradle.org/distributions/gradle-7.5-bin.zip
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.0-bin.zip
           networkTimeout=10000
           zipStoreBase=GRADLE_USER_HOME
           zipStorePath=wrapper/dists
           EOF
 
-          gradle wrapper --gradle-version 7.5
+          gradle wrapper --gradle-version 8.0
 
           chmod +x ./gradlew
           ./gradlew assembleDebug --stacktrace
@@ -529,6 +528,6 @@ jobs:
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: LEDDMX-Bypass-Pro-v23
+          name: LEDDMX-Bypass-Pro-v24
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
