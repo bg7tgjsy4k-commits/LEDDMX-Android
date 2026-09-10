@@ -1,4 +1,4 @@
-name: Build LEDDMX Ultimate Fix v25
+name: Build LEDDMX Final Force v26
 
 on:
   workflow_dispatch:
@@ -21,7 +21,7 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Build APK Modern
+      - name: Force Gradle 8.5 and Build
         shell: bash
         run: |
           set -e
@@ -29,6 +29,7 @@ jobs:
 
           mkdir -p app/src/main/java/com/leddmx/pro
           mkdir -p app/src/main/res/values
+          mkdir -p gradle/wrapper
 
           echo "sdk.dir=$ANDROID_HOME" > local.properties
 
@@ -53,7 +54,7 @@ jobs:
 
           cat > build.gradle << 'EOF'
           plugins {
-              id 'com.android.application' version '8.1.1' apply false
+              id 'com.android.application' version '8.2.0' apply false
           }
           EOF
 
@@ -75,7 +76,7 @@ jobs:
                   minSdk 21
                   targetSdk 34
                   versionCode 1
-                  versionName "25.0"
+                  versionName "26.0"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_1_8
@@ -190,7 +191,7 @@ jobs:
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-                  prefs = getSharedPreferences("leddmx_bypass_v25", MODE_PRIVATE);
+                  prefs = getSharedPreferences("leddmx_bypass_v26", MODE_PRIVATE);
 
                   BluetoothManager bm = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
                   if (bm != null) bluetoothAdapter = bm.getAdapter();
@@ -352,13 +353,13 @@ jobs:
                   for (Frame f : frames) {
                       sb.append(f.lamp1Color).append(",").append(f.lamp2Color).append(",").append(f.duration).append(";");
                   }
-                  prefs.edit().putString("bypass_v25_slot_" + selectedSlot, sb.toString()).apply();
+                  prefs.edit().putString("bypass_v26_slot_" + selectedSlot, sb.toString()).apply();
                   Toast.makeText(this, "Slot " + selectedSlot + " Berhasil Disimpan!", Toast.LENGTH_SHORT).show();
               }
 
               private void loadSlot() {
                   frames.clear();
-                  String s = prefs.getString("bypass_v25_slot_" + selectedSlot, "");
+                  String s = prefs.getString("bypass_v26_slot_" + selectedSlot, "");
                   if (s.isEmpty()) {
                       frames.add(new Frame(Color.RED, Color.BLACK, 150));
                       frames.add(new Frame(Color.BLACK, Color.RED, 150));
@@ -399,10 +400,9 @@ jobs:
               }
 
               private void sendDualChannelPacket(int col1, int col2) {
-                  int r1 = Color.red(logColor(col1)); int g1 = Color.green(col1); int b1 = Color.blue(col1);
+                  int r1 = Color.red(col1); int g1 = Color.green(col1); int b1 = Color.blue(col1);
                   int r2 = Color.red(col2); int g2 = Color.green(col2); int b2 = Color.blue(col2);
 
-                  // Protokol Bypass 0x08 untuk Dual-Channel (Kiri & Kanan Terpisah Total)
                   byte[] packet = {
                       (byte)0x7B, (byte)0xFF, (byte)0x08, 
                       (byte)r1, (byte)g1, (byte)b1, 
@@ -411,8 +411,6 @@ jobs:
                   };
                   sendBle(packet);
               }
-              
-              private int logColor(int c) { return c; }
 
               private void sendBle(byte[] data) {
                   BluetoothService.getInstance().sendPacket(data);
@@ -510,13 +508,24 @@ jobs:
           }
           EOF
 
-          gradle wrapper --gradle-version 8.0
+          # Hapus file wrapper bawaan lalu paksa download dan kunci Gradle ke versi 8.5
+          rm -rf gradle/wrapper/gradle-wrapper.properties
+          cat > gradle/wrapper/gradle-wrapper.properties << 'EOF'
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.5-bin.zip
+          networkTimeout=10000
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          EOF
+
+          ./gradlew wrapper --gradle-version 8.5 --distribution-type bin
           chmod +x ./gradlew
           ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: LEDDMX-Bypass-Pro-v25
+          name: LEDDMX-Bypass-Pro-v26
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
