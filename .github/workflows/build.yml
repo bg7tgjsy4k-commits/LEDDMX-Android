@@ -1,4 +1,4 @@
-name: Build LEDDMX Auto APK
+name: Build LEDDMX Ultimate Stable v20
 
 on:
   workflow_dispatch:
@@ -15,13 +15,13 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK 11
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '11'
 
-      - name: Build APK Direct
+      - name: Build APK Stable
         shell: bash
         run: |
           set -e
@@ -44,7 +44,7 @@ jobs:
                   mavenCentral()
               }
               dependencies {
-                  classpath 'com.android.tools.build:gradle:7.4.2'
+                  classpath 'com.android.tools.build:gradle:7.2.1'
               }
           }
           allprojects {
@@ -71,7 +71,7 @@ jobs:
                   minSdkVersion 21
                   targetSdkVersion 33
                   versionCode 1
-                  versionName "1.0"
+                  versionName "20.0"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_1_8
@@ -117,6 +117,31 @@ jobs:
           </manifest>
           EOF
 
+          cat > app/src/main/java/com/leddmx/pro/BluetoothService.java << 'EOF'
+          package com.leddmx.pro;
+          import android.bluetooth.BluetoothGatt;
+          import android.bluetooth.BluetoothGattCharacteristic;
+          public class BluetoothService {
+              private static BluetoothService instance;
+              public static synchronized BluetoothService getInstance() {
+                  if (instance == null) instance = new BluetoothService();
+                  return instance;
+              }
+              public BluetoothGatt gatt;
+              public BluetoothGattCharacteristic writeChar;
+              public boolean isConnected = false;
+              public int lastUsedMode = 171;
+              public int brightness = 100;
+              public void sendPacket(byte[] data) {
+                  if (gatt == null || writeChar == null) return;
+                  try {
+                      writeChar.setValue(data);
+                      gatt.writeCharacteristic(writeChar);
+                  } catch (Exception ignored) {}
+              }
+          }
+          EOF
+
           cat > app/src/main/java/com/leddmx/pro/MainActivity.java << 'EOF'
           package com.leddmx.pro;
           import android.Manifest;
@@ -151,7 +176,6 @@ jobs:
               private BluetoothAdapter bluetoothAdapter;
               private BluetoothLeScanner scanner;
               private BluetoothGatt gatt;
-              private BluetoothGattCharacteristic writeChar;
               private TextView status;
               private LinearLayout content;
               private SharedPreferences prefs;
@@ -164,7 +188,7 @@ jobs:
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-                  prefs = getSharedPreferences("leddmx_bypass_git", MODE_PRIVATE);
+                  prefs = getSharedPreferences("leddmx_bypass_v20", MODE_PRIVATE);
 
                   BluetoothManager bm = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
                   if (bm != null) bluetoothAdapter = bm.getAdapter();
@@ -326,13 +350,13 @@ jobs:
                   for (Frame f : frames) {
                       sb.append(f.lamp1Color).append(",").append(f.lamp2Color).append(",").append(f.duration).append(";");
                   }
-                  prefs.edit().putString("bypass_slot_" + selectedSlot, sb.toString()).apply();
+                  prefs.edit().putString("bypass_v20_slot_" + selectedSlot, sb.toString()).apply();
                   Toast.makeText(this, "Slot " + selectedSlot + " Berhasil Disimpan!", Toast.LENGTH_SHORT).show();
               }
 
               private void loadSlot() {
                   frames.clear();
-                  String s = prefs.getString("bypass_slot_" + selectedSlot, "");
+                  String s = prefs.getString("bypass_v20_slot_" + selectedSlot, "");
                   if (s.isEmpty()) {
                       frames.add(new Frame(Color.RED, Color.BLACK, 150));
                       frames.add(new Frame(Color.BLACK, Color.RED, 150));
@@ -386,14 +410,11 @@ jobs:
               }
 
               private void sendBle(byte[] data) {
-                  if (gatt == null || writeChar == null) {
+                  if (BluetoothService.getInstance().gatt == null || BluetoothService.getInstance().writeChar == null) {
                       Toast.makeText(this, "Modul Belum Terhubung!", Toast.LENGTH_SHORT).show();
                       return;
                   }
-                  try {
-                      writeChar.setValue(data);
-                      gatt.writeCharacteristic(writeChar);
-                  } catch (Exception ignored) {}
+                  BluetoothService.getInstance().sendPacket(data);
               }
 
               private void showScanDialog() {
@@ -449,7 +470,8 @@ jobs:
                                       gatt = d.connectGatt(MainActivity.this, false, new BluetoothGattCallback() {
                                           public void onConnectionStateChange(BluetoothGatt g, int statusVal, int newState) {
                                               if (newState == BluetoothGatt.STATE_CONNECTED) {
-                                                  gatt = g;
+                                                  BluetoothService.getInstance().gatt = g;
+                                                  BluetoothService.getInstance().isConnected = true;
                                                   g.discoverServices();
                                                   runOnUiThread(() -> {
                                                       status.setText("STATUS: CONNECTED / TERHUBUNG");
@@ -462,7 +484,7 @@ jobs:
                                               for (BluetoothGattService s : g.getServices()) {
                                                   for (BluetoothGattCharacteristic c : s.getCharacteristics()) {
                                                       if ((c.getProperties() & (BluetoothGattCharacteristic.PROPERTY_WRITE | BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE)) > 0) {
-                                                          writeChar = c;
+                                                          BluetoothService.getInstance().writeChar = c;
                                                       }
                                                   }
                                               }
@@ -492,6 +514,6 @@ jobs:
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: LEDDMX-Bypass-Pro
+          name: LEDDMX-Bypass-Pro-v20
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
