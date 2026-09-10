@@ -1,4 +1,4 @@
-name: Build LEDDMX Final Clean v32
+name: Build LEDDMX Ultimate Stable v33
 
 on:
   workflow_dispatch:
@@ -21,7 +21,7 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Build APK v32
+      - name: Build APK v33 Stable
         shell: bash
         run: |
           set -e
@@ -33,27 +33,25 @@ jobs:
           echo "sdk.dir=$ANDROID_HOME" > local.properties
 
           cat > settings.gradle << 'EOF'
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
           rootProject.name = "LEDDMX-Pro"
           include ':app'
           EOF
 
           cat > build.gradle << 'EOF'
-          plugins {
-              id 'com.android.application' version '8.2.0' apply false
+          buildscript {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+              dependencies {
+                  classpath 'com.android.tools.build:gradle:7.4.2'
+              }
+          }
+          allprojects {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
           }
           EOF
 
@@ -64,24 +62,23 @@ jobs:
           EOF
 
           cat > app/build.gradle << 'EOF'
-          plugins {
-              id 'com.android.application'
-          }
+          apply plugin: 'com.android.application'
+
           android {
-              namespace 'com.leddmx.pro'
-              compileSdk 34
+              compileSdkVersion 33
               defaultConfig {
                   applicationId "com.leddmx.pro"
-                  minSdk 21
-                  targetSdk 34
+                  minSdkVersion 21
+                  targetSdkVersion 33
                   versionCode 1
-                  versionName "32.0"
+                  versionName "33.0"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_1_8
                   targetCompatibility JavaVersion.VERSION_1_8
               }
           }
+
           dependencies {
               implementation 'androidx.appcompat:appcompat:1.6.1'
           }
@@ -94,7 +91,8 @@ jobs:
           EOF
 
           cat > app/src/main/AndroidManifest.xml << 'EOF'
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="com.leddmx.pro">
               <uses-permission android:name="android.permission.BLUETOOTH" />
               <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
               <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
@@ -687,13 +685,11 @@ jobs:
           }
           EOF
 
-          gradle wrapper --gradle-version 8.5
-          chmod +x ./gradlew
           ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: LEDDMX-Pro-v32
+          name: LEDDMX-Pro-v33
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
