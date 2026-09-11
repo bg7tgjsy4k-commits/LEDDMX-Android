@@ -1,4 +1,4 @@
-Name: Build LEDDMX Pro
+name: Build LEDDMX Pro
 
 on:
   workflow_dispatch:
@@ -100,8 +100,8 @@ android {
         applicationId 'com.leddmx.pro'
         minSdk 21
         targetSdk 33
-        versionCode 101
-        versionName '1.0.1'
+        versionCode 100
+        versionName '1.0.0'
     }
 
     compileOptions {
@@ -154,11 +154,8 @@ EOF
 
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
-
-    <!-- Diperbaiki: Hapus flags neverForLocation agar Android mengizinkan scan BLE menggunakan lokasi -->
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
@@ -287,7 +284,7 @@ public class MainActivity extends Activity {
             runOnUiThread(() -> {
                 status.setText(
                         "SCAN ERROR " + errorCode +
-                        "\nPastikan Bluetooth & GPS/Lokasi HP Aktif!"
+                        "\nPastikan Bluetooth & GPS Aktif!"
                 );
             });
         }
@@ -514,7 +511,6 @@ public class MainActivity extends Activity {
     private void requestBlePermissions() {
         ArrayList<String> p = new ArrayList<>();
 
-        // Diperbaiki: Selalu wajibkan ACCESS_FINE_LOCATION di semua versi Android agar scan BLE hardware tidak diblokir sistem
         if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             p.add(Manifest.permission.ACCESS_FINE_LOCATION);
         }
@@ -544,9 +540,7 @@ public class MainActivity extends Activity {
             return false;
         }
 
-        // Pastikan izin lokasi terverifikasi
-        boolean locGranted = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
-        if (!locGranted) {
+        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             return false;
         }
 
@@ -593,7 +587,6 @@ public class MainActivity extends Activity {
                         .build();
 
         try {
-            // Tanpa filter service UUID agar semua perangkat BLE di sekitar (termasuk modul LEDDMX) pasti tertangkap
             scanner.startScan(
                     null,
                     settings,
@@ -750,45 +743,6 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void send(byte[] packet) {
-        if (gatt == null ||
-                writeChar == null) {
-
-            toast("Module belum READY");
-            return;
-        }
-
-        if (Build.VERSION.SDK_INT >= 31 &&
-                checkSelfPermission(
-                        Manifest.permission.BLUETOOTH_CONNECT)
-                        != PackageManager.PERMISSION_GRANTED) {
-
-            requestBlePermissions();
-            return;
-        }
-
-        writeChar.setValue(packet);
-
-        boolean ok;
-
-        try {
-            ok = gatt.writeCharacteristic(
-                    writeChar);
-        } catch (Exception e) {
-            ok = false;
-        }
-
-        appendTerminal(
-                "TX APP -> DEVICE: " +
-                        hex(packet) +
-                        "\nRESULT: " +
-                        ok);
-
-        handler.postDelayed(
-                () -> {},
-                60);
-    }
-
     private void appendTerminal(
             String text) {
 
@@ -796,21 +750,6 @@ public class MainActivity extends Activity {
 
         terminal.append(
                 "\n" + text);
-    }
-
-    private String hex(byte[] data) {
-        StringBuilder s =
-                new StringBuilder();
-
-        for (byte b : data) {
-            s.append(
-                    String.format(
-                            Locale.US,
-                            "%02X ",
-                            b & 0xFF));
-        }
-
-        return s.toString().trim();
     }
 
     private void toast(String text) {
