@@ -41,7 +41,7 @@ jobs:
                      "platforms;android-${ANDROID_COMPILE_SDK}" \
                      "build-tools;${ANDROID_BUILD_TOOLS}"
 
-      - name: Create project structure
+      - name: Create project structure & Gradle Wrapper
         shell: bash
         run: |
           set -e
@@ -112,8 +112,8 @@ jobs:
                   applicationId 'com.leddmx.pro'
                   minSdk 21
                   targetSdk 34
-                  versionCode 300
-                  versionName '3.0.0-AI-FINAL'
+                  versionCode 301
+                  versionName '3.0.1-AI-FINAL'
               }
 
               buildTypes {
@@ -205,12 +205,6 @@ jobs:
           </manifest>
           EOF
 
-      - name: Write Safe Patterns.java
-        shell: bash
-        run: |
-          set -e
-          cd LEDDMX-Android
-
           cat << 'EOF' > app/src/main/java/com/leddmx/pro/Patterns.java
           package com.leddmx.pro;
 
@@ -224,12 +218,6 @@ jobs:
               }
           }
           EOF
-
-      - name: Write MainActivity
-        shell: bash
-        run: |
-          set -e
-          cd LEDDMX-Android
 
           cat << 'EOF' > app/src/main/java/com/leddmx/pro/MainActivity.java
           package com.leddmx.pro;
@@ -1294,26 +1282,14 @@ jobs:
           }
           EOF
 
-      - name: Verify project files
+      - name: Generate Gradle Wrapper & Build APK
         shell: bash
         run: |
           set -eux
           cd LEDDMX-Android
-          test -f settings.gradle
-          test -f build.gradle
-          test -f app/build.gradle
-          test -f app/src/main/AndroidManifest.xml
-          test -f app/src/main/java/com/leddmx/pro/MainActivity.java
-          test -f app/src/main/java/com/leddmx/pro/Patterns.java
-          echo "PROJECT FILES OK"
-
-      - name: Build APK with Global Gradle
-        shell: bash
-        run: |
-          set -eux
-          cd LEDDMX-Android
-          gradle --version
-          gradle --no-daemon --stacktrace clean assembleDebug
+          gradle wrapper --gradle-version 8.4
+          chmod +x gradlew
+          ./gradlew --no-daemon --stacktrace clean assembleDebug
 
       - name: Verify APK
         shell: bash
