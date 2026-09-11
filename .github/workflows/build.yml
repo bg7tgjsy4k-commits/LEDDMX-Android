@@ -1,10 +1,14 @@
-name: LEDDMX AI PRO - FINAL STABLE
+name: LEDDMX Pro FINAL Stable
 
 on:
   workflow_dispatch:
   push:
     branches:
       - main
+      - master
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -19,2995 +23,2678 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+          cache: gradle
+
+      - name: Setup Gradle 7.6.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '7.6.1'
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
       - name: Install Android SDK 33
+        shell: bash
         run: |
+          set -euo pipefail
           yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager \
-            "platform-tools" \
-            "platforms;android-33" \
-            "build-tools;33.0.2"
+          sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2"
 
-      - name: Setup Gradle 7.6.1
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: 7.6.1
-
-      - name: Verify toolchain
-        run: |
-          set -e
-          echo "=============================="
-          echo "JAVA"
-          echo "=============================="
-          java -version
-
-          echo "=============================="
-          echo "GRADLE"
-          echo "=============================="
-          gradle --version
-
-          echo "=============================="
-          echo "ANDROID"
-          echo "=============================="
-          adb version || true
-          sdkmanager --list_installed | grep -E "platforms;android-33|build-tools;33.0.2" || true
-
-      - name: Create Android project
+      - name: Create clean Android project
         shell: bash
         run: |
           set -euo pipefail
 
-          rm -rf app settings.gradle build.gradle gradle.properties
+          rm -rf app
+          rm -rf gradle
+          rm -f build.gradle
+          rm -f settings.gradle
+          rm -f gradle.properties
+          rm -f gradlew
+          rm -f gradlew.bat
 
-          mkdir -p app/src/main/java/com/leddmx/aipro
+          mkdir -p app/src/main/java/com/leddmx/pro
           mkdir -p app/src/main/res/values
-          mkdir -p app/src/main/res/drawable
-          mkdir -p app/src/main/res/mipmap-hdpi
-          mkdir -p app/src/main/res/mipmap-mdpi
-          mkdir -p app/src/main/res/mipmap-xhdpi
-          mkdir -p app/src/main/res/mipmap-xxhdpi
-          mkdir -p app/src/main/res/mipmap-xxxhdpi
 
           cat > settings.gradle <<'EOF'
-pluginManagement {
-    repositories {
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-    }
-}
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
 
-dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
-
-rootProject.name = "LEDDMX-AI-PRO"
-include(":app")
-EOF
+          rootProject.name = "LEDDMX-Pro"
+          include ":app"
+          EOF
 
           cat > build.gradle <<'EOF'
-plugins {
-    id 'com.android.application' version '7.4.2' apply false
-    id 'org.jetbrains.kotlin.android' version '1.8.10' apply false
-}
-EOF
+          buildscript {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+
+              dependencies {
+                  classpath "com.android.tools.build:gradle:7.4.2"
+              }
+          }
+
+          allprojects {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          EOF
 
           cat > gradle.properties <<'EOF'
-org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
-android.useAndroidX=false
-android.enableJetifier=false
-kotlin.code.style=official
-EOF
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          android.useAndroidX=false
+          android.enableJetifier=false
+          EOF
 
           cat > app/build.gradle <<'EOF'
-plugins {
-    id 'com.android.application'
-    id 'org.jetbrains.kotlin.android'
-}
+          apply plugin: "com.android.application"
 
-android {
-    namespace 'com.leddmx.aipro'
-    compileSdk 33
+          android {
+              compileSdkVersion 33
 
-    defaultConfig {
-        applicationId "com.leddmx.aipro"
-        minSdk 23
-        targetSdk 33
-        versionCode 100
-        versionName "1.0.0-FINAL"
-    }
+              defaultConfig {
+                  applicationId "com.leddmx.pro"
+                  minSdkVersion 21
+                  targetSdkVersion 33
+                  versionCode 1
+                  versionName "1.0"
+              }
 
-    buildTypes {
-        debug {
-            minifyEnabled false
-            debuggable true
-        }
-        release {
-            minifyEnabled false
-            shrinkResources false
-            debuggable false
-        }
-    }
-
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
-    }
-
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-}
-EOF
-
-          cat > app/src/main/res/values/colors.xml <<'EOF'
-<resources>
-    <color name="black">#080A0D</color>
-</resources>
-EOF
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_1_8
+                  targetCompatibility JavaVersion.VERSION_1_8
+              }
+          }
+          EOF
 
           cat > app/src/main/res/values/strings.xml <<'EOF'
-<resources>
-    <string name="app_name">LEDDMX AI PRO</string>
-</resources>
-EOF
-
-          cat > app/src/main/res/values/styles.xml <<'EOF'
-<resources>
-    <style name="AppTheme" parent="@android:style/Theme.Material.NoActionBar">
-        <item name="android:fontFamily">sans</item>
-        <item name="android:windowLightStatusBar">false</item>
-        <item name="android:statusBarColor">#080A0D</item>
-        <item name="android:navigationBarColor">#080A0D</item>
-        <item name="android:colorAccent">#35D16F</item>
-        <item name="android:windowActionModeOverlay">true</item>
-    </style>
-</resources>
-EOF
+          <resources>
+              <string name="app_name">LEDDMX Pro Controller</string>
+          </resources>
+          EOF
 
           cat > app/src/main/AndroidManifest.xml <<'EOF'
-<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <uses-feature
-        android:name="android.hardware.bluetooth_le"
-        android:required="false" />
+              <uses-permission android:name="android.permission.BLUETOOTH" />
+              <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+              <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+              <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
-    <uses-permission android:name="android.permission.BLUETOOTH" />
-    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+              <uses-feature
+                  android:name="android.hardware.bluetooth_le"
+                  android:required="false" />
 
-    <uses-permission
-        android:name="android.permission.BLUETOOTH_SCAN"
-        android:usesPermissionFlags="neverForLocation" />
+              <application
+                  android:allowBackup="true"
+                  android:label="@string/app_name"
+                  android:theme="@android:style/Theme.Material.NoActionBar">
 
-    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:screenOrientation="portrait">
 
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
 
-    <application
-        android:allowBackup="false"
-        android:label="LEDDMX AI PRO"
-        android:theme="@style/AppTheme"
-        android:usesCleartextTraffic="true">
+                  </activity>
 
-        <activity
-            android:name=".MainActivity"
-            android:screenOrientation="portrait"
-            android:exported="true">
+              </application>
 
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
+          </manifest>
+          EOF
 
-        </activity>
-    </application>
-</manifest>
-EOF
+          cat > app/src/main/java/com/leddmx/pro/MainActivity.java <<'JAVAEOF'
+          package com.leddmx.pro;
 
-          echo "Downloading exact LEDDMX PatternList..."
-          curl -fsSL \
+          import android.Manifest;
+          import android.app.Activity;
+          import android.bluetooth.BluetoothAdapter;
+          import android.bluetooth.BluetoothDevice;
+          import android.bluetooth.BluetoothGatt;
+          import android.bluetooth.BluetoothGattCallback;
+          import android.bluetooth.BluetoothGattCharacteristic;
+          import android.bluetooth.BluetoothGattService;
+          import android.bluetooth.BluetoothManager;
+          import android.bluetooth.BluetoothProfile;
+          import android.bluetooth.le.BluetoothLeScanner;
+          import android.bluetooth.le.ScanCallback;
+          import android.bluetooth.le.ScanResult;
+          import android.content.ClipData;
+          import android.content.ClipboardManager;
+          import android.content.Context;
+          import android.content.SharedPreferences;
+          import android.content.pm.PackageManager;
+          import android.graphics.Canvas;
+          import android.graphics.Color;
+          import android.graphics.Paint;
+          import android.os.Build;
+          import android.os.Bundle;
+          import android.os.Handler;
+          import android.os.Looper;
+          import android.view.Gravity;
+          import android.view.MotionEvent;
+          import android.view.View;
+          import android.widget.Button;
+          import android.widget.EditText;
+          import android.widget.LinearLayout;
+          import android.widget.PopupWindow;
+          import android.widget.ScrollView;
+          import android.widget.SeekBar;
+          import android.widget.TextView;
+          import android.widget.Toast;
+
+          import java.text.SimpleDateFormat;
+          import java.util.ArrayDeque;
+          import java.util.ArrayList;
+          import java.util.Date;
+          import java.util.Locale;
+          import java.util.UUID;
+
+          public class MainActivity extends Activity {
+
+              private static final UUID SERVICE_FFE0 =
+                      UUID.fromString(
+                              "0000ffe0-0000-1000-8000-00805f9b34fb"
+                      );
+
+              private static final UUID CHAR_FFE1 =
+                      UUID.fromString(
+                              "0000ffe1-0000-1000-8000-00805f9b34fb"
+                      );
+
+              private static final UUID OTA_SERVICE =
+                      UUID.fromString(
+                              "5833ff01-9b8b-5191-6142-22a4536ef123"
+                      );
+
+              private final Handler handler =
+                      new Handler(Looper.getMainLooper());
+
+              private BluetoothAdapter bluetoothAdapter;
+              private BluetoothGatt bluetoothGatt;
+              private BluetoothGattCharacteristic writeCharacteristic;
+              private ScanCallback scanCallback;
+
+              private boolean scanning = false;
+              private boolean powerState = true;
+
+              private int red = 255;
+              private int green = 0;
+              private int blue = 0;
+              private int brightnessValue = 100;
+              private int speedValue = 50;
+              private int selectedMode = 1;
+
+              private String selectedOutput = "BOTH";
+              private String page = "HOME";
+
+              private LinearLayout root;
+              private LinearLayout body;
+              private TextView statusText;
+
+              private SharedPreferences preferences;
+
+              private final ArrayList<BluetoothDevice> foundDevices =
+                      new ArrayList<>();
+
+              private final ArrayList<String> terminal =
+                      new ArrayList<>();
+
+              private final ArrayDeque<byte[]> writeQueue =
+                      new ArrayDeque<>();
+
+              private boolean writeBusy = false;
+
+              private int dp(float value) {
+                  return (int) (
+                          value *
+                          getResources()
+                                  .getDisplayMetrics()
+                                  .density
+                          + 0.5f
+                  );
+              }
+
+              private LinearLayout row() {
+                  LinearLayout layout =
+                          new LinearLayout(this);
+
+                  layout.setOrientation(
+                          LinearLayout.HORIZONTAL
+                  );
+
+                  layout.setPadding(
+                          dp(8),
+                          dp(4),
+                          dp(8),
+                          dp(4)
+                  );
+
+                  return layout;
+              }
+
+              private LinearLayout column() {
+                  LinearLayout layout =
+                          new LinearLayout(this);
+
+                  layout.setOrientation(
+                          LinearLayout.VERTICAL
+                  );
+
+                  layout.setPadding(
+                          dp(10),
+                          dp(6),
+                          dp(10),
+                          dp(6)
+                  );
+
+                  return layout;
+              }
+
+              private TextView text(
+                      String value,
+                      int size
+              ) {
+                  TextView view =
+                          new TextView(this);
+
+                  view.setText(value);
+                  view.setTextSize(size);
+                  view.setTextColor(Color.WHITE);
+
+                  view.setPadding(
+                          dp(12),
+                          dp(8),
+                          dp(12),
+                          dp(8)
+                  );
+
+                  return view;
+              }
+
+              private Button button(String value) {
+                  Button b = new Button(this);
+
+                  b.setText(value);
+                  b.setTextColor(Color.WHITE);
+
+                  return b;
+              }
+
+              @Override
+              protected void onCreate(
+                      Bundle savedInstanceState
+              ) {
+                  super.onCreate(savedInstanceState);
+
+                  preferences =
+                          getSharedPreferences(
+                                  "LEDDMX_PRO",
+                                  MODE_PRIVATE
+                          );
+
+                  BluetoothManager manager =
+                          (BluetoothManager)
+                                  getSystemService(
+                                          Context.BLUETOOTH_SERVICE
+                                  );
+
+                  if (manager != null) {
+                      bluetoothAdapter =
+                              manager.getAdapter();
+                  }
+
+                  buildInterface();
+                  requestBluetoothPermissions();
+              }
+
+              private void buildInterface() {
+                  root = column();
+                  root.setBackgroundColor(
+                          Color.rgb(10, 13, 17)
+                  );
+
+                  setContentView(root);
+
+                  LinearLayout top = row();
+
+                  Button menu = button("☰");
+
+                  top.addView(
+                          menu,
+                          new LinearLayout.LayoutParams(
+                                  dp(55),
+                                  dp(55)
+                          )
+                  );
+
+                  TextView title =
+                          text("LEDDMX PRO", 20);
+
+                  title.setGravity(
+                          Gravity.CENTER_VERTICAL
+                  );
+
+                  top.addView(
+                          title,
+                          new LinearLayout.LayoutParams(
+                                  0,
+                                  dp(55),
+                                  1
+                          )
+                  );
+
+                  Button scan = button("SCAN");
+
+                  top.addView(
+                          scan,
+                          new LinearLayout.LayoutParams(
+                                  dp(90),
+                                  dp(55)
+                          )
+                  );
+
+                  root.addView(top);
+
+                  statusText =
+                          text(
+                                  "● DISCONNECTED",
+                                  13
+                          );
+
+                  statusText.setTextColor(
+                          Color.YELLOW
+                  );
+
+                  root.addView(statusText);
+
+                  ScrollView scroll =
+                          new ScrollView(this);
+
+                  body = column();
+
+                  scroll.addView(body);
+
+                  root.addView(
+                          scroll,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  0,
+                                  1
+                          )
+                  );
+
+                  menu.setOnClickListener(
+                          v -> showDrawer()
+                  );
+
+                  scan.setOnClickListener(
+                          v -> startScan()
+                  );
+
+                  showHome();
+              }
+
+              private void clearBody() {
+                  body.removeAllViews();
+              }
+
+              private void heading(String value) {
+                  TextView t =
+                          text(value, 22);
+
+                  t.setTextColor(Color.CYAN);
+
+                  body.addView(t);
+              }
+
+              private void showHome() {
+                  page = "HOME";
+
+                  clearBody();
+
+                  heading("LEDDMX-00-b2cd");
+
+                  body.addView(
+                          text(
+                                  "POWER • RGB • BRIGHTNESS • SPEED",
+                                  12
+                          )
+                  );
+
+                  Button power =
+                          button(
+                                  powerState
+                                          ? "POWER ON"
+                                          : "POWER OFF"
+                          );
+
+                  power.setOnClickListener(
+                          v -> {
+                              powerState =
+                                      !powerState;
+
+                              power.setText(
+                                      powerState
+                                              ? "POWER ON"
+                                              : "POWER OFF"
+                              );
+
+                              send(
+                                      powerPacket(
+                                              powerState
+                                      )
+                              );
+                          }
+                  );
+
+                  body.addView(power);
+
+                  addColorWheel();
+
+                  addSlider(
+                          "BRIGHTNESS",
+                          brightnessValue,
+                          value -> {
+                              brightnessValue =
+                                      value;
+
+                              send(
+                                      brightnessPacket(
+                                              value
+                                      )
+                              );
+                          }
+                  );
+
+                  addSlider(
+                          "SPEED",
+                          speedValue,
+                          value -> {
+                              speedValue =
+                                      value;
+
+                              send(
+                                      speedPacket(
+                                              value
+                                      )
+                              );
+                          }
+                  );
+
+                  LinearLayout outputRow =
+                          row();
+
+                  String[] outputs = {
+                          "LEFT",
+                          "RIGHT",
+                          "BOTH"
+                  };
+
+                  for (String output : outputs) {
+                      Button b =
+                              button(output);
+
+                      b.setOnClickListener(
+                              v -> {
+                                  selectedOutput =
+                                          output;
+
+                                  toast(
+                                          "Preview: "
+                                                  + output
+                                                  + "\n"
+                                                  + "Hardware routing: NOT PROVEN"
+                                  );
+                              }
+                      );
+
+                      outputRow.addView(
+                              b,
+                              new LinearLayout.LayoutParams(
+                                      0,
+                                      dp(52),
+                                      1
+                              )
+                      );
+                  }
+
+                  body.addView(outputRow);
+
+                  Button effects =
+                          button(
+                                  "OPEN 210 EFFECTS"
+                          );
+
+                  effects.setOnClickListener(
+                          v -> showEffects()
+                  );
+
+                  body.addView(effects);
+
+                  Button custom =
+                          button(
+                                  "CUSTOM STUDIO"
+                          );
+
+                  custom.setOnClickListener(
+                          v -> showCustomStudio()
+                  );
+
+                  body.addView(custom);
+              }
+
+              private interface SliderAction {
+                  void apply(int value);
+              }
+
+              private void addSlider(
+                      String label,
+                      int value,
+                      SliderAction action
+              ) {
+                  TextView labelView =
+                          text(
+                                  label + " : " + value,
+                                  14
+                          );
+
+                  body.addView(labelView);
+
+                  SeekBar bar =
+                          new SeekBar(this);
+
+                  bar.setMax(100);
+                  bar.setProgress(value);
+
+                  bar.setOnSeekBarChangeListener(
+                          new SeekBar.OnSeekBarChangeListener() {
+
+                              @Override
+                              public void onProgressChanged(
+                                      SeekBar seekBar,
+                                      int progress,
+                                      boolean fromUser
+                              ) {
+                                  labelView.setText(
+                                          label
+                                                  + " : "
+                                                  + progress
+                                  );
+
+                                  if (fromUser) {
+                                      action.apply(
+                                              progress
+                                      );
+                                  }
+                              }
+
+                              @Override
+                              public void onStartTrackingTouch(
+                                      SeekBar seekBar
+                              ) {
+                              }
+
+                              @Override
+                              public void onStopTrackingTouch(
+                                      SeekBar seekBar
+                              ) {
+                              }
+                          }
+                  );
+
+                  body.addView(bar);
+              }
+
+              private void addColorWheel() {
+                  body.addView(
+                          text("COLOR WHEEL", 15)
+                  );
+
+                  ColorWheel wheel =
+                          new ColorWheel(this);
+
+                  body.addView(
+                          wheel,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(245)
+                          )
+                  );
+
+                  TextView rgbText =
+                          text(
+                                  "RGB "
+                                          + red
+                                          + " / "
+                                          + green
+                                          + " / "
+                                          + blue,
+                                  14
+                          );
+
+                  body.addView(rgbText);
+
+                  wheel.listener =
+                          (r, g, b) -> {
+                              red = r;
+                              green = g;
+                              blue = b;
+
+                              rgbText.setText(
+                                      "RGB "
+                                              + r
+                                              + " / "
+                                              + g
+                                              + " / "
+                                              + b
+                              );
+
+                              send(
+                                      rgbPacket(
+                                              r,
+                                              g,
+                                              b
+                                      )
+                              );
+                          };
+              }
+
+              private void showEffects() {
+                  page = "EFFECTS";
+
+                  clearBody();
+
+                  heading(
+                          "210 BUILT-IN EFFECTS"
+                  );
+
+                  body.addView(
+                          text(
+                                  "LIVE EFFECT PREVIEW",
+                                  12
+                          )
+                  );
+
+                  for (int i = 1; i <= 210; i++) {
+                      final int mode = i;
+
+                      String name =
+                              Patterns.NAME[i];
+
+                      Button b =
+                              button(
+                                      String.format(
+                                              Locale.US,
+                                              "%03d  %s",
+                                              i,
+                                              name
+                                      )
+                              );
+
+                      b.setOnClickListener(
+                              v -> {
+                                  selectedMode =
+                                          mode;
+
+                                  send(
+                                          modePacket(
+                                                  mode
+                                          )
+                                  );
+
+                                  toast(
+                                          "MODE "
+                                                  + mode
+                                                  + "\n"
+                                                  + Patterns.NAME[mode]
+                                  );
+                              }
+                      );
+
+                      body.addView(
+                              b,
+                              new LinearLayout.LayoutParams(
+                                      -1,
+                                      dp(48)
+                              )
+                      );
+                  }
+              }
+
+              private void showCustomStudio() {
+                  page = "CUSTOM";
+
+                  clearBody();
+
+                  heading("CUSTOM STUDIO");
+
+                  body.addView(
+                          new StripPreview(this),
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  dp(130)
+                          )
+                  );
+
+                  body.addView(
+                          text(
+                                  "ANIMATION TEMPLATES",
+                                  14
+                          )
+                  );
+
+                  LinearLayout templates =
+                          row();
+
+                  String[] names = {
+                          "RAINBOW",
+                          "WAVE",
+                          "CHASE",
+                          "COMET",
+                          "SCANNER",
+                          "PULSE",
+                          "STRIPE",
+                          "FIRE",
+                          "WATER",
+                          "RANDOM"
+                  };
+
+                  for (String name : names) {
+                      Button b =
+                              button(name);
+
+                      b.setOnClickListener(
+                              v -> toast(
+                                      "LIVE PREVIEW: "
+                                              + name
+                              )
+                      );
+
+                      templates.addView(
+                              b,
+                              new LinearLayout.LayoutParams(
+                                      0,
+                                      dp(52),
+                                      1
+                              )
+                      );
+                  }
+
+                  body.addView(templates);
+
+                  addColorWheel();
+
+                  addSlider(
+                          "BRIGHTNESS",
+                          brightnessValue,
+                          value ->
+                                  brightnessValue =
+                                          value
+                  );
+
+                  addSlider(
+                          "SPEED",
+                          speedValue,
+                          value ->
+                                  speedValue =
+                                          value
+                  );
+
+                  LinearLayout direction =
+                          row();
+
+                  Button forward =
+                          button("FORWARD");
+
+                  Button reverse =
+                          button("REVERSE");
+
+                  forward.setOnClickListener(
+                          v -> send(
+                                  directionPacket(0)
+                          )
+                  );
+
+                  reverse.setOnClickListener(
+                          v -> send(
+                                  directionPacket(1)
+                          )
+                  );
+
+                  direction.addView(
+                          forward,
+                          new LinearLayout.LayoutParams(
+                                  0,
+                                  dp(52),
+                                  1
+                          )
+                  );
+
+                  direction.addView(
+                          reverse,
+                          new LinearLayout.LayoutParams(
+                                  0,
+                                  dp(52),
+                                  1
+                          )
+                  );
+
+                  body.addView(direction);
+
+                  body.addView(
+                          text(
+                                  "OUTPUT PREVIEW",
+                                  14
+                          )
+                  );
+
+                  LinearLayout output =
+                          row();
+
+                  String[] outputModes = {
+                          "WHOLE",
+                          "LEFT",
+                          "RIGHT",
+                          "BOTH"
+                  };
+
+                  for (String name : outputModes) {
+                      Button b =
+                              button(name);
+
+                      b.setOnClickListener(
+                              v -> {
+                                  selectedOutput =
+                                          name;
+
+                                  toast(
+                                          "Preview output: "
+                                                  + name
+                                                  + "\n"
+                                                  + "Hardware routing is not proven."
+                                  );
+                              }
+                      );
+
+                      output.addView(
+                              b,
+                              new LinearLayout.LayoutParams(
+                                      0,
+                                      dp(50),
+                                      1
+                              )
+                      );
+                  }
+
+                  body.addView(output);
+
+                  body.addView(
+                          text(
+                                  "LOCAL CUSTOM SLOTS 171–210",
+                                  15
+                          )
+                  );
+
+                  for (int slot = 171;
+                       slot <= 210;
+                       slot++) {
+
+                      final int s = slot;
+
+                      Button save =
+                              button(
+                                      "SAVE / APPLY SLOT "
+                                              + slot
+                              );
+
+                      save.setOnClickListener(
+                              v -> {
+                                  preferences
+                                          .edit()
+                                          .putInt(
+                                                  "slot_"
+                                                          + s,
+                                                  selectedMode
+                                          )
+                                          .apply();
+
+                                  toast(
+                                          "Saved local slot "
+                                                  + s
+                                  );
+                              }
+                      );
+
+                      body.addView(save);
+                  }
+
+                  Button apply =
+                          button(
+                                  "APPLY CUSTOM PATTERN"
+                          );
+
+                  apply.setOnClickListener(
+                          v -> {
+                              send(
+                                      customColorPacket(
+                                              1,
+                                              red,
+                                              green,
+                                              blue,
+                                              1
+                                      )
+                              );
+
+                              send(
+                                      customModePacket(
+                                              0
+                                      )
+                              );
+
+                              toast(
+                                      "Custom pattern packets sent."
+                              );
+                          }
+                  );
+
+                  body.addView(apply);
+              }
+
+              private void showAnalyzer() {
+                  page = "ANALYZER";
+
+                  clearBody();
+
+                  heading(
+                          "MODULE / MCU ANALYZER"
+                  );
+
+                  body.addView(
+                          text(
+                                  "DEVICE SOURCE ONLY",
+                                  14
+                          )
+                  );
+
+                  body.addView(
+                          text(
+                                  "No guessed MCU data is displayed.",
+                                  12
+                          )
+                  );
+
+                  Button gatt =
+                          button("READ GATT");
+
+                  gatt.setOnClickListener(
+                          v -> readGatt()
+                  );
+
+                  body.addView(gatt);
+
+                  Button refresh =
+                          button(
+                                  "REFRESH TERMINAL"
+                          );
+
+                  refresh.setOnClickListener(
+                          v -> showAnalyzer()
+                  );
+
+                  body.addView(refresh);
+
+                  String connectionInfo;
+
+                  if (bluetoothGatt == null) {
+                      connectionInfo =
+                              "DEVICE: NOT CONNECTED";
+                  } else {
+                      connectionInfo =
+                              "DEVICE: "
+                                      + safeDeviceName()
+                                      + "\n"
+                                      + "SERVICE FFE0: CHECK GATT"
+                                      + "\n"
+                                      + "CHAR FFE1: CHECK GATT";
+                  }
+
+                  body.addView(
+                          text(
+                                  connectionInfo,
+                                  12
+                          )
+                  );
+
+                  if (bluetoothGatt != null) {
+                      boolean otaFound = false;
+
+                      for (
+                              BluetoothGattService service :
+                              bluetoothGatt.getServices()
+                      ) {
+                          if (
+                                  OTA_SERVICE.equals(
+                                          service.getUuid()
+                                  )
+                          ) {
+                              otaFound = true;
+                          }
+                      }
+
+                      body.addView(
+                              text(
+                                      "OTA SERVICE: "
+                                              + (
+                                              otaFound
+                                                      ? "DETECTED"
+                                                      : "NOT EXPOSED BY DEVICE"
+                                      ),
+                                      12
+                              )
+                      );
+                  } else {
+                      body.addView(
+                              text(
+                                      "OTA SERVICE: NOT EXPOSED BY DEVICE",
+                                      12
+                              )
+                      );
+                  }
+
+                  EditText raw =
+                          new EditText(this);
+
+                  raw.setHint(
+                          "RAW HEX"
+                  );
+
+                  raw.setTextColor(
+                          Color.WHITE
+                  );
+
+                  raw.setHintTextColor(
+                          Color.GRAY
+                  );
+
+                  body.addView(raw);
+
+                  Button send =
+                          button(
+                                  "SEND RAW HEX"
+                          );
+
+                  send.setOnClickListener(
+                          v -> {
+                              try {
+                                  send(
+                                          parseHex(
+                                                  raw.getText()
+                                                          .toString()
+                                          )
+                                  );
+                              } catch (Exception e) {
+                                  toast(
+                                          "Invalid HEX"
+                                  );
+                              }
+                          }
+                  );
+
+                  body.addView(send);
+
+                  Button copy =
+                          button(
+                                  "COPY TERMINAL"
+                          );
+
+                  copy.setOnClickListener(
+                          v -> {
+                              ClipboardManager manager =
+                                      (ClipboardManager)
+                                              getSystemService(
+                                                      CLIPBOARD_SERVICE
+                                              );
+
+                              if (manager != null) {
+                                  manager.setPrimaryClip(
+                                          ClipData.newPlainText(
+                                                  "LEDDMX DEVICE TERMINAL",
+                                                  terminalText()
+                                          )
+                                  );
+
+                                  toast("Terminal copied");
+                              }
+                          }
+                  );
+
+                  body.addView(copy);
+
+                  body.addView(
+                          text(
+                                  terminalText(),
+                                  11
+                          )
+                  );
+              }
+
+              private void showProtocolLab() {
+                  showAnalyzer();
+
+                  page = "PROTOCOL";
+
+                  TextView title =
+                          text(
+                                  "PROTOCOL LAB",
+                                  18
+                          );
+
+                  title.setTextColor(
+                          Color.CYAN
+                  );
+
+                  body.addView(title);
+              }
+
+              private void showSettings() {
+                  page = "SETTINGS";
+
+                  clearBody();
+
+                  heading("SETTINGS");
+
+                  body.addView(
+                          text(
+                                  "Language: Indonesian / English",
+                                  13
+                          )
+                  );
+
+                  body.addView(
+                          text(
+                                  "RGB order baseline: RBG.",
+                                  13
+                          )
+                  );
+
+                  body.addView(
+                          text(
+                                  "Password command: NOT VERIFIED.",
+                                  13
+                          )
+                  );
+
+                  body.addView(
+                          text(
+                                  "No unverified password packet will be sent.",
+                                  13
+                          )
+                  );
+
+                  body.addView(
+                          text(
+                                  "OTA: DETECTION ONLY until firmware format is proven.",
+                                  13
+                          )
+                  );
+
+                  body.addView(
+                          text(
+                                  "LEFT/RIGHT hardware routing: NOT PROVEN.",
+                                  13
+                          )
+                  );
+
+                  Button clear =
+                          button(
+                                  "RESET LOCAL CUSTOM SLOTS"
+                          );
+
+                  clear.setOnClickListener(
+                          v -> {
+                              preferences
+                                      .edit()
+                                      .clear()
+                                      .apply();
+
+                              toast(
+                                      "Local data cleared"
+                              );
+                          }
+                  );
+
+                  body.addView(clear);
+              }
+
+              private void showDrawer() {
+                  final PopupWindow popup =
+                          new PopupWindow(this);
+
+                  LinearLayout menu =
+                          column();
+
+                  menu.setBackgroundColor(
+                          Color.rgb(
+                                  20,
+                                  24,
+                                  30
+                          )
+                  );
+
+                  String[] pages = {
+                          "HOME",
+                          "210 EFFECTS",
+                          "CUSTOM STUDIO",
+                          "MODULE / MCU ANALYZER",
+                          "PROTOCOL LAB",
+                          "SETTINGS"
+                  };
+
+                  for (String item : pages) {
+                      Button b =
+                              button(item);
+
+                      b.setOnClickListener(
+                              v -> {
+                                  popup.dismiss();
+
+                                  if (
+                                          item.equals(
+                                                  "HOME"
+                                          )
+                                  ) {
+                                      showHome();
+                                  } else if (
+                                          item.equals(
+                                                  "210 EFFECTS"
+                                          )
+                                  ) {
+                                      showEffects();
+                                  } else if (
+                                          item.equals(
+                                                  "CUSTOM STUDIO"
+                                          )
+                                  ) {
+                                      showCustomStudio();
+                                  } else if (
+                                          item.equals(
+                                                  "MODULE / MCU ANALYZER"
+                                          )
+                                  ) {
+                                      showAnalyzer();
+                                  } else if (
+                                          item.equals(
+                                                  "PROTOCOL LAB"
+                                          )
+                                  ) {
+                                      showProtocolLab();
+                                  } else {
+                                      showSettings();
+                                  }
+                              }
+                      );
+
+                      menu.addView(
+                              b,
+                              new LinearLayout.LayoutParams(
+                                      dp(285),
+                                      dp(58)
+                              )
+                      );
+                  }
+
+                  popup.setContentView(menu);
+
+                  popup.setWidth(
+                          dp(295)
+                  );
+
+                  popup.setHeight(
+                          -1
+                  );
+
+                  popup.setBackgroundDrawable(
+                          new android.graphics.drawable
+                                  .ColorDrawable(
+                                  Color.rgb(
+                                          20,
+                                          24,
+                                          30
+                                  )
+                          )
+                  );
+
+                  popup.setFocusable(true);
+                  popup.setOutsideTouchable(true);
+
+                  popup.showAtLocation(
+                          root,
+                          Gravity.LEFT | Gravity.TOP,
+                          0,
+                          0
+                  );
+              }
+
+              private void requestBluetoothPermissions() {
+                  if (
+                          Build.VERSION.SDK_INT >= 31
+                  ) {
+                      requestPermissions(
+                              new String[]{
+                                      Manifest.permission.BLUETOOTH_SCAN,
+                                      Manifest.permission.BLUETOOTH_CONNECT
+                              },
+                              100
+                      );
+                  } else if (
+                          Build.VERSION.SDK_INT >= 23
+                  ) {
+                      requestPermissions(
+                              new String[]{
+                                      Manifest.permission.ACCESS_FINE_LOCATION
+                              },
+                              101
+                      );
+                  }
+              }
+
+              private void startScan() {
+                  if (bluetoothAdapter == null) {
+                      toast(
+                              "Bluetooth adapter not available"
+                      );
+
+                      return;
+                  }
+
+                  if (
+                          !bluetoothAdapter.isEnabled()
+                  ) {
+                      toast(
+                              "Bluetooth is OFF"
+                      );
+
+                      return;
+                  }
+
+                  if (scanning) {
+                      stopScan();
+
+                      return;
+                  }
+
+                  if (
+                          Build.VERSION.SDK_INT >= 31
+                              &&
+                          checkSelfPermission(
+                                  Manifest.permission.BLUETOOTH_SCAN
+                          )
+                                  != PackageManager.PERMISSION_GRANTED
+                  ) {
+                      requestBluetoothPermissions();
+
+                      return;
+                  }
+
+                  BluetoothLeScanner scanner =
+                          bluetoothAdapter
+                                  .getBluetoothLeScanner();
+
+                  if (scanner == null) {
+                      toast(
+                              "BLE scanner unavailable"
+                      );
+
+                      return;
+                  }
+
+                  foundDevices.clear();
+
+                  scanCallback =
+                          new ScanCallback() {
+
+                              @Override
+                              public void onScanResult(
+                                      int callbackType,
+                                      ScanResult result
+                              ) {
+                                  BluetoothDevice device =
+                                          result.getDevice();
+
+                                  String name =
+                                          safeName(
+                                                  device
+                                          );
+
+                                  String upper =
+                                          name.toUpperCase(
+                                                  Locale.US
+                                          );
+
+                                  if (
+                                          upper.contains(
+                                                  "LEDDMX"
+                                          )
+                                              ||
+                                          upper.contains(
+                                                  "LED LAMP"
+                                          )
+                                  ) {
+                                      if (
+                                              !foundDevices
+                                                      .contains(
+                                                              device
+                                                      )
+                                      ) {
+                                          foundDevices.add(
+                                                  device
+                                          );
+                                      }
+
+                                      runOnUiThread(
+                                              MainActivity.this
+                                                      ::showScanResults
+                                      );
+                                  }
+                              }
+
+                              @Override
+                              public void onScanFailed(
+                                      int errorCode
+                              ) {
+                                  runOnUiThread(
+                                          () -> toast(
+                                                  "BLE scan failed: "
+                                                          + errorCode
+                                          )
+                                  );
+                              }
+                          };
+
+                  try {
+                      scanner.startScan(
+                              scanCallback
+                      );
+
+                      scanning = true;
+
+                      statusText.setText(
+                              "● SCANNING..."
+                      );
+
+                      handler.postDelayed(
+                              this::stopScan,
+                              9000
+                      );
+
+                      showScanResults();
+
+                  } catch (Exception e) {
+                      toast(
+                              "Unable to start scan"
+                      );
+                  }
+              }
+
+              private void showScanResults() {
+                  page = "SCAN";
+
+                  clearBody();
+
+                  heading(
+                          "BLE DEVICES"
+                  );
+
+                  if (
+                          foundDevices.isEmpty()
+                  ) {
+                      body.addView(
+                              text(
+                                      "Searching for LEDDMX...",
+                                      13
+                              )
+                      );
+
+                      return;
+                  }
+
+                  for (
+                          BluetoothDevice device :
+                          foundDevices
+                  ) {
+                      Button b =
+                              button(
+                                      safeName(device)
+                                              + "\n"
+                                              + safeAddress(device)
+                              );
+
+                      b.setOnClickListener(
+                              v -> connect(
+                                      device
+                              )
+                      );
+
+                      body.addView(b);
+                  }
+              }
+
+              private void stopScan() {
+                  if (!scanning) {
+                      return;
+                  }
+
+                  try {
+                      if (
+                              bluetoothAdapter != null
+                                      &&
+                              bluetoothAdapter
+                                      .getBluetoothLeScanner()
+                                      != null
+                                      &&
+                              scanCallback != null
+                      ) {
+                          bluetoothAdapter
+                                  .getBluetoothLeScanner()
+                                  .stopScan(
+                                          scanCallback
+                                  );
+                      }
+                  } catch (Exception ignored) {
+                  }
+
+                  scanning = false;
+
+                  if (statusText != null) {
+                      statusText.setText(
+                              "● SCAN COMPLETE"
+                      );
+                  }
+              }
+
+              private void connect(
+                      BluetoothDevice device
+              ) {
+                  stopScan();
+
+                  statusText.setText(
+                          "● CONNECTING "
+                                  + safeName(device)
+                  );
+
+                  try {
+                      bluetoothGatt =
+                              device.connectGatt(
+                                      this,
+                                      false,
+                                      gattCallback
+                              );
+                  } catch (Exception e) {
+                      statusText.setText(
+                              "● CONNECTION ERROR"
+                      );
+
+                      toast(
+                              "GATT connection failed"
+                      );
+                  }
+              }
+
+              private final BluetoothGattCallback
+                      gattCallback =
+                      new BluetoothGattCallback() {
+
+                          @Override
+                          public void onConnectionStateChange(
+                                  BluetoothGatt gatt,
+                                  int status,
+                                  int newState
+                          ) {
+                              runOnUiThread(
+                                      () -> {
+                                          if (
+                                                  newState
+                                                          ==
+                                                  BluetoothProfile
+                                                          .STATE_CONNECTED
+                                          ) {
+                                              statusText.setText(
+                                                      "● CONNECTED • DISCOVERING"
+                                              );
+
+                                              try {
+                                                  gatt.requestMtu(
+                                                          23
+                                                  );
+                                              } catch (
+                                                      Exception ignored
+                                              ) {
+                                              }
+
+                                              try {
+                                                  gatt.discoverServices();
+                                              } catch (
+                                                      Exception e
+                                              ) {
+                                                  statusText.setText(
+                                                          "● SERVICE DISCOVERY ERROR"
+                                                  );
+                                              }
+                                          } else {
+                                              writeCharacteristic =
+                                                      null;
+
+                                              statusText.setText(
+                                                      "● DISCONNECTED"
+                                              );
+                                          }
+                                      }
+                              );
+                          }
+
+                          @Override
+                          public void onServicesDiscovered(
+                                  BluetoothGatt gatt,
+                                  int status
+                          ) {
+                              writeCharacteristic =
+                                      null;
+
+                              for (
+                                      BluetoothGattService service :
+                                      gatt.getServices()
+                              ) {
+                                  for (
+                                          BluetoothGattCharacteristic characteristic :
+                                          service.getCharacteristics()
+                                  ) {
+                                      if (
+                                              CHAR_FFE1.equals(
+                                                      characteristic
+                                                              .getUuid()
+                                              )
+                                      ) {
+                                          writeCharacteristic =
+                                                  characteristic;
+                                      }
+                                  }
+                              }
+
+                              if (
+                                      writeCharacteristic
+                                              != null
+                              ) {
+                                  statusText.setText(
+                                          "● READY • FFE1 WRITE"
+                                  );
+                              } else {
+                                  statusText.setText(
+                                          "● CONNECTED • FFE1 NOT FOUND"
+                                  );
+                              }
+
+                              log(
+                                      "DEVICE GATT DISCOVERY: "
+                                              + gatt
+                                              .getServices()
+                                              .size()
+                                              + " SERVICES"
+                              );
+                          }
+
+                          @Override
+                          public void onCharacteristicWrite(
+                                  BluetoothGatt gatt,
+                                  BluetoothGattCharacteristic characteristic,
+                                  int status
+                          ) {
+                              handler.postDelayed(
+                                      MainActivity.this
+                                              ::nextWrite,
+                                      50
+                              );
+                          }
+
+                          @Override
+                          public void onCharacteristicChanged(
+                                  BluetoothGatt gatt,
+                                  BluetoothGattCharacteristic characteristic
+                          ) {
+                              log(
+                                      "RX/NOTIFY DEVICE: "
+                                              + hex(
+                                              characteristic
+                                                      .getValue()
+                                      )
+                              );
+                          }
+
+                          @Override
+                          public void onCharacteristicRead(
+                                  BluetoothGatt gatt,
+                                  BluetoothGattCharacteristic characteristic,
+                                  int status
+                          ) {
+                              log(
+                                      "RX/READ DEVICE: "
+                                              + hex(
+                                              characteristic
+                                                      .getValue()
+                                      )
+                              );
+                          }
+                      };
+
+              private void send(byte[] data) {
+                  if (
+                          writeCharacteristic
+                                  == null
+                  ) {
+                      toast(
+                              "Connect to module first"
+                      );
+
+                      return;
+                  }
+
+                  writeQueue.add(data);
+
+                  nextWrite();
+              }
+
+              private void nextWrite() {
+                  if (
+                          writeBusy
+                                  ||
+                          writeQueue.isEmpty()
+                                  ||
+                          writeCharacteristic
+                                  == null
+                  ) {
+                      return;
+                  }
+
+                  writeBusy = true;
+
+                  byte[] data =
+                          writeQueue.poll();
+
+                  log(
+                          "TX DEVICE COMMAND: "
+                                  + hex(data)
+                  );
+
+                  try {
+                      writeCharacteristic.setWriteType(
+                              BluetoothGattCharacteristic
+                                      .WRITE_TYPE_DEFAULT
+                      );
+
+                      writeCharacteristic.setValue(
+                              data
+                      );
+
+                      boolean accepted =
+                              bluetoothGatt
+                                      .writeCharacteristic(
+                                              writeCharacteristic
+                                      );
+
+                      if (!accepted) {
+                          writeBusy = false;
+
+                          handler.postDelayed(
+                                  this::nextWrite,
+                                  80
+                          );
+                      }
+
+                  } catch (Exception e) {
+                      writeBusy = false;
+
+                      handler.postDelayed(
+                              this::nextWrite,
+                              80
+                      );
+                  }
+              }
+
+              private void readGatt() {
+                  if (
+                          bluetoothGatt == null
+                  ) {
+                      toast(
+                              "Module not connected"
+                      );
+
+                      return;
+                  }
+
+                  StringBuilder result =
+                          new StringBuilder();
+
+                  for (
+                          BluetoothGattService service :
+                          bluetoothGatt.getServices()
+                  ) {
+                      result.append(
+                                      "DEVICE SERVICE: "
+                                              + service
+                                              .getUuid()
+                              )
+                              .append("\n");
+
+                      for (
+                              BluetoothGattCharacteristic characteristic :
+                              service
+                                      .getCharacteristics()
+                      ) {
+                          result.append(
+                                          "  DEVICE CHARACTERISTIC: "
+                                                  + characteristic
+                                                  .getUuid()
+                                  )
+                                  .append(
+                                          " PROPERTIES="
+                                                  + characteristic
+                                                  .getProperties()
+                                  )
+                                  .append("\n");
+                      }
+                  }
+
+                  log(
+                          result.toString()
+                  );
+
+                  showAnalyzer();
+              }
+
+              private byte[] packet(
+                      int a,
+                      int b,
+                      int c,
+                      int d,
+                      int e,
+                      int f,
+                      int g,
+                      int h,
+                      int i
+              ) {
+                  return new byte[]{
+                          (byte) a,
+                          (byte) b,
+                          (byte) c,
+                          (byte) d,
+                          (byte) e,
+                          (byte) f,
+                          (byte) g,
+                          (byte) h,
+                          (byte) i
+                  };
+              }
+
+              private byte[] powerPacket(
+                      boolean enabled
+              ) {
+                  return packet(
+                          0x7B,
+                          0xFF,
+                          0x04,
+                          enabled ? 0x01 : 0x00,
+                          0xFF,
+                          0xFF,
+                          0xFF,
+                          0xFF,
+                          0xBF
+                  );
+              }
+
+              private byte[] modePacket(
+                      int value
+              ) {
+                  return packet(
+                          0x7B,
+                          0xFF,
+                          0x03,
+                          value,
+                          0xFF,
+                          0xFF,
+                          0xFF,
+                          0xFF,
+                          0xBF
+                  );
+              }
+
+              private byte[] rgbPacket(
+                      int r,
+                      int g,
+                      int b
+              ) {
+                  return packet(
+                          0x7B,
+                          0xFF,
+                          0x07,
+                          r,
+                          b,
+                          g,
+                          0x00,
+                          0xFF,
+                          0xBF
+                  );
+              }
+
+              private byte[] brightnessPacket(
+                      int value
+              ) {
+                  int scaled =
+                          value * 32 / 100;
+
+                  return packet(
+                          0x7B,
+                          0xFF,
+                          0x01,
+                          scaled,
+                          value,
+                          0x00,
+                          0xFF,
+                          0xFF,
+                          0xBF
+                  );
+              }
+
+              private byte[] speedPacket(
+                      int value
+              ) {
+                  return packet(
+                          0x7B,
+                          0xFF,
+                          0x02,
+                          value,
+                          0x00,
+                          0xFF,
+                          0xFF,
+                          0xFF,
+                          0xBF
+                  );
+              }
+
+              private byte[] directionPacket(
+                      int direction
+              ) {
+                  return packet(
+                          0x7B,
+                          0xFF,
+                          0x0D,
+                          direction,
+                          0xFF,
+                          0xFF,
+                          0xFF,
+                          0xFF,
+                          0xBF
+                  );
+              }
+
+              private byte[] customColorPacket(
+                      int position,
+                      int r,
+                      int g,
+                      int b,
+                      int total
+              ) {
+                  return packet(
+                          0x7B,
+                          position,
+                          0x0E,
+                          0xFD,
+                          r,
+                          g,
+                          b,
+                          total,
+                          0xBF
+                  );
+              }
+
+              private byte[] customModePacket(
+                      int ordinal
+              ) {
+                  return packet(
+                          0x7B,
+                          0xFF,
+                          0x13,
+                          ordinal,
+                          0xFF,
+                          0xFF,
+                          0xFF,
+                          0xFF,
+                          0xBF
+                  );
+              }
+
+              private byte[] parseHex(
+                      String input
+              ) {
+                  String cleaned =
+                          input
+                                  .trim();
+
+                  if (cleaned.isEmpty()) {
+                      throw new IllegalArgumentException();
+                  }
+
+                  String[] parts =
+                          cleaned.split(
+                                  "[,\\s]+"
+                          );
+
+                  byte[] result =
+                          new byte[parts.length];
+
+                  for (
+                          int i = 0;
+                          i < parts.length;
+                          i++
+                  ) {
+                      String value =
+                              parts[i]
+                                      .trim();
+
+                      if (
+                              value.startsWith(
+                                      "0x"
+                              )
+                      ) {
+                          value =
+                                  value.substring(
+                                          2
+                                  );
+                      }
+
+                      if (
+                              value.length() > 2
+                      ) {
+                          throw new IllegalArgumentException();
+                      }
+
+                      result[i] =
+                              (byte)
+                                      Integer.parseInt(
+                                              value,
+                                              16
+                                      );
+                  }
+
+                  return result;
+              }
+
+              private void log(
+                      String message
+              ) {
+                  String timestamp =
+                          new SimpleDateFormat(
+                                  "HH:mm:ss.SSS",
+                                  Locale.US
+                          ).format(
+                                  new Date()
+                          );
+
+                  terminal.add(
+                          timestamp
+                                  + "  "
+                                  + message
+                  );
+
+                  while (
+                          terminal.size() > 300
+                  ) {
+                      terminal.remove(0);
+                  }
+              }
+
+              private String terminalText() {
+                  StringBuilder text =
+                          new StringBuilder();
+
+                  for (
+                          String line :
+                          terminal
+                  ) {
+                      text.append(line)
+                              .append("\n");
+                  }
+
+                  if (
+                          text.length() == 0
+                  ) {
+                      return "NOT EXPOSED BY DEVICE";
+                  }
+
+                  return text.toString();
+              }
+
+              private String hex(
+                      byte[] data
+              ) {
+                  if (
+                          data == null
+                  ) {
+                      return "";
+                  }
+
+                  StringBuilder result =
+                          new StringBuilder();
+
+                  for (
+                          byte value :
+                          data
+                  ) {
+                      result.append(
+                                      String.format(
+                                              Locale.US,
+                                              "%02X",
+                                              value & 0xFF
+                                      )
+                              )
+                              .append(" ");
+                  }
+
+                  return result.toString()
+                          .trim();
+              }
+
+              private String safeName(
+                      BluetoothDevice device
+              ) {
+                  try {
+                      String name =
+                              device.getName();
+
+                      if (
+                              name == null
+                                      ||
+                              name.trim().isEmpty()
+                      ) {
+                          return "(NO NAME)";
+                      }
+
+                      return name;
+
+                  } catch (Exception e) {
+                      return "(NAME NOT EXPOSED)";
+                  }
+              }
+
+              private String safeAddress(
+                      BluetoothDevice device
+              ) {
+                  try {
+                      return device.getAddress();
+                  } catch (Exception e) {
+                      return "(ADDRESS NOT EXPOSED)";
+                  }
+              }
+
+              private String safeDeviceName() {
+                  if (
+                          bluetoothGatt == null
+                  ) {
+                      return "(NOT CONNECTED)";
+                  }
+
+                  try {
+                      return safeName(
+                              bluetoothGatt.getDevice()
+                      );
+                  } catch (Exception e) {
+                      return "(DEVICE NAME NOT EXPOSED)";
+                  }
+              }
+
+              private void toast(
+                      String message
+              ) {
+                  Toast.makeText(
+                          this,
+                          message,
+                          Toast.LENGTH_SHORT
+                  ).show();
+              }
+
+              @Override
+              protected void onDestroy() {
+                  stopScan();
+
+                  try {
+                      if (
+                              bluetoothGatt != null
+                      ) {
+                          bluetoothGatt.close();
+                      }
+                  } catch (Exception ignored) {
+                  }
+
+                  super.onDestroy();
+              }
+
+              private static class ColorWheel
+                      extends View {
+
+                  private final Paint paint =
+                          new Paint(
+                                  Paint.ANTI_ALIAS_FLAG
+                          );
+
+                  private float centerX;
+                  private float centerY;
+                  private float radius;
+
+                  interface Listener {
+                      void select(
+                              int r,
+                              int g,
+                              int b
+                      );
+                  }
+
+                  private Listener listener;
+
+                  ColorWheel(
+                          Context context
+                  ) {
+                      super(context);
+
+                      paint.setStyle(
+                              Paint.Style.FILL
+                      );
+                  }
+
+                  @Override
+                  protected void onDraw(
+                          Canvas canvas
+                  ) {
+                      super.onDraw(canvas);
+
+                      centerX =
+                              getWidth() / 2f;
+
+                      centerY =
+                              getHeight() / 2f;
+
+                      radius =
+                              Math.min(
+                                      centerX,
+                                      centerY
+                              )
+                                      - 18;
+
+                      for (
+                              int angle = 0;
+                              angle < 360;
+                              angle++
+                      ) {
+                          paint.setColor(
+                                  Color.HSVToColor(
+                                          new float[]{
+                                                  angle,
+                                                  1f,
+                                                  1f
+                                          }
+                                  )
+                          );
+
+                          canvas.drawArc(
+                                  centerX - radius,
+                                  centerY - radius,
+                                  centerX + radius,
+                                  centerY + radius,
+                                  angle,
+                                  1.2f,
+                                  true,
+                                  paint
+                          );
+                      }
+
+                      paint.setStyle(
+                              Paint.Style.STROKE
+                      );
+
+                      paint.setStrokeWidth(4);
+
+                      paint.setColor(
+                              Color.WHITE
+                      );
+
+                      canvas.drawCircle(
+                              centerX,
+                              centerY,
+                              radius,
+                              paint
+                      );
+
+                      paint.setStyle(
+                              Paint.Style.FILL
+                      );
+                  }
+
+                  @Override
+                  public boolean onTouchEvent(
+                          MotionEvent event
+                  ) {
+                      if (
+                              event.getAction()
+                                      ==
+                              MotionEvent.ACTION_DOWN
+                                      ||
+                              event.getAction()
+                                      ==
+                              MotionEvent.ACTION_MOVE
+                      ) {
+                          float dx =
+                                  event.getX()
+                                          - centerX;
+
+                          float dy =
+                                  event.getY()
+                                          - centerY;
+
+                          double angle =
+                                  Math.toDegrees(
+                                          Math.atan2(
+                                                  dy,
+                                                  dx
+                                          )
+                                  );
+
+                          if (
+                                  angle < 0
+                          ) {
+                              angle += 360;
+                          }
+
+                          int color =
+                                  Color.HSVToColor(
+                                          new float[]{
+                                                  (float)
+                                                          angle,
+                                                  1f,
+                                                  1f
+                                          }
+                                  );
+
+                          if (
+                                  listener != null
+                          ) {
+                              listener.select(
+                                      Color.red(
+                                              color
+                                      ),
+                                      Color.green(
+                                              color
+                                      ),
+                                      Color.blue(
+                                              color
+                                      )
+                              );
+                          }
+
+                          invalidate();
+
+                          return true;
+                      }
+
+                      return true;
+                  }
+              }
+
+              private static class StripPreview
+                      extends View {
+
+                  private final Paint paint =
+                          new Paint(
+                                  Paint.ANTI_ALIAS_FLAG
+                          );
+
+                  private float phase = 0;
+
+                  StripPreview(
+                          Context context
+                  ) {
+                      super(context);
+
+                      post(
+                              new Runnable() {
+
+                                  @Override
+                                  public void run() {
+                                      phase += 5;
+
+                                      invalidate();
+
+                                      postDelayed(
+                                              this,
+                                              40
+                                      );
+                                  }
+                              }
+                      );
+                  }
+
+                  @Override
+                  protected void onDraw(
+                          Canvas canvas
+                  ) {
+                      int count = 40;
+
+                      float width =
+                              getWidth()
+                                      / (
+                                      float
+                                              count
+                              );
+
+                      for (
+                              int i = 0;
+                              i < count;
+                              i++
+                      ) {
+                          float hue =
+                                  (
+                                          i * 9
+                                                  + phase
+                                  ) % 360;
+
+                          paint.setColor(
+                                  Color.HSVToColor(
+                                          new float[]{
+                                                  hue,
+                                                  1f,
+                                                  1f
+                                          }
+                                  )
+                          );
+
+                          canvas.drawRoundRect(
+                                  i * width + 2,
+                                  getHeight()
+                                          / 2f
+                                          - 10,
+                                  (i + 1)
+                                          * width
+                                          - 2,
+                                  getHeight()
+                                          / 2f
+                                          + 10,
+                                  8,
+                                  8,
+                                  paint
+                          );
+                      }
+                  }
+              }
+          }
+          JAVAEOF
+
+          curl -fsSL --retry 3 --connect-timeout 10 \
             https://raw.githubusercontent.com/user154lt/LEDDMX-00/main/PatternList.kt \
-            -o /tmp/PatternList.kt
+            -o /tmp/PatternList.kt || true
 
           python3 - <<'PY'
-import re
-from pathlib import Path
-
-src = Path("/tmp/PatternList.kt").read_text(encoding="utf-8")
-items = re.findall(r'"((?:[^"\\]|\\.)*)"', src)
-
-items = [x.replace('\\"','"').replace("\\\\","\\") for x in items]
-
-# Upstream contains 211 entries: index 0..210.
-if len(items) < 211:
-    raise SystemExit("PATTERN LIST DOWNLOAD INVALID")
-
-items = items[:211]
-
-out = []
-out.append("package com.leddmx.aipro")
-out.append("")
-out.append("object PatternNames {")
-out.append("    val ALL = listOf(")
-
-for s in items:
-    s = s.replace("\\", "\\\\").replace('"', '\\"')
-    out.append(f'        "{s}",')
-
-out.append("    )")
-out.append("}")
-
-Path("app/src/main/java/com/leddmx/aipro/PatternNames.kt").write_text(
-    "\n".join(out) + "\n",
-    encoding="utf-8"
-)
-
-print("PATTERN COUNT:", len(items))
-print("FIRST:", items[0])
-print("LAST:", items[-1])
-PY
-
-          cat > app/src/main/java/com/leddmx/aipro/Protocol.kt <<'EOF'
-package com.leddmx.aipro
-
-import android.graphics.Color
-import java.util.Locale
-
-object Protocol {
-
-    /*
-     * For the user's known LEDDMX-00 baseline:
-     * ON  = 7B FF 04 01 FF FF FF FF BF
-     * OFF = 7B FF 04 00 FF FF FF FF BF
-     *
-     * The public Dmx00Data source uses 03/02 on another implementation.
-     * We preserve the user's known-working 01/00 baseline here.
-     */
-
-    fun power(on: Boolean): ByteArray =
-        byteArrayOf(
-            0x7B,
-            0xFF.toByte(),
-            0x04,
-            if (on) 0x01 else 0x00,
-            0xFF.toByte(),
-            0xFF.toByte(),
-            0xFF.toByte(),
-            0xFF.toByte(),
-            0xBF.toByte()
-        )
-
-    fun rgb(color: Int): ByteArray {
-        return byteArrayOf(
-            0x7B,
-            0xFF.toByte(),
-            0x07,
-            Color.red(color).toByte(),
-            Color.green(color).toByte(),
-            Color.blue(color).toByte(),
-            0x00,
-            0xFF.toByte(),
-            0xBF.toByte()
-        )
-    }
-
-    fun brightness(value: Int): ByteArray {
-        val p = value.coerceIn(0, 100)
-        val adjusted = (p * 32) / 100
-
-        return byteArrayOf(
-            0x7B,
-            0xFF.toByte(),
-            0x01,
-            adjusted.toByte(),
-            p.toByte(),
-            0x00,
-            0xFF.toByte(),
-            0xFF.toByte(),
-            0xBF.toByte()
-        )
-    }
-
-    fun speed(value: Int): ByteArray {
-        return byteArrayOf(
-            0x7B,
-            0xFF.toByte(),
-            0x02,
-            value.coerceIn(0, 255).toByte(),
-            0x00,
-            0xFF.toByte(),
-            0xFF.toByte(),
-            0xFF.toByte(),
-            0xBF.toByte()
-        )
-    }
-
-    fun pattern(index: Int): ByteArray {
-        return byteArrayOf(
-            0x7B,
-            0xFF.toByte(),
-            0x03,
-            index.coerceIn(0, 210).toByte(),
-            0xFF.toByte(),
-            0xFF.toByte(),
-            0xFF.toByte(),
-            0xFF.toByte(),
-            0xBF.toByte()
-        )
-    }
-
-    fun direction(forward: Boolean): ByteArray {
-        return byteArrayOf(
-            0x7B,
-            0xFF.toByte(),
-            0x0D,
-            if (forward) 0x00 else 0x01,
-            0xFF.toByte(),
-            0xFF.toByte(),
-            0xFF.toByte(),
-            0xFF.toByte(),
-            0xBF.toByte()
-        )
-    }
-
-    fun mic(eq: Int): ByteArray {
-        return byteArrayOf(
-            0x7B,
-            0xFF.toByte(),
-            0x0B,
-            eq.coerceIn(0, 255).toByte(),
-            0x00,
-            0xFF.toByte(),
-            0xFF.toByte(),
-            0xBF.toByte()
-        )
-    }
-
-    fun customColor(
-        position: Int,
-        total: Int,
-        color: Int
-    ): ByteArray {
-        return byteArrayOf(
-            0x7B,
-            position.coerceIn(1, 255).toByte(),
-            0x0E,
-            0xFD.toByte(),
-            Color.red(color).toByte(),
-            Color.green(color).toByte(),
-            Color.blue(color).toByte(),
-            total.coerceIn(1, 255).toByte(),
-            0xBF.toByte()
-        )
-    }
-
-    /*
-     * GD, FD, FW, FS, AC, PU, FL, HO
-     */
-    fun customMode(ordinal: Int): ByteArray {
-        return byteArrayOf(
-            0x7B,
-            0xFF.toByte(),
-            0x13,
-            ordinal.coerceIn(0, 7).toByte(),
-            0xFF.toByte(),
-            0xFF.toByte(),
-            0xFF.toByte(),
-            0xFF.toByte(),
-            0xBF.toByte()
-        )
-    }
-
-    fun customDirection(forward: Boolean): ByteArray {
-        return direction(forward)
-    }
-
-    fun toHex(data: ByteArray): String =
-        data.joinToString(" ") {
-            "%02X".format(Locale.US, it.toInt() and 0xFF)
-        }
-
-    fun fromHex(text: String): ByteArray? {
-        return try {
-            val cleaned = text
-                .replace("0x", "", true)
-                .replace(",", " ")
-                .trim()
-
-            val tokens = cleaned.split(Regex("\\s+")).filter { it.isNotBlank() }
-
-            if (tokens.isEmpty()) return null
-
-            val result = ByteArray(tokens.size)
-
-            tokens.forEachIndexed { index, token ->
-                val v = token.toInt(16)
-                if (v !in 0..255) return null
-                result[index] = v.toByte()
-            }
-
-            result
-        } catch (_: Throwable) {
-            null
-        }
-    }
-}
-EOF
-
-          cat > app/src/main/java/com/leddmx/aipro/MainActivity.kt <<'EOF'
-package com.leddmx.aipro
-
-import android.Manifest
-import android.app.Activity
-import android.app.AlertDialog
-import android.bluetooth.*
-import android.bluetooth.le.*
-import android.content.Context
-import android.content.Intent
-import android.content.pm.PackageManager
-import android.graphics.*
-import android.graphics.drawable.ColorDrawable
-import android.os.*
-import android.provider.Settings
-import android.view.*
-import android.view.inputmethod.InputMethodManager
-import android.widget.EditText
-import android.widget.Toast
-import java.util.*
-import kotlin.math.*
-
-class MainActivity : Activity() {
-
-    companion object {
-        private const val REQ_BT = 501
-        private val SERVICE_UUID =
-            UUID.fromString("0000FFE0-0000-1000-8000-00805F9B34FB")
-        private val WRITE_UUID =
-            UUID.fromString("0000FFE1-0000-1000-8000-00805F9B34FB")
-
-        private val OTA_SERVICE =
-            UUID.fromString("5833FF01-9B8B-5191-6142-22A4536EF123")
-
-        private const val SCAN_MS = 8000L
-    }
-
-    private lateinit var root: DmxView
-
-    private val handler = Handler(Looper.getMainLooper())
-
-    private var bluetoothManager: BluetoothManager? = null
-    private var bluetoothAdapter: BluetoothAdapter? = null
-    private var scanner: BluetoothLeScanner? = null
-
-    private var scanning = false
-    private var gatt: BluetoothGatt? = null
-    private var writeChar: BluetoothGattCharacteristic? = null
-
-    private val devices = LinkedHashMap<String, DeviceRow>()
-
-    private val txQueue: ArrayDeque<ByteArray> = ArrayDeque()
-    private var txBusy = false
-
-    private var lastScan = 0L
-
-    private val scanCallback = object : ScanCallback() {
-        override fun onScanResult(callbackType: Int, result: ScanResult) {
-            val device = result.device
-            val recordName = result.scanRecord?.deviceName
-            val name =
-                recordName?.takeIf { it.isNotBlank() }
-                    ?: try {
-                        device.name?.takeIf { it.isNotBlank() }
-                    } catch (_: Throwable) {
-                        null
-                    }
-                    ?: "UNKNOWN BLE"
-
-            devices[device.address] = DeviceRow(
-                device,
-                name,
-                result.rssi
-            )
-
-            root.invalidate()
-        }
-
-        override fun onBatchScanResults(results: MutableList<ScanResult>) {
-            results.forEach { onScanResult(ScanSettings.CALLBACK_TYPE_ALL_MATCHES, it) }
-        }
-
-        override fun onScanFailed(errorCode: Int) {
-            scanning = false
-
-            val message = when (errorCode) {
-                1 -> "ALREADY_STARTED"
-                2 -> "APPLICATION_REGISTRATION_FAILED"
-                3 -> "INTERNAL_ERROR"
-                4 -> "FEATURE_UNSUPPORTED"
-                5 -> "OUT_OF_HARDWARE_RESOURCES"
-                6 -> "SCANNING_TOO_FREQUENTLY"
-                else -> "SCAN_ERROR_$errorCode"
-            }
-
-            root.logDevice("SCAN ERROR: $message")
-            root.invalidate()
-        }
-    }
-
-    private val gattCallback = object : BluetoothGattCallback() {
-
-        override fun onConnectionStateChange(
-            g: BluetoothGatt,
-            status: Int,
-            newState: Int
-        ) {
-            runOnUiThread {
-                if (newState == BluetoothProfile.STATE_CONNECTED) {
-                    root.logDevice("GATT CONNECTED status=$status")
-                    root.status = "DISCOVERING..."
-                    root.invalidate()
-
-                    handler.postDelayed({
-                        try {
-                            g.discoverServices()
-                        } catch (_: Throwable) {
-                        }
-                    }, 300)
-                } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                    root.logDevice("GATT DISCONNECTED status=$status")
-                    writeChar = null
-                    root.status = "DISCONNECTED"
-                    root.invalidate()
-                }
-            }
-        }
-
-        override fun onServicesDiscovered(
-            g: BluetoothGatt,
-            status: Int
-        ) {
-            runOnUiThread {
-                root.logDevice("SERVICES DISCOVERED status=$status")
-
-                val service = g.getService(SERVICE_UUID)
-                writeChar = service?.getCharacteristic(WRITE_UUID)
-
-                if (writeChar != null) {
-                    root.status = "READY"
-                    root.logDevice("DEVICE SOURCE: FFE1 WRITE READY")
-                } else {
-                    root.status = "CONNECTED / FFE1 NOT FOUND"
-                    root.logDevice("DEVICE SOURCE: FFE1 NOT EXPOSED BY DEVICE")
-                }
-
-                g.services.forEach { s ->
-                    root.logDevice(
-                        "DEVICE SOURCE: SERVICE ${s.uuid}"
-                    )
-
-                    s.characteristics.forEach { c ->
-                        root.logDevice(
-                            "DEVICE SOURCE: CHAR ${c.uuid} props=${c.properties}"
-                        )
-
-                        if (
-                            c.properties and
-                            BluetoothGattCharacteristic.PROPERTY_NOTIFY != 0
-                        ) {
-                            try {
-                                g.setCharacteristicNotification(c, true)
-                            } catch (_: Throwable) {
-                            }
-                        }
-                    }
-                }
-
-                val ota = g.getService(OTA_SERVICE)
-
-                if (ota != null) {
-                    root.otaDetected = true
-                    root.logDevice(
-                        "DEVICE SOURCE: OTA SERVICE DETECTED $OTA_SERVICE"
-                    )
-                } else {
-                    root.otaDetected = false
-                    root.logDevice(
-                        "DEVICE SOURCE: OTA SERVICE NOT EXPOSED BY DEVICE"
-                    )
-                }
-
-                root.invalidate()
-            }
-        }
-
-        override fun onCharacteristicChanged(
-            g: BluetoothGatt,
-            characteristic: BluetoothGattCharacteristic
-        ) {
-            val data = characteristic.value ?: return
-
-            runOnUiThread {
-                root.logDevice(
-                    "DEVICE RX ${characteristic.uuid}: ${Protocol.toHex(data)}"
-                )
-            }
-        }
-
-        override fun onCharacteristicRead(
-            g: BluetoothGatt,
-            characteristic: BluetoothGattCharacteristic,
-            status: Int
-        ) {
-            val data = characteristic.value ?: ByteArray(0)
-
-            runOnUiThread {
-                root.logDevice(
-                    "DEVICE READ ${characteristic.uuid} status=$status: ${Protocol.toHex(data)}"
-                )
-            }
-        }
-
-        override fun onDescriptorRead(
-            g: BluetoothGatt,
-            descriptor: BluetoothGattDescriptor,
-            status: Int
-        ) {
-            runOnUiThread {
-                root.logDevice(
-                    "DEVICE DESCRIPTOR ${descriptor.uuid} status=$status"
-                )
-            }
-        }
-    }
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-
-        window.statusBarColor = Color.rgb(8, 10, 13)
-        window.navigationBarColor = Color.rgb(8, 10, 13)
-
-        bluetoothManager =
-            getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-
-        bluetoothAdapter = bluetoothManager?.adapter
-
-        root = DmxView(this)
-        setContentView(root)
-
-        requestBlePermissions()
-    }
-
-    private fun requestBlePermissions() {
-        if (Build.VERSION.SDK_INT >= 31) {
-            val p = arrayOf(
-                Manifest.permission.BLUETOOTH_SCAN,
-                Manifest.permission.BLUETOOTH_CONNECT
-            )
-
-            if (p.any { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }) {
-                requestPermissions(p, REQ_BT)
-            }
-        } else {
-            if (
-                checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED
-            ) {
-                requestPermissions(
-                    arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
-                    REQ_BT
-                )
-            }
-        }
-    }
-
-    private fun canBle(): Boolean {
-        if (bluetoothAdapter == null) {
-            Toast.makeText(
-                this,
-                "Bluetooth adapter tidak tersedia",
-                Toast.LENGTH_SHORT
-            ).show()
-            return false
-        }
-
-        if (Build.VERSION.SDK_INT >= 31) {
-            if (
-                checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN)
-                != PackageManager.PERMISSION_GRANTED ||
-                checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)
-                != PackageManager.PERMISSION_GRANTED
-            ) {
-                requestBlePermissions()
-                return false
-            }
-        } else {
-            if (
-                checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED
-            ) {
-                requestBlePermissions()
-                return false
-            }
-        }
-
-        return true
-    }
-
-    fun startScan() {
-        if (!canBle()) return
-
-        val adapter = bluetoothAdapter ?: return
-
-        if (!adapter.isEnabled) {
-            try {
-                startActivityForResult(
-                    Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE),
-                    90
-                )
-            } catch (_: Throwable) {
-            }
-            return
-        }
-
-        val now = SystemClock.elapsedRealtime()
-
-        if (now - lastScan < 2500) {
-            root.logDevice("SCAN BLOCKED: cooldown")
-            root.invalidate()
-            return
-        }
-
-        lastScan = now
-        devices.clear()
-
-        scanner = adapter.bluetoothLeScanner
-
-        if (scanner == null) {
-            root.logDevice("SCAN ERROR: scanner unavailable")
-            return
-        }
-
-        scanning = true
-        root.status = "SCANNING..."
-        root.logDevice("SCAN START")
-
-        val filters = listOf(
-            ScanFilter.Builder().setDeviceName("LEDDMX-00").build(),
-            ScanFilter.Builder().build()
-        )
-
-        val settings = ScanSettings.Builder()
-            .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
-            .build()
-
-        try {
-            scanner?.startScan(
-                filters,
-                settings,
-                scanCallback
-            )
-        } catch (e: Throwable) {
-            scanning = false
-            root.logDevice("SCAN START ERROR: ${e.message}")
-        }
-
-        handler.postDelayed({
-            stopScan()
-        }, SCAN_MS)
-
-        root.invalidate()
-    }
-
-    fun stopScan() {
-        if (!scanning) return
-
-        try {
-            scanner?.stopScan(scanCallback)
-        } catch (_: Throwable) {
-        }
-
-        scanning = false
-        root.status =
-            if (writeChar != null) "READY" else "DISCONNECTED"
-
-        root.logDevice("SCAN STOP - ${devices.size} DEVICE(S)")
-        root.invalidate()
-    }
-
-    fun connect(row: DeviceRow) {
-        if (!canBle()) return
-
-        stopScan()
-
-        try {
-            gatt?.close()
-        } catch (_: Throwable) {
-        }
-
-        writeChar = null
-        root.status = "CONNECTING..."
-        root.logDevice(
-            "CONNECT ${row.name} ${row.device.address}"
-        )
-        root.invalidate()
-
-        try {
-            gatt =
-                row.device.connectGatt(
-                    this,
-                    false,
-                    gattCallback,
-                    BluetoothDevice.TRANSPORT_LE
-                )
-        } catch (e: Throwable) {
-            root.status = "CONNECT ERROR"
-            root.logDevice("CONNECT ERROR: ${e.message}")
-        }
-    }
-
-    fun disconnect() {
-        try {
-            gatt?.disconnect()
-            gatt?.close()
-        } catch (_: Throwable) {
-        }
-
-        gatt = null
-        writeChar = null
-        root.status = "DISCONNECTED"
-        root.logDevice("DISCONNECTED")
-        root.invalidate()
-    }
-
-    fun send(data: ByteArray, label: String = "TX") {
-        if (writeChar == null || gatt == null) {
-            root.logDevice("TX BLOCKED: FFE1 NOT READY")
-            root.invalidate()
-            return
-        }
-
-        txQueue.add(data.copyOf())
-        root.logDevice(
-            "$label QUEUED: ${Protocol.toHex(data)}"
-        )
-
-        processTx()
-    }
-
-    private fun processTx() {
-        if (txBusy) return
-
-        val c = writeChar ?: return
-        val g = gatt ?: return
-        if (txQueue.isEmpty()) return
-
-        val data = txQueue.removeFirst()
-        txBusy = true
-
-        try {
-            c.writeType =
-                BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
-
-            c.value = data
-
-            val ok = g.writeCharacteristic(c)
-
-            if (!ok) {
-                root.logDevice("TX WRITE RETURNED FALSE")
-            } else {
-                root.logDevice(
-                    "DEVICE TX: ${Protocol.toHex(data)}"
-                )
-            }
-        } catch (e: Throwable) {
-            root.logDevice("TX ERROR: ${e.message}")
-        }
-
-        handler.postDelayed({
-            txBusy = false
-            processTx()
-        }, 75)
-    }
-
-    fun showRawDialog() {
-        val input = EditText(this)
-        input.setText("")
-        input.hint = "7B FF 03 01 FF FF FF FF BF"
-        input.setTextColor(Color.WHITE)
-        input.setHintTextColor(Color.GRAY)
-
-        val box = AlertDialog.Builder(this)
-            .setTitle("RAW HEX → DEVICE")
-            .setMessage(
-                "Packet akan dikirim langsung ke FFE1.\n" +
-                    "Gunakan hanya bila memang ingin melakukan eksperimen protokol."
-            )
-            .setView(input)
-            .setNegativeButton("CANCEL", null)
-            .setPositiveButton("SEND") { _, _ ->
-                val data = Protocol.fromHex(input.text.toString())
-
-                if (data == null) {
-                    Toast.makeText(
-                        this,
-                        "HEX tidak valid",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                } else {
-                    send(data, "RAW")
-                }
-            }
-            .create()
-
-        box.window?.setSoftInputMode(
-            WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE
-        )
-
-        box.show()
-    }
-
-    data class DeviceRow(
-        val device: BluetoothDevice,
-        val name: String,
-        val rssi: Int
-    )
-
-    inner class DmxView(context: Context) :
-        View(context) {
-
-        private val bg = Color.rgb(8, 10, 13)
-        private val panel = Color.rgb(18, 22, 27)
-        private val panel2 = Color.rgb(25, 30, 36)
-        private val text = Color.rgb(238, 242, 246)
-        private val sub = Color.rgb(150, 158, 168)
-        private val green = Color.rgb(48, 209, 111)
-        private val red = Color.rgb(255, 82, 82)
-        private val blue = Color.rgb(75, 145, 255)
-        private val orange = Color.rgb(255, 173, 64)
-
-        private val p = Paint(Paint.ANTI_ALIAS_FLAG)
-        private val stroke = Paint(Paint.ANTI_ALIAS_FLAG)
-
-        private val wheel = Bitmap.createBitmap(
-            420,
-            420,
-            Bitmap.Config.ARGB_8888
-        )
-
-        private var wheelReady = false
-
-        var status = "DISCONNECTED"
-        var otaDetected = false
-
-        private var drawer = false
-
-        private enum class Page {
-            HOME,
-            EFFECTS,
-            CUSTOM,
-            ANALYZER,
-            PROTOCOL,
-            SETTINGS
-        }
-
-        private var page = Page.HOME
-
-        private var brightness = 100
-        private var speed = 50
-
-        private var currentColor = Color.rgb(255, 0, 0)
-
-        private val customColors = mutableListOf(
-            Color.RED,
-            Color.GREEN,
-            Color.BLUE
-        )
-
-        private var customMode = 0
-        private var customForward = true
-        private var customOutput = 0
-
-        private var effectScroll = 0
-        private var analyzerScroll = 0
-
-        private var previewPhase = 0f
-
-        private val logs = mutableListOf<String>()
-
-        private var downX = 0f
-        private var downY = 0f
-        private var draggingWheel = false
-        private var draggingBrightness = false
-        private var draggingSpeed = false
-
-        private var selectedEffect = 1
-
-        init {
-            isFocusable = true
-            makeWheel()
-        }
-
-        private fun makeWheel() {
-            val w = wheel.width
-            val h = wheel.height
-            val cx = w / 2f
-            val cy = h / 2f
-            val r = min(cx, cy) - 2f
-
-            val pixels = IntArray(w * h)
-
-            for (y in 0 until h) {
-                for (x in 0 until w) {
-                    val dx = x - cx
-                    val dy = y - cy
-                    val d = sqrt(dx * dx + dy * dy)
-
-                    if (d <= r) {
-                        val sat = (d / r).coerceIn(0f, 1f)
-                        var hue =
-                            Math.toDegrees(
-                                atan2(dy.toDouble(), dx.toDouble())
-                            ).toFloat() + 90f
-
-                        if (hue < 0) hue += 360f
-
-                        pixels[y * w + x] =
-                            Color.HSVToColor(
-                                floatArrayOf(
-                                    hue,
-                                    sat,
-                                    1f
-                                )
-                            )
-                    } else {
-                        pixels[y * w + x] = Color.TRANSPARENT
-                    }
-                }
-            }
-
-            wheel.setPixels(
-                pixels,
-                0,
-                w,
-                0,
-                0,
-                w,
-                h
-            )
-
-            wheelReady = true
-        }
-
-        fun logDevice(s: String) {
-            val stamp =
-                String.format(
-                    Locale.US,
-                    "%02d:%02d:%02d",
-                    Calendar.getInstance().get(Calendar.HOUR_OF_DAY),
-                    Calendar.getInstance().get(Calendar.MINUTE),
-                    Calendar.getInstance().get(Calendar.SECOND)
-                )
-
-            logs.add("$stamp  $s")
-
-            if (logs.size > 350) {
-                logs.removeAt(0)
-            }
-
-            invalidate()
-        }
-
-        override fun onDraw(c: Canvas) {
-            super.onDraw(c)
-
-            c.drawColor(bg)
-
-            drawTop(c)
-
-            when (page) {
-                Page.HOME -> drawHome(c)
-                Page.EFFECTS -> drawEffects(c)
-                Page.CUSTOM -> drawCustom(c)
-                Page.ANALYZER -> drawAnalyzer(c)
-                Page.PROTOCOL -> drawProtocol(c)
-                Page.SETTINGS -> drawSettings(c)
-            }
-
-            if (drawer) {
-                drawDrawer(c)
-            }
-
-            previewPhase += 0.025f
-
-            if (page == Page.HOME ||
-                page == Page.CUSTOM ||
-                page == Page.EFFECTS
-            ) {
-                postInvalidateDelayed(32)
-            }
-        }
-
-        private fun drawTop(c: Canvas) {
-            rect(c, 0f, 0f, width.toFloat(), 74f, panel)
-
-            text(
-                c,
-                "☰",
-                22f,
-                47f,
-                31f,
-                text
-            )
-
-            text(
-                c,
-                "LEDDMX AI PRO",
-                70f,
-                33f,
-                20f,
-                text
-            )
-
-            text(
-                c,
-                status,
-                70f,
-                57f,
-                11f,
-                if (status == "READY") green else sub
-            )
-
-            if (status == "READY") {
-                circle(
-                    c,
-                    width - 25f,
-                    28f,
-                    6f,
-                    green
-                )
-            }
-        }
-
-        private fun drawHome(c: Canvas) {
-            text(
-                c,
-                "CONTROL",
-                22f,
-                104f,
-                13f,
-                sub
-            )
-
-            button(
-                c,
-                20f,
-                120f,
-                150f,
-                64f,
-                "POWER ON",
-                green
-            )
-
-            button(
-                c,
-                180f,
-                120f,
-                150f,
-                64f,
-                "POWER OFF",
-                red
-            )
-
-            button(
-                c,
-                340f,
-                120f,
-                width - 360f,
-                64f,
-                if (scanning) "STOP" else "SCAN",
-                blue
-            )
-
-            var y = 198f
-
-            if (devices.isNotEmpty()) {
-                text(
-                    c,
-                    "DEVICES",
-                    22f,
-                    y + 15f,
-                    12f,
-                    sub
-                )
-
-                y += 25f
-
-                devices.values.take(4).forEach { d ->
-                    rect(
-                        c,
-                        20f,
-                        y,
-                        width - 20f,
-                        y + 55f,
-                        panel
-                    )
-
-                    text(
-                        c,
-                        d.name,
-                        34f,
-                        y + 22f,
-                        14f,
-                        text
-                    )
-
-                    text(
-                        c,
-                        "${d.device.address}   ${d.rssi} dBm",
-                        34f,
-                        y + 42f,
-                        10f,
-                        sub
-                    )
-
-                    text(
-                        c,
-                        "CONNECT",
-                        width - 94f,
-                        y + 33f,
-                        10f,
-                        green
-                    )
-
-                    y += 64f
-                }
-            } else {
-                text(
-                    c,
-                    "No BLE device found",
-                    22f,
-                    y + 30f,
-                    14f,
-                    sub
-                )
-
-                text(
-                    c,
-                    "Tap SCAN and select your LEDDMX module.",
-                    22f,
-                    y + 52f,
-                    11f,
-                    sub
-                )
-
-                y += 72f
-            }
-
-            drawColorWheel(
-                c,
-                width / 2f,
-                y + 145f,
-                105f
-            )
-
-            drawSlider(
-                c,
-                28f,
-                y + 270f,
-                width - 56f,
-                brightness / 100f,
-                "BRIGHTNESS",
-                "$brightness%"
-            )
-
-            drawSlider(
-                c,
-                28f,
-                y + 335f,
-                width - 56f,
-                speed / 100f,
-                "SPEED",
-                "$speed%"
-            )
-        }
-
-        private fun drawEffects(c: Canvas) {
-            text(
-                c,
-                "210 BUILT-IN EFFECTS",
-                22f,
-                105f,
-                18f,
-                text
-            )
-
-            text(
-                c,
-                "Tap any effect to send it to the module.",
-                22f,
-                126f,
-                11f,
-                sub
-            )
-
-            val top = 150f
-            val rowH = 58f
-            val colW = width / 2f
-
-            val start =
-                effectScroll.coerceIn(
-                    0,
-                    max(0, PatternNames.ALL.size - 12)
-                )
-
-            for (i in 0 until 12) {
-                val index = start + i
-                if (index >= PatternNames.ALL.size) break
-
-                val col = i % 2
-                val row = i / 2
-
-                val left = col * colW + 10f
-                val right = left + colW - 20f
-                val yy = top + row * rowH
-
-                rect(
-                    c,
-                    left,
-                    yy,
-                    right,
-                    yy + 48f,
-                    if (index == selectedEffect) {
-                        Color.rgb(28, 60, 42)
-                    } else {
-                        panel
-                    }
-                )
-
-                drawMiniEffect(
-                    c,
-                    left + 10f,
-                    yy + 8f,
-                    70f,
-                    32f,
-                    index
-                )
-
-                text(
-                    c,
-                    "${index}. ${PatternNames.ALL[index]}",
-                    left + 88f,
-                    yy + 20f,
-                    10f,
-                    text
-                )
-
-                text(
-                    c,
-                    "SEND",
-                    right - 40f,
-                    yy + 39f,
-                    8f,
-                    green
-                )
-            }
-
-            text(
-                c,
-                "Swipe up/down to browse",
-                22f,
-                height - 24f,
-                11f,
-                sub
-            )
-        }
-
-        private fun drawMiniEffect(
-            c: Canvas,
-            x: Float,
-            y: Float,
-            w: Float,
-            h: Float,
-            index: Int
-        ) {
-            val count = 12
-
-            for (i in 0 until count) {
-                val phase =
-                    (previewPhase * 2f + i * 0.22f + index * 0.03f) % 1f
-
-                val xx = x + phase * w
-
-                val color =
-                    Color.HSVToColor(
-                        floatArrayOf(
-                            ((index * 17f) + i * 28f) % 360f,
-                            0.9f,
-                            1f
-                        )
-                    )
-
-                rect(
-                    c,
-                    xx,
-                    y,
-                    xx + 6f,
-                    y + h,
-                    color
-                )
-            }
-        }
-
-        private fun drawCustom(c: Canvas) {
-            text(
-                c,
-                "CUSTOM STUDIO",
-                22f,
-                105f,
-                19f,
-                text
-            )
-
-            text(
-                c,
-                "Create your own LED animation",
-                22f,
-                127f,
-                11f,
-                sub
-            )
-
-            drawLedStrip(
-                c,
-                22f,
-                150f,
-                width - 44f,
-                72f
-            )
-
-            drawColorWheel(
-                c,
-                115f,
-                355f,
-                100f
-            )
-
-            text(
-                c,
-                "COLOR",
-                22f,
-                478f,
-                10f,
-                sub
-            )
-
-            customColors.forEachIndexed { i, color ->
-                circle(
-                    c,
-                    35f + i * 34f,
-                    505f,
-                    12f,
-                    color
-                )
-            }
-
-            button(
-                c,
-                185f,
-                480f,
-                115f,
-                48f,
-                "ADD COLOR",
-                blue
-            )
-
-            button(
-                c,
-                310f,
-                480f,
-                105f,
-                48f,
-                "SAVE 171",
-                green
-            )
-
-            text(
-                c,
-                "TEMPLATES",
-                22f,
-                555f,
-                10f,
-                sub
-            )
-
-            val templates =
-                listOf(
-                    "RAINBOW",
-                    "WAVE",
-                    "CHASE",
-                    "COMET",
-                    "SCANNER",
-                    "BELANG"
-                )
-
-            templates.forEachIndexed { i, s ->
-                val col = i % 3
-                val row = i / 3
-
-                button(
-                    c,
-                    20f + col * 135f,
-                    570f + row * 54f,
-                    122f,
-                    44f,
-                    s,
-                    panel2
-                )
-            }
-
-            drawSlider(
-                c,
-                22f,
-                690f,
-                width - 44f,
-                brightness / 100f,
-                "BRIGHTNESS",
-                "$brightness%"
-            )
-
-            drawSlider(
-                c,
-                22f,
-                752f,
-                width - 44f,
-                speed / 100f,
-                "SPEED",
-                "$speed%"
-            )
-
-            text(
-                c,
-                "MODE",
-                22f,
-                823f,
-                10f,
-                sub
-            )
-
-            text(
-                c,
-                listOf(
-                    "GD",
-                    "FD",
-                    "FW",
-                    "FS",
-                    "AC",
-                    "PU",
-                    "FL",
-                    "HO"
-                )[customMode],
-                22f,
-                850f,
-                18f,
-                text
-            )
-
-            text(
-                c,
-                if (customForward) "FORWARD" else "REVERSE",
-                100f,
-                850f,
-                13f,
-                green
-            )
-
-            text(
-                c,
-                when (customOutput) {
-                    0 -> "OUTPUT: ALL"
-                    1 -> "OUTPUT: LEFT"
-                    2 -> "OUTPUT: RIGHT"
-                    else -> "OUTPUT: BOTH"
-                },
-                235f,
-                850f,
-                11f,
-                sub
-            )
-        }
-
-        private fun drawLedStrip(
-            c: Canvas,
-            x: Float,
-            y: Float,
-            w: Float,
-            h: Float
-        ) {
-            rect(
-                c,
-                x,
-                y,
-                x + w,
-                y + h,
-                Color.rgb(4, 5, 7)
-            )
-
-            val count = 32
-
-            for (i in 0 until count) {
-                val phase =
-                    (previewPhase * 1.4f + i.toFloat() / count) % 1f
-
-                val hue =
-                    ((phase * 360f) + customColors.size * 20f) % 360f
-
-                val color =
-                    Color.HSVToColor(
-                        floatArrayOf(
-                            hue,
-                            0.95f,
-                            1f
-                        )
-                    )
-
-                val xx =
-                    x + i * (w / count) + 4f
-
-                circle(
-                    c,
-                    xx,
-                    y + h / 2f,
-                    6f,
-                    color
-                )
-            }
-
-            text(
-                c,
-                "LIVE PREVIEW",
-                x + 12f,
-                y + 22f,
-                9f,
-                Color.WHITE
-            )
-        }
-
-        private fun drawAnalyzer(c: Canvas) {
-            text(
-                c,
-                "MODULE / MCU ANALYZER",
-                22f,
-                105f,
-                18f,
-                text
-            )
-
-            text(
-                c,
-                "LIVE DEVICE-SOURCE TERMINAL",
-                22f,
-                126f,
-                10f,
-                green
-            )
-
-            text(
-                c,
-                "Only data actually read/captured from the BLE module is shown as DEVICE SOURCE.",
-                22f,
-                145f,
-                9f,
-                sub
-            )
-
-            button(
-                c,
-                22f,
-                158f,
-                120f,
-                44f,
-                "RAW HEX",
-                blue
-            )
-
-            button(
-                c,
-                152f,
-                158f,
-                120f,
-                44f,
-                "CLEAR",
-                panel2
-            )
-
-            button(
-                c,
-                282f,
-                158f,
-                120f,
-                44f,
-                "GATT",
-                panel2
-            )
-
-            val top = 218f
-            val lineH = 17f
-            val maxLines =
-                ((height - top - 30f) / lineH).toInt()
-
-            val start =
-                max(
-                    0,
-                    logs.size - maxLines - analyzerScroll
-                )
-
-            val end =
-                min(
-                    logs.size,
-                    start + maxLines
-                )
-
-            var yy = top
-
-            for (i in start until end) {
-                text(
-                    c,
-                    logs[i],
-                    18f,
-                    yy,
-                    9f,
-                    if (logs[i].contains("DEVICE SOURCE")) {
-                        green
-                    } else {
-                        text
-                    }
-                )
-
-                yy += lineH
-            }
-        }
-
-        private fun drawProtocol(c: Canvas) {
-            text(
-                c,
-                "PROTOCOL LAB",
-                22f,
-                105f,
-                20f,
-                text
-            )
-
-            text(
-                c,
-                "Experimental raw packet tools",
-                22f,
-                127f,
-                11f,
-                sub
-            )
-
-            val packets =
-                listOf(
-                    "POWER ON",
-                    "POWER OFF",
-                    "RGB",
-                    "MODE 1",
-                    "MODE 171",
-                    "MODE 210",
-                    "DIR FORWARD",
-                    "DIR REVERSE"
-                )
-
-            packets.forEachIndexed { i, label ->
-                val y = 155f + i * 54f
-
-                rect(
-                    c,
-                    22f,
-                    y,
-                    width - 22f,
-                    y + 44f,
-                    panel
-                )
-
-                text(
-                    c,
-                    label,
-                    36f,
-                    y + 27f,
-                    12f,
-                    text
-                )
-
-                text(
-                    c,
-                    "SEND",
-                    width - 70f,
-                    y + 27f,
-                    9f,
-                    green
-                )
-            }
-
-            button(
-                c,
-                22f,
-                610f,
-                width - 44f,
-                52f,
-                "EDIT / SEND RAW HEX",
-                orange
-            )
-
-            text(
-                c,
-                "No LEFT/RIGHT hardware routing is claimed unless the module exposes/proves it.",
-                22f,
-                690f,
-                10f,
-                sub
-            )
-        }
-
-        private fun drawSettings(c: Canvas) {
-            text(
-                c,
-                "SETTINGS",
-                22f,
-                105f,
-                20f,
-                text
-            )
-
-            settingRow(
-                c,
-                145f,
-                "BLE SERVICE",
-                SERVICE_UUID.toString()
-            )
-
-            settingRow(
-                c,
-                205f,
-                "WRITE CHARACTERISTIC",
-                WRITE_UUID.toString()
-            )
-
-            settingRow(
-                c,
-                265f,
-                "OTA SERVICE",
-                if (otaDetected) {
-                    "DETECTED BY DEVICE"
-                } else {
-                    "NOT EXPOSED BY DEVICE"
-                }
-            )
-
-            settingRow(
-                c,
-                325f,
-                "PROTOCOL",
-                "LEDDMX 7B ... BF"
-            )
-
-            settingRow(
-                c,
-                385f,
-                "WRITE INTERVAL",
-                "75 ms queue"
-            )
-
-            settingRow(
-                c,
-                445f,
-                "BUILT-IN EFFECTS",
-                "0..210"
-            )
-
-            settingRow(
-                c,
-                505f,
-                "CUSTOM SLOTS",
-                "171..210 LOCAL"
-            )
-
-            button(
-                c,
-                22f,
-                585f,
-                width - 44f,
-                50f,
-                "OPEN ANDROID BLUETOOTH SETTINGS",
-                blue
-            )
-
-            button(
-                c,
-                22f,
-                650f,
-                width - 44f,
-                50f,
-                "DISCONNECT",
-                red
-            )
-
-            text(
-                c,
-                "OTA flashing is intentionally not automatic.",
-                22f,
-                730f,
-                11f,
-                orange
-            )
-
-            text(
-                c,
-                "A detected OTA service does NOT prove firmware compatibility.",
-                22f,
-                750f,
-                10f,
-                sub
-            )
-        }
-
-        private fun settingRow(
-            c: Canvas,
-            y: Float,
-            title: String,
-            value: String
-        ) {
-            rect(
-                c,
-                22f,
-                y,
-                width - 22f,
-                y + 48f,
-                panel
-            )
-
-            text(
-                c,
-                title,
-                34f,
-                y + 20f,
-                10f,
-                sub
-            )
-
-            text(
-                c,
-                value.take(42),
-                34f,
-                y + 38f,
-                10f,
-                text
-            )
-        }
-
-        private fun drawDrawer(c: Canvas) {
-            rect(
-                c,
-                0f,
-                0f,
-                width.toFloat(),
-                height.toFloat(),
-                Color.argb(150, 0, 0, 0)
-            )
-
-            rect(
-                c,
-                0f,
-                0f,
-                min(width.toFloat(), 310f),
-                height.toFloat(),
-                panel
-            )
-
-            text(
-                c,
-                "LEDDMX AI PRO",
-                28f,
-                55f,
-                21f,
-                text
-            )
-
-            text(
-                c,
-                "BLE LED CONTROLLER",
-                28f,
-                76f,
-                9f,
-                sub
-            )
-
-            val menu =
-                listOf(
-                    "HOME" to Page.HOME,
-                    "210 EFFECTS" to Page.EFFECTS,
-                    "CUSTOM STUDIO" to Page.CUSTOM,
-                    "MODULE ANALYZER" to Page.ANALYZER,
-                    "PROTOCOL LAB" to Page.PROTOCOL,
-                    "SETTINGS" to Page.SETTINGS
-                )
-
-            menu.forEachIndexed { i, pair ->
-                val y = 110f + i * 62f
-
-                rect(
-                    c,
-                    16f,
-                    y,
-                    294f,
-                    y + 50f,
-                    if (page == pair.second) {
-                        Color.rgb(28, 60, 42)
-                    } else {
-                        Color.TRANSPARENT
-                    }
-                )
-
-                text(
-                    c,
-                    pair.first,
-                    34f,
-                    y + 31f,
-                    13f,
-                    if (page == pair.second) green else text
-                )
-            }
-
-            text(
-                c,
-                "v1.0.0 FINAL",
-                28f,
-                height - 35f,
-                10f,
-                sub
-            )
-        }
-
-        private fun drawColorWheel(
-            c: Canvas,
-            cx: Float,
-            cy: Float,
-            radius: Float
-        ) {
-            if (!wheelReady) return
-
-            val src =
-                Rect(
-                    0,
-                    0,
-                    wheel.width,
-                    wheel.height
-                )
-
-            val dst =
-                RectF(
-                    cx - radius,
-                    cy - radius,
-                    cx + radius,
-                    cy + radius
-                )
-
-            c.drawBitmap(
-                wheel,
-                src,
-                dst,
-                p
-            )
-
-            val hsv = FloatArray(3)
-            Color.colorToHSV(currentColor, hsv)
-
-            val angle =
-                Math.toRadians((hsv[0] - 90f).toDouble())
-
-            val rr = hsv[1] * radius
-
-            val sx =
-                cx + cos(angle).toFloat() * rr
-
-            val sy =
-                cy + sin(angle).toFloat() * rr
-
-            stroke.style = Paint.Style.STROKE
-            stroke.strokeWidth = 4f
-            stroke.color = Color.WHITE
-
-            c.drawCircle(
-                sx,
-                sy,
-                9f,
-                stroke
-            )
-
-            stroke.strokeWidth = 2f
-            stroke.color = Color.BLACK
-
-            c.drawCircle(
-                sx,
-                sy,
-                12f,
-                stroke
-            )
-        }
-
-        private fun updateColorFromWheel(
-            x: Float,
-            y: Float,
-            cx: Float,
-            cy: Float,
-            radius: Float
-        ) {
-            val dx = x - cx
-            val dy = y - cy
-
-            val d =
-                sqrt(dx * dx + dy * dy)
-
-            val sat =
-                (d / radius).coerceIn(0f, 1f)
-
-            var hue =
-                Math.toDegrees(
-                    atan2(dy.toDouble(), dx.toDouble())
-                ).toFloat() + 90f
-
-            if (hue < 0f) hue += 360f
-
-            currentColor =
-                Color.HSVToColor(
-                    floatArrayOf(
-                        hue,
-                        sat,
-                        1f
-                    )
-                )
-
-            invalidate()
-        }
-
-        private fun drawSlider(
-            c: Canvas,
-            x: Float,
-            y: Float,
-            w: Float,
-            fraction: Float,
-            label: String,
-            value: String
-        ) {
-            text(
-                c,
-                label,
-                x,
-                y,
-                10f,
-                sub
-            )
-
-            text(
-                c,
-                value,
-                x + w - 50f,
-                y,
-                10f,
-                text
-            )
-
-            val yy = y + 25f
-
-            rect(
-                c,
-                x,
-                yy - 3f,
-                x + w,
-                yy + 3f,
-                panel2
-            )
-
-            rect(
-                c,
-                x,
-                yy - 3f,
-                x + w * fraction.coerceIn(0f, 1f),
-                yy + 3f,
-                green
-            )
-
-            circle(
-                c,
-                x + w * fraction.coerceIn(0f, 1f),
-                yy,
-                9f,
-                Color.WHITE
-            )
-        }
-
-        private fun button(
-            c: Canvas,
-            x: Float,
-            y: Float,
-            w: Float,
-            h: Float,
-            label: String,
-            color: Int
-        ) {
-            rect(
-                c,
-                x,
-                y,
-                x + w,
-                y + h,
-                color
-            )
-
-            val tp = Paint(Paint.ANTI_ALIAS_FLAG)
-            tp.textSize = 11f
-            tp.color =
-                if (
-                    color == panel ||
-                    color == panel2
-                ) text else Color.WHITE
-
-            tp.typeface =
-                Typeface.create(
-                    Typeface.DEFAULT,
-                    Typeface.BOLD
-                )
-
-            val tw = tp.measureText(label)
-
-            c.drawText(
-                label,
-                x + (w - tw) / 2f,
-                y + h / 2f + 4f,
-                tp
-            )
-        }
-
-        private fun rect(
-            c: Canvas,
-            l: Float,
-            t: Float,
-            r: Float,
-            b: Float,
-            color: Int
-        ) {
-            p.style = Paint.Style.FILL
-            p.color = color
-            c.drawRect(l, t, r, b, p)
-        }
-
-        private fun circle(
-            c: Canvas,
-            x: Float,
-            y: Float,
-            r: Float,
-            color: Int
-        ) {
-            p.style = Paint.Style.FILL
-            p.color = color
-            c.drawCircle(x, y, r, p)
-        }
-
-        private fun text(
-            c: Canvas,
-            s: String,
-            x: Float,
-            y: Float,
-            size: Float,
-            color: Int
-        ) {
-            p.style = Paint.Style.FILL
-            p.color = color
-            p.textSize = size
-            p.typeface =
-                Typeface.create(
-                    Typeface.DEFAULT,
-                    Typeface.NORMAL
-                )
-
-            c.drawText(s, x, y, p)
-        }
-
-        override fun onTouchEvent(event: MotionEvent): Boolean {
-            val x = event.x
-            val y = event.y
-
-            when (event.actionMasked) {
-
-                MotionEvent.ACTION_DOWN -> {
-                    downX = x
-                    downY = y
-
-                    if (
-                        page == Page.HOME &&
-                        wheelHit(
-                            x,
-                            y
-                        )
-                    ) {
-                        draggingWheel = true
-
-                        updateColorFromWheel(
-                            x,
-                            y,
-                            width / 2f,
-                            wheelCenterY(),
-                            105f
-                        )
-
-                        send(
-                            Protocol.rgb(currentColor),
-                            "RGB"
-                        )
-
-                        return true
-                    }
-
-                    if (
-                        page == Page.CUSTOM &&
-                        customWheelHit(x, y)
-                    ) {
-                        draggingWheel = true
-
-                        updateColorFromWheel(
-                            x,
-                            y,
-                            115f,
-                            355f,
-                            100f
-                        )
-
-                        return true
-                    }
-
-                    return true
-                }
-
-                MotionEvent.ACTION_MOVE -> {
-                    if (draggingWheel) {
-                        if (page == Page.HOME) {
-                            updateColorFromWheel(
-                                x,
-                                y,
-                                width / 2f,
-                                wheelCenterY(),
-                                105f
-                            )
-                        } else if (page == Page.CUSTOM) {
-                            updateColorFromWheel(
-                                x,
-                                y,
-                                115f,
-                                355f,
-                                100f
-                            )
-                        }
-
-                        return true
-                    }
-
-                    if (page == Page.HOME) {
-                        if (
-                            y > wheelCenterY() + 120f &&
-                            y < wheelCenterY() + 175f
-                        ) {
-                            val left = 28f
-                            val right = width - 28f
-
-                            brightness =
-                                (((x - left) /
-                                    (right - left)) * 100f)
-                                    .roundToInt()
-                                    .coerceIn(0, 100)
-
-                            invalidate()
-                            return true
-                        }
-
-                        if (
-                            y > wheelCenterY() + 185f &&
-                            y < wheelCenterY() + 240f
-                        ) {
-                            val left = 28f
-                            val right = width - 28f
-
-                            speed =
-                                (((x - left) /
-                                    (right - left)) * 100f)
-                                    .roundToInt()
-                                    .coerceIn(0, 100)
-
-                            invalidate()
-                            return true
-                        }
-                    }
-
-                    if (
-                        page == Page.EFFECTS &&
-                        abs(y - downY) > 35f
-                    ) {
-                        val delta =
-                            ((downY - y) / 30f)
-                                .roundToInt()
-
-                        effectScroll =
-                            (effectScroll + delta)
-                                .coerceIn(
-                                    0,
-                                    max(
-                                        0,
-                                        PatternNames.ALL.size - 12
-                                    )
-                                )
-
-                        downY = y
-                        invalidate()
-                        return true
-                    }
-
-                    return true
-                }
-
-                MotionEvent.ACTION_UP -> {
-                    val dx = x - downX
-                    val dy = y - downY
-
-                    if (draggingWheel) {
-                        draggingWheel = false
-
-                        send(
-                            Protocol.rgb(currentColor),
-                            "RGB"
-                        )
-
-                        return true
-                    }
-
-                    if (drawer) {
-                        if (x <= 310f) {
-                            val index =
-                                ((y - 110f) / 62f)
-                                    .floorToInt()
-
-                            val pages =
-                                listOf(
-                                    Page.HOME,
-                                    Page.EFFECTS,
-                                    Page.CUSTOM,
-                                    Page.ANALYZER,
-                                    Page.PROTOCOL,
-                                    Page.SETTINGS
-                                )
-
-                            if (index in pages.indices) {
-                                page = pages[index]
-                                drawer = false
-                                invalidate()
-                                return true
-                            }
-                        }
-
-                        drawer = false
-                        invalidate()
-                        return true
-                    }
-
-                    if (
-                        y < 80f &&
-                        x < 65f
-                    ) {
-                        drawer = true
-                        invalidate()
-                        return true
-                    }
-
-                    when (page) {
-                        Page.HOME -> homeTouch(x, y)
-                        Page.EFFECTS -> effectsTouch(x, y)
-                        Page.CUSTOM -> customTouch(x, y)
-                        Page.ANALYZER -> analyzerTouch(x, y)
-                        Page.PROTOCOL -> protocolTouch(x, y)
-                        Page.SETTINGS -> settingsTouch(x, y)
-                    }
-
-                    return true
-                }
-            }
-
-            return true
-        }
-
-        private fun wheelCenterY(): Float {
-            var y = 198f
-
-            if (devices.isNotEmpty()) {
-                y += 25f + min(devices.size, 4) * 64f
-            } else {
-                y += 72f
-            }
-
-            return y + 145f
-        }
-
-        private fun wheelHit(x: Float, y: Float): Boolean {
-            val cx = width / 2f
-            val cy = wheelCenterY()
-
-            return hypot(
-                x - cx,
-                y - cy
-            ) <= 115f
-        }
-
-        private fun customWheelHit(
-            x: Float,
-            y: Float
-        ): Boolean {
-            return hypot(
-                x - 115f,
-                y - 355f
-            ) <= 110f
-        }
-
-        private fun homeTouch(
-            x: Float,
-            y: Float
-        ) {
-            if (y in 120f..184f) {
-                if (x in 20f..170f) {
-                    send(
-                        Protocol.power(true),
-                        "POWER ON"
-                    )
-                    return
-                }
-
-                if (x in 180f..330f) {
-                    send(
-                        Protocol.power(false),
-                        "POWER OFF"
-                    )
-                    return
-                }
-
-                if (x >= 340f) {
-                    if (scanning) stopScan()
-                    else startScan()
-
-                    return
-                }
-            }
-
-            var yy = 198f
-
-            if (devices.isNotEmpty()) {
-                yy += 25f
-
-                devices.values.take(4).forEach { d ->
-                    if (
-                        y >= yy &&
-                        y <= yy + 55f
-                    ) {
-                        connect(d)
-                        return
-                    }
-
-                    yy += 64f
-                }
-            } else {
-                yy += 72f
-            }
-        }
-
-        private fun effectsTouch(
-            x: Float,
-            y: Float
-        ) {
-            val top = 150f
-            val rowH = 58f
-            val colW = width / 2f
-
-            if (y < top) return
-
-            val row =
-                ((y - top) / rowH).floorToInt()
-
-            if (row !in 0..5) return
-
-            val col =
-                if (x < colW) 0 else 1
-
-            val i =
-                row * 2 + col
-
-            val index =
-                effectScroll + i
-
-            if (
-                index in PatternNames.ALL.indices
-            ) {
-                selectedEffect = index
-
-                send(
-                    Protocol.pattern(index),
-                    "MODE ${index}"
-                )
-
-                invalidate()
-            }
-        }
-
-        private fun customTouch(
-            x: Float,
-            y: Float
-        ) {
-            if (
-                y in 480f..528f &&
-                x in 185f..300f
-            ) {
-                if (customColors.size < 8) {
-                    customColors.add(currentColor)
-                }
-
-                invalidate()
-                return
-            }
-
-            if (
-                y in 480f..528f &&
-                x in 300f..430f
-            ) {
-                saveCustomSlot(171)
-                return
-            }
-
-            if (y in 570f..680f) {
-                val col =
-                    ((x - 20f) / 135f).floorToInt()
-
-                val row =
-                    ((y - 570f) / 54f).floorToInt()
-
-                val index =
-                    row * 3 + col
-
-                val names =
-                    listOf(
-                        "RAINBOW",
-                        "WAVE",
-                        "CHASE",
-                        "COMET",
-                        "SCANNER",
-                        "BELANG"
-                    )
-
-                if (index in names.indices) {
-                    applyTemplate(index)
-                    invalidate()
-                }
-            }
-        }
-
-        private fun analyzerTouch(
-            x: Float,
-            y: Float
-        ) {
-            if (
-                y in 158f..202f &&
-                x in 22f..142f
-            ) {
-                showRawDialog()
-                return
-            }
-
-            if (
-                y in 158f..202f &&
-                x in 152f..272f
-            ) {
-                logs.clear()
-                invalidate()
-                return
-            }
-
-            if (
-                y in 158f..202f &&
-                x in 282f..402f
-            ) {
-                showGattDialog()
-                return
-            }
-        }
-
-        private fun protocolTouch(
-            x: Float,
-            y: Float
-        ) {
-            if (
-                y in 155f..587f
-            ) {
-                val index =
-                    ((y - 155f) / 54f)
-                        .floorToInt()
-
-                when (index) {
-                    0 -> send(
-                        Protocol.power(true),
-                        "POWER ON"
-                    )
-
-                    1 -> send(
-                        Protocol.power(false),
-                        "POWER OFF"
-                    )
-
-                    2 -> send(
-                        Protocol.rgb(currentColor),
-                        "RGB"
-                    )
-
-                    3 -> send(
-                        Protocol.pattern(1),
-                        "MODE 1"
-                    )
-
-                    4 -> send(
-                        Protocol.pattern(171),
-                        "MODE 171"
-                    )
-
-                    5 -> send(
-                        Protocol.pattern(210),
-                        "MODE 210"
-                    )
-
-                    6 -> send(
-                        Protocol.direction(true),
-                        "DIR FORWARD"
-                    )
-
-                    7 -> send(
-                        Protocol.direction(false),
-                        "DIR REVERSE"
-                    )
-                }
-
-                return
-            }
-
-            if (
-                y in 610f..662f
-            ) {
-                showRawDialog()
-            }
-        }
-
-        private fun settingsTouch(
-            x: Float,
-            y: Float
-        ) {
-            if (
-                y in 585f..635f
-            ) {
-                try {
-                    startActivity(
-                        Intent(
-                            Settings.ACTION_BLUETOOTH_SETTINGS
-                        )
-                    )
-                } catch (_: Throwable) {
-                }
-                return
-            }
-
-            if (
-                y in 650f..705f
-            ) {
-                disconnect()
-            }
-        }
-
-        private fun showGattDialog() {
-            val g = gatt
-
-            if (g == null) {
-                AlertDialog.Builder(this@MainActivity)
-                    .setTitle("GATT")
-                    .setMessage(
-                        "No active GATT connection."
-                    )
-                    .setPositiveButton("OK", null)
-                    .show()
-                return
-            }
-
-            val sb = StringBuilder()
-
-            g.services.forEach { service ->
-                sb.append("SERVICE\n")
-                sb.append(service.uuid)
-                sb.append("\n\n")
-
-                service.characteristics.forEach { c ->
-                    sb.append("CHARACTERISTIC\n")
-                    sb.append(c.uuid)
-                    sb.append("\nproperties=")
-                    sb.append(c.properties)
-                    sb.append("\n\n")
-                }
-            }
-
-            if (sb.isEmpty()) {
-                sb.append("NOT EXPOSED BY DEVICE")
-            }
-
-            AlertDialog.Builder(this@MainActivity)
-                .setTitle("DEVICE-SOURCE GATT")
-                .setMessage(sb.toString())
-                .setPositiveButton("OK", null)
-                .show()
-        }
-
-        private fun saveCustomSlot(slot: Int) {
-            val pref =
-                getSharedPreferences(
-                    "slots",
-                    MODE_PRIVATE
-                )
-
-            val colors =
-                customColors.joinToString(",") {
-                    it.toString()
-                }
-
-            pref.edit()
-                .putString(
-                    "slot_$slot",
-                    "$colors|$customMode|$customForward"
-                )
-                .apply()
-
-            sendCustomToDevice()
-
-            Toast.makeText(
-                this@MainActivity,
-                "CUSTOM SLOT $slot SAVED",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
-
-        private fun sendCustomToDevice() {
-            if (customColors.isEmpty()) return
-
-            customColors.forEachIndexed { i, color ->
-                send(
-                    Protocol.customColor(
-                        i + 1,
-                        customColors.size,
-                        color
-                    ),
-                    "CUSTOM COLOR ${i + 1}"
-                )
-            }
-
-            send(
-                Protocol.customMode(customMode),
-                "CUSTOM MODE"
-            )
-
-            send(
-                Protocol.customDirection(customForward),
-                "CUSTOM DIRECTION"
-            )
-        }
-
-        private fun applyTemplate(index: Int) {
-            when (index) {
-                0 -> {
-                    customColors.clear()
-
-                    for (i in 0 until 7) {
-                        customColors.add(
-                            Color.HSVToColor(
-                                floatArrayOf(
-                                    i * 360f / 7f,
-                                    1f,
-                                    1f
-                                )
-                            )
-                        )
-                    }
-
-                    customMode = 0
-                }
-
-                1 -> {
-                    customMode = 2
-                }
-
-                2 -> {
-                    customMode = 1
-                }
-
-                3 -> {
-                    customMode = 5
-                }
-
-                4 -> {
-                    customMode = 6
-                }
-
-                5 -> {
-                    customMode = 3
-                }
-            }
-
-            sendCustomToDevice()
-        }
-    }
-}
-EOF
-
-          echo "=============================="
-          echo "PROJECT CREATED"
-          echo "=============================="
-
-          find . -maxdepth 5 -type f | sort | head -200
-
-      - name: Build APK with Gradle 7.6.1
+          import os
+          import re
+
+          source = "/tmp/PatternList.kt"
+
+          if os.path.exists(source):
+              with open(
+                  source,
+                  "r",
+                  encoding="utf-8"
+              ) as f:
+                  content = f.read()
+
+              names = re.findall(
+                  r'"([^"]*)"',
+                  content
+              )
+          else:
+              names = []
+
+          names = names[:211]
+
+          while len(names) < 211:
+              names.append(
+                  "Mode " + str(len(names))
+              )
+
+          def escape_java(value):
+              return (
+                  value
+                  .replace("\\", "\\\\")
+                  .replace('"', '\\"')
+              )
+
+          output = []
+
+          output.append(
+              "package com.leddmx.pro;"
+          )
+
+          output.append("")
+
+          output.append(
+              "public final class Patterns {"
+          )
+
+          output.append(
+              "    public static final String[] NAME = new String[]{"
+          )
+
+          for index, name in enumerate(names):
+              comma = (
+                  ","
+                  if index < len(names) - 1
+                  else ""
+              )
+
+              output.append(
+                  '        "'
+                  + escape_java(name)
+                  + '"'
+                  + comma
+              )
+
+          output.append("    };")
+          output.append("")
+          output.append(
+              "    private Patterns() {}"
+          )
+          output.append("}")
+
+          with open(
+              "app/src/main/java/com/leddmx/pro/Patterns.java",
+              "w",
+              encoding="utf-8"
+          ) as f:
+              f.write(
+                  "\n".join(output)
+                  + "\n"
+              )
+          PY
+
+          gradle wrapper \
+            --gradle-version 7.6.1 \
+            --distribution-type bin
+
+          chmod +x gradlew
+
+      - name: Verify Gradle
         shell: bash
         run: |
           set -euo pipefail
+          ./gradlew --version
 
-          echo "=========================================="
-          echo "BUILD WITH GRADLE 7.6.1"
-          echo "=========================================="
-
-          command -v gradle
-          gradle --version
+      - name: Verify source files
+        shell: bash
+        run: |
+          set -euo pipefail
 
           test -f settings.gradle
           test -f build.gradle
+          test -f gradle.properties
           test -f app/build.gradle
           test -f app/src/main/AndroidManifest.xml
+          test -f app/src/main/res/values/strings.xml
+          test -f app/src/main/java/com/leddmx/pro/MainActivity.java
+          test -f app/src/main/java/com/leddmx/pro/Patterns.java
 
-          echo "=========================================="
-          echo "RUN GRADLE"
-          echo "=========================================="
+          echo "SOURCE CHECK OK"
 
-          gradle \
+      - name: Build Debug APK
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ./gradlew \
             --no-daemon \
             --stacktrace \
-            --console=plain \
+            --warning-mode all \
             clean \
             assembleDebug
 
-          echo "=========================================="
-          echo "APK CHECK"
-          echo "=========================================="
+      - name: Verify APK
+        shell: bash
+        run: |
+          set -euo pipefail
 
-          ls -lah app/build/outputs/apk/debug/
+          APK="app/build/outputs/apk/debug/app-debug.apk"
 
-          test -f app/build/outputs/apk/debug/app-debug.apk
+          test -f "$APK"
+          test -s "$APK"
 
-          echo "APK BUILD SUCCESS"
+          echo "========================================"
+          echo "        LEDDMX PRO BUILD SUCCESS"
+          echo "========================================"
+
+          ls -lh "$APK"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: LEDDMX-AI-PRO-FINAL-APK
+          name: LEDDMX-Pro-FINAL
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-          retention-days: 30
