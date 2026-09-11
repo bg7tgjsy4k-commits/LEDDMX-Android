@@ -15,8 +15,8 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      ANDROID_COMPILE_SDK: "33"
-      ANDROID_BUILD_TOOLS: "33.0.2"
+      ANDROID_COMPILE_SDK: "34"
+      ANDROID_BUILD_TOOLS: "34.0.0"
 
     steps:
 
@@ -81,7 +81,7 @@ jobs:
               }
 
               dependencies {
-                  classpath "com.android.tools.build:gradle:7.3.3"
+                  classpath "com.android.tools.build:gradle:8.1.4"
               }
           }
 
@@ -95,8 +95,8 @@ jobs:
           org.gradle.daemon=false
           org.gradle.parallel=false
           org.gradle.caching=true
-          android.useAndroidX=false
-          android.enableJetifier=false
+          android.useAndroidX=true
+          android.enableJetifier=true
           EOF
 
           cat << 'EOF' > app/build.gradle
@@ -106,14 +106,14 @@ jobs:
 
           android {
               namespace 'com.leddmx.pro'
-              compileSdk 33
+              compileSdk 34
 
               defaultConfig {
                   applicationId 'com.leddmx.pro'
                   minSdk 21
-                  targetSdk 33
-                  versionCode 203
-                  versionName '2.0.3-AI-FINAL'
+                  targetSdk 34
+                  versionCode 300
+                  versionName '3.0.0-AI-FINAL'
               }
 
               buildTypes {
@@ -130,8 +130,8 @@ jobs:
               }
 
               compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_11
-                  targetCompatibility JavaVersion.VERSION_11
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
               }
           }
           EOF
