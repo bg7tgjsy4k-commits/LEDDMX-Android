@@ -23,7 +23,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-          cache: 'none'
 
       - name: Setup Gradle 7.6.1
         uses: gradle/actions/setup-gradle@v4
