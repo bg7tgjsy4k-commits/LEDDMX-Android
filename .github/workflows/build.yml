@@ -29,11 +29,6 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Setup Gradle 7.6.1
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "7.6.1"
-
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
@@ -46,7 +41,7 @@ jobs:
                      "platforms;android-${ANDROID_COMPILE_SDK}" \
                      "build-tools;${ANDROID_BUILD_TOOLS}"
 
-      - name: Create project structure
+      - name: Create project structure & wrapper
         shell: bash
         run: |
           set -e
@@ -117,8 +112,8 @@ jobs:
                   applicationId 'com.leddmx.pro'
                   minSdk 21
                   targetSdk 33
-                  versionCode 201
-                  versionName '2.0.1-AI-FINAL'
+                  versionCode 202
+                  versionName '2.0.2-AI-FINAL'
               }
 
               buildTypes {
@@ -1299,6 +1294,13 @@ jobs:
           }
           EOF
 
+      - name: Generate Gradle Wrapper
+        shell: bash
+        run: |
+          set -e
+          cd LEDDMX-Android
+          gradle wrapper --gradle-version 7.6.1
+
       - name: Verify project files
         shell: bash
         run: |
@@ -1310,15 +1312,16 @@ jobs:
           test -f app/src/main/AndroidManifest.xml
           test -f app/src/main/java/com/leddmx/pro/MainActivity.java
           test -f app/src/main/java/com/leddmx/pro/Patterns.java
-          echo "PROJECT FILES OK"
+          test -f gradlew
+          echo "PROJECT FILES & WRAPPER OK"
 
-      - name: Build APK with Gradle 7.6.1
+      - name: Build APK with Gradle Wrapper
         shell: bash
         run: |
           set -eux
           cd LEDDMX-Android
-          gradle --version
-          gradle --no-daemon --stacktrace clean assembleDebug
+          chmod +x gradlew
+          ./gradlew --no-daemon --stacktrace clean assembleDebug
 
       - name: Verify APK
         shell: bash
