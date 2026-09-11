@@ -12,42 +12,36 @@ permissions:
 jobs:
   build:
     name: Build LEDDMX Pro
-    runs-on: ubuntu-latest
-
-    env:
-      GRADLE_VERSION: "7.6.1"
-      ANDROID_COMPILE_SDK: "33"
-      ANDROID_BUILD_TOOLS: "33.0.2"
+    runs-on: ubuntu-22.04
 
     steps:
-
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: '17'
 
       - name: Setup Gradle 7.6.1
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "7.6.1"
+          gradle-version: '7.6.1'
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android SDK
+      - name: Install Android SDK 33
         shell: bash
         run: |
           set -e
           yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platform-tools" \
-                     "platforms;android-${ANDROID_COMPILE_SDK}" \
-                     "build-tools;${ANDROID_BUILD_TOOLS}"
+          sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT"
+          adb version || true
 
-      - name: Create project
+      - name: Create clean Android project
         shell: bash
         run: |
           set -e
@@ -56,194 +50,185 @@ jobs:
           mkdir -p LEDDMX-Android/app/src/main/java/com/leddmx/pro
           mkdir -p LEDDMX-Android/app/src/main/res/values
           mkdir -p LEDDMX-Android/app/src/main/res/drawable
-
           cd LEDDMX-Android
 
-          cat << 'EOF' > settings.gradle
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
+          cat > settings.gradle <<'EOF'
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
 
-          dependencyResolutionManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
 
-          rootProject.name = "LEDDMX-Pro"
-          include(":app")
-          EOF
+rootProject.name = "LEDDMX-Pro"
+include(":app")
+EOF
 
-          cat << 'EOF' > build.gradle
-          buildscript {
-              repositories {
-                  google()
-                  mavenCentral()
-              }
+          cat > build.gradle <<'EOF'
+plugins {
+    id 'com.android.application' version '7.4.2' apply false
+}
+EOF
 
-              dependencies {
-                  classpath "com.android.tools.build:gradle:7.4.2"
-              }
-          }
+          cat > gradle.properties <<'EOF'
+org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+android.useAndroidX=false
+android.enableJetifier=false
+EOF
 
-          tasks.register("clean", Delete) {
-              delete rootProject.buildDir
-          }
-          EOF
+          cat > app/build.gradle <<'EOF'
+plugins {
+    id 'com.android.application'
+}
 
-          cat << 'EOF' > gradle.properties
-          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
-          org.gradle.daemon=false
-          org.gradle.parallel=false
-          org.gradle.caching=true
-          android.useAndroidX=false
-          android.enableJetifier=false
-          EOF
+android {
+    namespace 'com.leddmx.pro'
+    compileSdk 33
 
-          cat << 'EOF' > app/build.gradle
-          plugins {
-              id 'com.android.application'
-          }
+    defaultConfig {
+        applicationId 'com.leddmx.pro'
+        minSdk 21
+        targetSdk 33
+        versionCode 100
+        versionName '1.0.0-FINAL'
+    }
 
-          android {
-              namespace 'com.leddmx.pro'
-              compileSdk 33
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
 
-              defaultConfig {
-                  applicationId 'com.leddmx.pro'
-                  minSdk 21
-                  targetSdk 33
-                  versionCode 100
-                  versionName '1.0.0-FINAL'
-              }
+    buildTypes {
+        release {
+            minifyEnabled false
+            shrinkResources false
+        }
 
-              buildTypes {
-                  debug {
-                      minifyEnabled false
-                      debuggable true
-                  }
+        debug {
+            minifyEnabled false
+        }
+    }
+}
+EOF
 
-                  release {
-                      minifyEnabled false
-                      shrinkResources false
-                      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-                  }
-              }
+          cat > app/src/main/res/values/colors.xml <<'EOF'
+<resources>
+    <color name="black">#05070A</color>
+    <color name="white">#FFFFFF</color>
+</resources>
+EOF
 
-              compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_11
-                  targetCompatibility JavaVersion.VERSION_11
-              }
-          }
-          EOF
+          cat > app/src/main/res/values/styles.xml <<'EOF'
+<resources>
+    <style name="AppTheme" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">#05070A</item>
+        <item name="android:navigationBarColor">#05070A</item>
+        <item name="android:colorAccent">#25D366</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+</resources>
+EOF
 
-          cat << 'EOF' > app/proguard-rules.pro
-          EOF
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-          cat << 'EOF' > app/src/main/res/values/colors.xml
-          <resources>
-              <color name="black">#080A0D</color>
-              <color name="white">#FFFFFF</color>
-          </resources>
-          EOF
+    <uses-feature
+        android:name="android.hardware.bluetooth_le"
+        android:required="false" />
 
-          cat << 'EOF' > app/src/main/res/values/strings.xml
-          <resources>
-              <string name="app_name">LEDDMX Pro</string>
-          </resources>
-          EOF
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
 
-          cat << 'EOF' > app/src/main/res/values/styles.xml
-          <resources>
-              <style name="AppTheme" parent="@android:style/Theme.Material.NoActionBar">
-                  <item name="android:fontFamily">sans</item>
-                  <item name="android:windowLightStatusBar">false</item>
-                  <item name="android:statusBarColor">#080A0D</item>
-                  <item name="android:navigationBarColor">#080A0D</item>
-                  <item name="android:colorAccent">#35E36F</item>
-                  <item name="android:windowActionModeOverlay">true</item>
-              </style>
-          </resources>
-          EOF
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
 
-          cat << 'EOF' > app/src/main/AndroidManifest.xml
-          <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
-              <uses-feature
-                  android:name="android.hardware.bluetooth_le"
-                  android:required="false" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
-              <uses-permission android:name="android.permission.BLUETOOTH" />
-              <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
-              <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
-              <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-              <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <application
+        android:allowBackup="false"
+        android:label="LEDDMX Pro"
+        android:theme="@style/AppTheme"
+        android:supportsRtl="true">
 
-              <application
-                  android:theme="@style/AppTheme"
-                  android:label="LEDDMX Pro"
-                  android:allowBackup="false"
-                  android:supportsRtl="true">
+        <activity
+            android:name=".MainActivity"
+            android:screenOrientation="portrait"
+            android:exported="true">
 
-                  <activity
-                      android:name=".MainActivity"
-                      android:screenOrientation="portrait"
-                      android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
 
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
-                      </intent-filter>
+        </activity>
+    </application>
+</manifest>
+EOF
 
-                  </activity>
-
-              </application>
-
-          </manifest>
-          EOF
-
-      - name: Download exact LEDDMX mode names
+      - name: Get exact LEDDMX mode names
         shell: bash
         run: |
           set -e
           cd LEDDMX-Android
 
-          python3 - <<'PY'
-          import urllib.request
+          curl -fsSL \
+            "https://raw.githubusercontent.com/user154lt/LEDDMX-00/main/PatternList.kt" \
+            -o /tmp/PatternList.kt || true
+
+          python3 <<'PY'
           import re
+          from pathlib import Path
 
-          url = "https://raw.githubusercontent.com/user154lt/LEDDMX-00/main/PatternList.kt"
+          src = Path("/tmp/PatternList.kt")
 
-          try:
-              data = urllib.request.urlopen(url, timeout=20).read().decode("utf-8")
-              strings = re.findall(r'"((?:\\.|[^"\\])*)"', data)
-              strings = [s.replace('\\"', '"').replace("\\n", " ") for s in strings]
-              if len(strings) < 211:
-                  raise RuntimeError("PatternList incomplete")
-              strings = strings[:211]
-          except Exception:
-              strings = ["Off"] + [f"Mode {i:03d}" for i in range(1, 211)]
+          names = []
 
-          with open("app/src/main/java/com/leddmx/pro/Patterns.java", "w", encoding="utf-8") as f:
+          if src.exists():
+              text = src.read_text(errors="ignore")
+              names = re.findall(r'"((?:\\.|[^"\\])*)"', text)
+
+          # The upstream source contains 211 entries: indexes 0..210.
+          # Keep exact upstream names when available.
+          if len(names) < 211:
+              names = ["Off"] + [f"Mode {i}" for i in range(1, 211)]
+          else:
+              names = names[:211]
+
+          out = Path("app/src/main/java/com/leddmx/pro/Patterns.java")
+
+          with out.open("w", encoding="utf-8") as f:
               f.write("package com.leddmx.pro;\n\n")
               f.write("public final class Patterns {\n")
+              f.write("    private Patterns() {}\n")
               f.write("    public static final String[] NAMES = new String[] {\n")
-              for i, s in enumerate(strings):
-                  s = s.replace("\\", "\\\\").replace('"', '\\"')
-                  f.write('        "' + s + '"')
-                  if i != len(strings) - 1:
+
+              for i, name in enumerate(names):
+                  name = name.replace("\\", "\\\\").replace('"', '\\"')
+                  f.write(f'        "{name}"')
+                  if i != len(names) - 1:
                       f.write(",")
                   f.write("\n")
+
               f.write("    };\n")
               f.write("}\n")
           PY
+
+          echo "Generated mode table:"
+          wc -l app/src/main/java/com/leddmx/pro/Patterns.java
 
       - name: Write MainActivity
         shell: bash
@@ -251,2177 +236,2066 @@ jobs:
           set -e
           cd LEDDMX-Android
 
-          cat << 'EOF' > app/src/main/java/com/leddmx/pro/MainActivity.java
-          package com.leddmx.pro;
-
-          import android.Manifest;
-          import android.app.Activity;
-          import android.bluetooth.BluetoothAdapter;
-          import android.bluetooth.BluetoothDevice;
-          import android.bluetooth.BluetoothGatt;
-          import android.bluetooth.BluetoothGattCallback;
-          import android.bluetooth.BluetoothGattCharacteristic;
-          import android.bluetooth.BluetoothGattService;
-          import android.bluetooth.BluetoothManager;
-          import android.bluetooth.le.BluetoothLeScanner;
-          import android.bluetooth.le.ScanCallback;
-          import android.bluetooth.le.ScanResult;
-          import android.bluetooth.le.ScanSettings;
-          import android.content.Context;
-          import android.content.Intent;
-          import android.content.pm.PackageManager;
-          import android.graphics.Canvas;
-          import android.graphics.Color;
-          import android.graphics.Paint;
-          import android.graphics.RectF;
-          import android.os.Build;
-          import android.os.Bundle;
-          import android.os.Handler;
-          import android.os.Looper;
-          import android.provider.Settings;
-          import android.view.Gravity;
-          import android.view.MotionEvent;
-          import android.view.View;
-          import android.widget.Button;
-          import android.widget.EditText;
-          import android.widget.LinearLayout;
-          import android.widget.ScrollView;
-          import android.widget.TextView;
-          import android.widget.Toast;
-
-          import java.util.ArrayList;
-          import java.util.LinkedHashMap;
-          import java.util.List;
-          import java.util.Locale;
-          import java.util.UUID;
-
-          public class MainActivity extends Activity {
-
-              private static final int REQ_BT = 5001;
-
-              private static final UUID SERVICE_FFE0 =
-                      UUID.fromString("0000FFE0-0000-1000-8000-00805F9B34FB");
-
-              private static final UUID WRITE_FFE1 =
-                      UUID.fromString("0000FFE1-0000-1000-8000-00805F9B34FB");
-
-              private static final UUID OTA_SERVICE =
-                      UUID.fromString("5833FF01-9B8B-5191-6142-22A4536EF123");
-
-              private BluetoothAdapter adapter;
-              private BluetoothLeScanner scanner;
-              private BluetoothGatt gatt;
-              private BluetoothGattCharacteristic writeCharacteristic;
-
-              private final Handler handler = new Handler(Looper.getMainLooper());
-
-              private boolean scanning = false;
-
-              private final LinkedHashMap<String, BluetoothDevice> foundDevices =
-                      new LinkedHashMap<>();
-
-              private LinearLayout root;
-              private LinearLayout content;
-              private LinearLayout drawer;
-              private TextView status;
-              private TextView deviceCount;
-              private ModePreviewView preview;
-
-              private int red = 255;
-              private int green = 0;
-              private int blue = 40;
-
-              private int brightness = 100;
-              private int speed = 50;
-
-              private int selectedMode = 1;
-
-              private String lastRawTx = "";
-              private final ArrayList<String> moduleTerminal = new ArrayList<>();
-
-              private final Runnable stopScanTask = new Runnable() {
-                  @Override
-                  public void run() {
-                      stopScan();
-                  }
-              };
-
-              @Override
-              protected void onCreate(Bundle b) {
-                  super.onCreate(b);
-
-                  BluetoothManager bm =
-                          (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
-
-                  if (bm != null) {
-                      adapter = bm.getAdapter();
-                  }
-
-                  buildShell();
-                  showHome();
-
-                  requestBluetoothPermissions();
-              }
-
-              private void requestBluetoothPermissions() {
-                  ArrayList<String> permissions = new ArrayList<>();
-
-                  if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
-                          != PackageManager.PERMISSION_GRANTED) {
-                      permissions.add(Manifest.permission.ACCESS_FINE_LOCATION);
-                  }
-
-                  if (Build.VERSION.SDK_INT >= 31) {
-                      if (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN)
-                              != PackageManager.PERMISSION_GRANTED) {
-                          permissions.add(Manifest.permission.BLUETOOTH_SCAN);
-                      }
-
-                      if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)
-                              != PackageManager.PERMISSION_GRANTED) {
-                          permissions.add(Manifest.permission.BLUETOOTH_CONNECT);
-                      }
-                  }
-
-                  if (!permissions.isEmpty()) {
-                      requestPermissions(
-                              permissions.toArray(new String[0]),
-                              REQ_BT
-                      );
-                  }
-              }
-
-              private boolean hasBtPermission() {
-                  boolean locGranted = checkSelfPermission(
-                          Manifest.permission.ACCESS_FINE_LOCATION
-                  ) == PackageManager.PERMISSION_GRANTED;
-
-                  if (Build.VERSION.SDK_INT >= 31) {
-                      return locGranted
-                              && checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED
-                              && checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED;
-                  }
-
-                  return locGranted;
-              }
-
-              private void buildShell() {
-                  root = new LinearLayout(this);
-                  root.setOrientation(LinearLayout.VERTICAL);
-                  root.setBackgroundColor(Color.rgb(8, 10, 13));
-
-                  LinearLayout top = new LinearLayout(this);
-                  top.setGravity(Gravity.CENTER_VERTICAL);
-                  top.setPadding(dp(16), dp(10), dp(16), dp(10));
-                  top.setBackgroundColor(Color.rgb(13, 17, 21));
-
-                  Button menu = button("☰", 48);
-                  menu.setOnClickListener(v -> toggleDrawer());
-
-                  TextView title = text("LEDDMX PRO", 20, Color.WHITE);
-                  title.setTypeface(null, 1);
-
-                  LinearLayout.LayoutParams tp =
-                          new LinearLayout.LayoutParams(0, dp(54), 1);
-
-                  top.addView(menu);
-                  top.addView(title, tp);
-
-                  status = text("OFFLINE • READY", 12, Color.LTGRAY);
-                  top.addView(status);
-
-                  root.addView(top);
-
-                  content = new LinearLayout(this);
-                  content.setOrientation(LinearLayout.VERTICAL);
-                  content.setPadding(dp(14), dp(10), dp(14), dp(20));
-
-                  ScrollView scroll = new ScrollView(this);
-                  scroll.setFillViewport(true);
-                  scroll.addView(content);
-
-                  root.addView(
-                          scroll,
-                          new LinearLayout.LayoutParams(
-                                  -1,
-                                  0,
-                                  1
-                          )
-                  );
-
-                  drawer = new LinearLayout(this);
-                  drawer.setOrientation(LinearLayout.VERTICAL);
-                  drawer.setPadding(dp(18), dp(30), dp(18), dp(20));
-                  drawer.setBackgroundColor(Color.rgb(16, 20, 24));
-                  drawer.setVisibility(View.GONE);
-
-                  setContentView(root);
-              }
-
-              private void toggleDrawer() {
-                  if (drawer.getVisibility() == View.VISIBLE) {
-                      drawer.setVisibility(View.GONE);
-                      root.removeView(drawer);
-                      return;
-                  }
-
-                  drawer.removeAllViews();
-
-                  TextView h = text("LEDDMX PRO", 24, Color.WHITE);
-                  h.setTypeface(null, 1);
-                  drawer.addView(h);
-
-                  TextView sub = text(
-                          "BLE LED CONTROLLER",
-                          11,
-                          Color.rgb(100, 230, 140)
-                  );
-                  drawer.addView(sub);
-
-                  addMenu("⌂   HOME", this::showHome);
-                  addMenu("✦   210 EFFECTS", this::showEffects);
-                  addMenu("✎   CUSTOM STUDIO", this::showCustom);
-                  addMenu("▣   MY MODES 171–210", this::showSlots);
-                  addMenu("◉   MODULE / MCU ANALYZER", this::showAnalyzer);
-                  addMenu("⌁   PROTOCOL LAB", this::showProtocol);
-                  addMenu("⚙   SETTINGS", this::showSettings);
-
-                  drawer.addView(text(
-                          "LEDDMX-00 protocol\nFFE0 / FFE1\n\n" +
-                          "LEFT / RIGHT routing:\nNOT PROVEN BY DEVICE",
-                          11,
-                          Color.GRAY
-                  ));
-
-                  root.addView(
-                          drawer,
-                          1,
-                          new LinearLayout.LayoutParams(
-                                  -1,
-                                  -1
-                          )
-                  );
-              }
-
-              private void addMenu(String name, final Runnable action) {
-                  Button b = button(name, 58);
-                  b.setGravity(Gravity.CENTER_VERTICAL);
-                  b.setOnClickListener(v -> {
-                      drawer.setVisibility(View.GONE);
-                      root.removeView(drawer);
-                      action.run();
-                  });
-                  drawer.addView(b);
-              }
-
-              private void clearContent() {
-                  content.removeAllViews();
-              }
-
-              private void showHome() {
-                  clearContent();
-
-                  content.addView(cardTitle(
-                          "LEDDMX CONTROLLER",
-                          "Scan module • connect • control"
-                  ));
-
-                  LinearLayout conn = row();
-
-                  Button scan = button("SCAN BLUETOOTH", 54);
-                  scan.setOnClickListener(v -> startScan());
-
-                  Button refresh = button("CLEAR", 54);
-                  refresh.setOnClickListener(v -> {
-                      foundDevices.clear();
-                      renderDevices();
-                  });
-
-                  conn.addView(scan, weight());
-                  conn.addView(refresh, weight());
-
-                  content.addView(conn);
-
-                  deviceCount = text(
-                          "DEVICES FOUND: 0",
-                          12,
-                          Color.rgb(120, 230, 150)
-                  );
-                  content.addView(deviceCount);
-
-                  LinearLayout devices = new LinearLayout(this);
-                  devices.setOrientation(LinearLayout.VERTICAL);
-                  devices.setTag("devices");
-
-                  content.addView(devices);
-
-                  content.addView(cardTitle(
-                          "LIVE CONTROL",
-                          "Power / RGB / brightness / speed"
-                  ));
-
-                  Button powerOn = button("POWER ON", 54);
-                  powerOn.setOnClickListener(v -> sendPower(true));
-
-                  Button powerOff = button("POWER OFF", 54);
-                  powerOff.setOnClickListener(v -> sendPower(false));
-
-                  content.addView(powerOn);
-                  content.addView(powerOff);
-
-                  content.addView(new ColorWheel(this));
-
-                  addSlider(
-                          "BRIGHTNESS",
-                          100,
-                          brightness,
-                          value -> {
-                              brightness = value;
-                              sendBrightness(value);
-                          }
-                  );
-
-                  addSlider(
-                          "SPEED",
-                          100,
-                          speed,
-                          value -> {
-                              speed = value;
-                              sendSpeed(value);
-                          }
-                  );
-
-                  preview = new ModePreviewView(this);
-                  content.addView(
-                          preview,
-                          new LinearLayout.LayoutParams(
-                                  -1,
-                                  dp(120)
-                          )
-                  );
-
-                  renderDevices();
-              }
-
-              private void renderDevices() {
-                  if (deviceCount != null) {
-                      deviceCount.setText(
-                              "DEVICES FOUND: " + foundDevices.size()
-                      );
-                  }
-
-                  LinearLayout list = findDevicesContainer();
-
-                  if (list == null) {
-                      return;
-                  }
-
-                  list.removeAllViews();
-
-                  for (BluetoothDevice device : foundDevices.values()) {
-                      String name;
-
-                      try {
-                          name = device.getName();
-                      } catch (SecurityException e) {
-                          name = null;
-                      }
-
-                      if (name == null || name.trim().isEmpty()) {
-                          name = "UNKNOWN BLE DEVICE";
-                      }
-
-                      LinearLayout card = row();
-                      card.setPadding(dp(8), dp(8), dp(8), dp(8));
-                      card.setBackgroundColor(Color.rgb(20, 25, 30));
-
-                      TextView info = text(
-                              name + "\n" + device.getAddress(),
-                              13,
-                              Color.WHITE
-                      );
-
-                      card.addView(info, weight());
-
-                      Button connect = button("CONNECT", 48);
-
-                      BluetoothDevice target = device;
-
-                      connect.setOnClickListener(v ->
-                              connectDevice(target)
-                      );
-
-                      card.addView(connect);
-
-                      list.addView(card);
-                  }
-
-                  if (foundDevices.isEmpty()) {
-                      TextView empty = text(
-                              "Belum ada device.\n\n" +
-                              "Pastikan LEDDMX menyala & GPS aktif, lalu tekan SCAN BLUETOOTH.",
-                              13,
-                              Color.GRAY
-                      );
-                      empty.setPadding(dp(10), dp(18), dp(10), dp(18));
-                      list.addView(empty);
-                  }
-              }
-
-              private LinearLayout findDevicesContainer() {
-                  for (int i = 0; i < content.getChildCount(); i++) {
-                      View v = content.getChildAt(i);
-
-                      if (v instanceof LinearLayout
-                              && v.getTag() != null
-                              && "devices".equals(v.getTag())) {
-                          return (LinearLayout) v;
-                      }
-                  }
-
-                  return null;
-              }
-
-              private void startScan() {
-                  if (!hasBtPermission()) {
-                      requestBluetoothPermissions();
-                      toast("Izin Lokasi & Bluetooth diperlukan!");
-                      return;
-                  }
-
-                  if (adapter == null) {
-                      toast("Bluetooth adapter tidak tersedia");
-                      return;
-                  }
-
-                  if (!adapter.isEnabled()) {
-                      try {
-                          startActivity(new Intent(
-                                  android.bluetooth.BluetoothAdapter.ACTION_REQUEST_ENABLE
-                          ));
-                      } catch (Exception ignored) {
-                      }
-
-                      toast("Nyalakan Bluetooth terlebih dahulu");
-                      return;
-                  }
-
-                  if (scanning) {
-                      stopScan();
-                      return;
-                  }
-
-                  scanner = adapter.getBluetoothLeScanner();
-
-                  if (scanner == null) {
-                      toast("BLE scanner tidak tersedia (Pastikan GPS/Lokasi HP ON)");
-                      return;
-                  }
-
-                  foundDevices.clear();
-                  renderDevices();
-
-                  scanning = true;
-                  status.setText("SCANNING BLE...");
-
-                  ScanSettings settings =
-                          new ScanSettings.Builder()
-                                  .setScanMode(
-                                          ScanSettings.SCAN_MODE_LOW_LATENCY
-                                  )
-                                  .build();
-
-                  try {
-                      scanner.startScan(
-                              null,
-                              settings,
-                              scanCallback
-                      );
-                  } catch (SecurityException e) {
-                      scanning = false;
-                      toast("Permission Bluetooth ditolak");
-                      return;
-                  }
-
-                  handler.removeCallbacks(stopScanTask);
-                  handler.postDelayed(stopScanTask, 12000);
-              }
-
-              private void stopScan() {
-                  handler.removeCallbacks(stopScanTask);
-
-                  if (!scanning) {
-                      return;
-                  }
-
-                  scanning = false;
-
-                  if (scanner != null) {
-                      try {
-                          scanner.stopScan(scanCallback);
-                      } catch (SecurityException ignored) {
-                      }
-                  }
-
-                  status.setText(
-                          gatt != null && writeCharacteristic != null
-                                  ? "CONNECTED • LEDDMX READY"
-                                  : "SCAN COMPLETE"
-                  );
-
-                  renderDevices();
-              }
-
-              private final ScanCallback scanCallback =
-                      new ScanCallback() {
-
-                          @Override
-                          public void onScanResult(
-                                  int callbackType,
-                                  ScanResult result
-                          ) {
-                              BluetoothDevice d = result.getDevice();
-
-                              if (d == null) {
-                                  return;
-                              }
-
-                              String address;
-
-                              try {
-                                  address = d.getAddress();
-                              } catch (SecurityException e) {
-                                  return;
-                              }
-
-                              if (address == null) {
-                                  return;
-                              }
-
-                              foundDevices.put(address, d);
-
-                              runOnUiThread(() -> {
-                                  renderDevices();
-                              });
-                          }
-
-                          @Override
-                          public void onBatchScanResults(
-                                  List<ScanResult> results
-                          ) {
-                              for (ScanResult r : results) {
-                                  BluetoothDevice d = r.getDevice();
-
-                                  if (d == null) {
-                                      continue;
-                                  }
-
-                                  try {
-                                      foundDevices.put(
-                                              d.getAddress(),
-                                              d
-                                      );
-                                  } catch (SecurityException ignored) {
-                                  }
-                              }
-
-                              runOnUiThread(() -> {
-                                  renderDevices();
-                              });
-                          }
-
-                          @Override
-                          public void onScanFailed(int errorCode) {
-                              scanning = false;
-
-                              runOnUiThread(() -> {
-                                  status.setText(
-                                          "SCAN ERROR " + errorCode
-                                  );
-
-                                  toast(
-                                          "Bluetooth scan gagal: " +
-                                          errorCode + ". Pastikan GPS aktif."
-                                  );
-                              });
-                          }
-                      };
-
-              private void connectDevice(BluetoothDevice device) {
-                  if (!hasBtPermission()) {
-                      requestBluetoothPermissions();
-                      return;
-                  }
-
-                  stopScan();
-
-                  try {
-                      if (gatt != null) {
-                          gatt.disconnect();
-                          gatt.close();
-                          gatt = null;
-                      }
-                  } catch (Exception ignored) {
-                  }
-
-                  writeCharacteristic = null;
-
-                  try {
-                      status.setText("CONNECTING " + device.getName());
-
-                      gatt = device.connectGatt(
-                              this,
-                              false,
-                              gattCallback
-                      );
-
-                  } catch (SecurityException e) {
-                      toast("Bluetooth CONNECT permission ditolak");
-                  }
-              }
-
-              private final BluetoothGattCallback gattCallback =
-                      new BluetoothGattCallback() {
-
-                          @Override
-                          public void onConnectionStateChange(
-                                  BluetoothGatt g,
-                                  int statusCode,
-                                  int newState
-                          ) {
-                              if (newState ==
-                                      android.bluetooth.BluetoothProfile.STATE_CONNECTED) {
-
-                                  runOnUiThread(() ->
-                                          status.setText(
-                                                  "CONNECTED • DISCOVERING GATT"
-                                          )
-                                  );
-
-                                  try {
-                                      g.discoverServices();
-                                  } catch (SecurityException ignored) {
-                                  }
-
-                              } else if (newState ==
-                                      android.bluetooth.BluetoothProfile.STATE_DISCONNECTED) {
-
-                                  writeCharacteristic = null;
-
-                                  runOnUiThread(() ->
-                                          status.setText(
-                                                  "DISCONNECTED"
-                                          )
-                                  );
-                              }
-                          }
-
-                          @Override
-                          public void onServicesDiscovered(
-                                  BluetoothGatt g,
-                                  int statusCode
-                          ) {
-                              BluetoothGattCharacteristic found = null;
-
-                              for (BluetoothGattService s :
-                                      g.getServices()) {
-
-                                  moduleTerminal.add(
-                                          "DEVICE-SOURCE SERVICE " +
-                                          s.getUuid()
-                                  );
-
-                                  for (BluetoothGattCharacteristic c :
-                                          s.getCharacteristics()) {
-
-                                      moduleTerminal.add(
-                                              "DEVICE-SOURCE CHARACTERISTIC " +
-                                              c.getUuid() +
-                                              " PROPS=0x" +
-                                              Integer.toHexString(
-                                                      c.getProperties()
-                                              )
-                                      );
-
-                                      if (WRITE_FFE1.equals(c.getUuid())) {
-                                          found = c;
-                                      }
-
-                                      if (OTA_SERVICE.equals(s.getUuid())) {
-                                          moduleTerminal.add(
-                                                  "DEVICE-SOURCE OTA SERVICE DETECTED"
-                                          );
-                                      }
-                                  }
-                              }
-
-                              writeCharacteristic = found;
-
-                              final boolean ready =
-                                      writeCharacteristic != null;
-
-                              runOnUiThread(() -> {
-                                  if (ready) {
-                                      status.setText(
-                                              "CONNECTED • LEDDMX READY"
-                                      );
-                                      toast("LEDDMX FFE1 READY");
-                                  } else {
-                                      status.setText(
-                                              "CONNECTED • FFE1 NOT FOUND"
-                                      );
-                                      toast(
-                                              "FFE1 tidak ditemukan"
-                                      );
-                                  }
-                              });
-                          }
-
-                          @Override
-                          public void onCharacteristicChanged(
-                                  BluetoothGatt g,
-                                  BluetoothGattCharacteristic c
-                          ) {
-                              byte[] data = c.getValue();
-
-                              if (data != null) {
-                                  appendModuleRx(
-                                          c.getUuid().toString(),
-                                          data
-                                  );
-                              }
-                          }
-
-                          @Override
-                          public void onCharacteristicRead(
-                                  BluetoothGatt g,
-                                  BluetoothGattCharacteristic c,
-                                  int statusCode
-                          ) {
-                              byte[] data = c.getValue();
-
-                              if (data != null) {
-                                  appendModuleRx(
-                                          c.getUuid().toString(),
-                                          data
-                                  );
-                              }
-                          }
-                      };
-
-              private void appendModuleRx(
-                      String characteristic,
-                      byte[] data
-              ) {
-                  final String hex = bytesToHex(data);
-
-                  moduleTerminal.add(
-                          "DEVICE-SOURCE RX " +
-                          characteristic +
-                          " : " +
-                          hex
-                  );
-
-                  runOnUiThread(() -> {
-                      if (status != null) {
-                          status.setText(
-                                  "MODULE DATA RECEIVED"
-                          );
-                      }
-                  });
-              }
-
-              private void send(byte[] packet) {
-                  if (gatt == null ||
-                          writeCharacteristic == null) {
-                      toast("Belum CONNECT ke LEDDMX");
-                      return;
-                  }
-
-                  lastRawTx = bytesToHex(packet);
-
-                  moduleTerminal.add(
-                          "APP-SEND TX " + lastRawTx
-                  );
-
-                  try {
-                      if (Build.VERSION.SDK_INT >= 33) {
-                          gatt.writeCharacteristic(
-                                  writeCharacteristic,
-                                  packet,
-                                  BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
-                          );
-                      } else {
-                          writeCharacteristic.setWriteType(
-                                  BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
-                          );
-                          writeCharacteristic.setValue(packet);
-                          gatt.writeCharacteristic(
-                                  writeCharacteristic
-                          );
-                      }
-                  } catch (SecurityException e) {
-                      toast("Bluetooth CONNECT permission ditolak");
-                  }
-              }
-
-              private void sendPower(boolean on) {
-                  send(hex(
-                          on
-                                  ? "7B FF 04 01 FF FF FF FF BF"
-                                  : "7B FF 04 00 FF FF FF FF BF"
-                  ));
-              }
-
-              private void sendMode(int mode) {
-                  mode = Math.max(1, Math.min(210, mode));
-
-                  send(new byte[]{
-                          0x7B,
-                          (byte) 0xFF,
-                          0x03,
-                          (byte) mode,
-                          (byte) 0xFF,
-                          (byte) 0xFF,
-                          (byte) 0xFF,
-                          (byte) 0xFF,
-                          (byte) 0xBF
-                  });
-
-                  selectedMode = mode;
-
-                  if (preview != null) {
-                      preview.mode = mode;
-                      preview.invalidate();
-                  }
-              }
-
-              private void sendRgb(
-                      int r,
-                      int g,
-                      int b
-              ) {
-                  send(new byte[]{
-                          0x7B,
-                          (byte) 0xFF,
-                          0x07,
-                          (byte) r,
-                          (byte) g,
-                          (byte) b,
-                          0x00,
-                          (byte) 0xFF,
-                          (byte) 0xBF
-                  });
-              }
-
-              private void sendBrightness(int value) {
-                  value = Math.max(0, Math.min(100, value));
-
-                  int scaled = value * 32 / 100;
-
-                  send(new byte[]{
-                          0x7B,
-                          (byte) 0xFF,
-                          0x01,
-                          (byte) scaled,
-                          (byte) value,
-                          0x00,
-                          (byte) 0xFF,
-                          (byte) 0xFF,
-                          (byte) 0xBF
-                  });
-              }
-
-              private void sendSpeed(int value) {
-                  value = Math.max(0, Math.min(100, value));
-
-                  send(new byte[]{
-                          0x7B,
-                          (byte) 0xFF,
-                          0x02,
-                          (byte) value,
-                          0x00,
-                          (byte) 0xFF,
-                          (byte) 0xFF,
-                          (byte) 0xFF,
-                          (byte) 0xBF
-                  });
-              }
-
-              private void sendDirection(boolean reverse) {
-                  send(new byte[]{
-                          0x7B,
-                          (byte) 0xFF,
-                          0x0D,
-                          (byte) (reverse ? 1 : 0),
-                          (byte) 0xFF,
-                          (byte) 0xFF,
-                          (byte) 0xFF,
-                          (byte) 0xFF,
-                          (byte) 0xBF
-                  });
-              }
-
-              private void sendCustomColor(
-                      int position,
-                      int total,
-                      int r,
-                      int g,
-                      int b
-              ) {
-                  send(new byte[]{
-                          0x7B,
-                          (byte) position,
-                          0x0E,
-                          (byte) 0xFD,
-                          (byte) r,
-                          (byte) g,
-                          (byte) b,
-                          (byte) total,
-                          (byte) 0xBF
-                  });
-              }
-
-              private void sendCustomMode(int ordinal) {
-                  send(new byte[]{
-                          0x7B,
-                          (byte) 0xFF,
-                          0x13,
-                          (byte) ordinal,
-                          (byte) 0xFF,
-                          (byte) 0xFF,
-                          (byte) 0xFF,
-                          (byte) 0xFF,
-                          (byte) 0xBF
-                  });
-              }
-
-              private void showEffects() {
-                  clearContent();
-
-                  content.addView(cardTitle(
-                          "210 EFFECTS",
-                          "Exact LEDDMX PatternList + live preview"
-                  ));
-
-                  preview = new ModePreviewView(this);
-
-                  content.addView(
-                          preview,
-                          new LinearLayout.LayoutParams(
-                                  -1,
-                                  dp(150)
-                          )
-                  );
-
-                  for (int i = 1; i <= 210; i++) {
-                      final int mode = i;
-
-                      String name =
-                              i < Patterns.NAMES.length
-                                      ? Patterns.NAMES[i]
-                                      : "Mode " + i;
-
-                      Button b = button(
-                              String.format(
-                                      Locale.US,
-                                      "%03d  %s",
-                                      i,
-                                      name
-                              ),
-                              48
-                      );
-
-                      b.setOnClickListener(v -> {
-                          sendMode(mode);
-
-                          if (preview != null) {
-                              preview.mode = mode;
-                              preview.invalidate();
-                          }
-                      });
-
-                      content.addView(b);
-                  }
-              }
-
-              private void showCustom() {
-                  clearContent();
-
-                  content.addView(cardTitle(
-                          "CUSTOM STUDIO",
-                          "Create → Preview → Apply"
-                  ));
-
-                  preview = new ModePreviewView(this);
-
-                  content.addView(
-                          preview,
-                          new LinearLayout.LayoutParams(
-                                  -1,
-                                  dp(180)
-                          )
-                  );
-
-                  content.addView(text(
-                          "OUTPUT TARGET",
-                          12,
-                          Color.GRAY
-                  ));
-
-                  LinearLayout targets = row();
-
-                  Button all = button("WHOLE", 48);
-                  Button left = button("LEFT", 48);
-                  Button right = button("RIGHT", 48);
-                  Button both = button("BOTH", 48);
-
-                  targets.addView(all, weight());
-                  targets.addView(left, weight());
-                  targets.addView(right, weight());
-                  targets.addView(both, weight());
-
-                  content.addView(targets);
-
-                  content.addView(text(
-                          "LEFT / RIGHT HARDWARE ROUTING: NOT PROVEN BY DEVICE",
-                          11,
-                          Color.rgb(255, 190, 70)
-                  ));
-
-                  content.addView(text(
-                          "COLOR",
-                          12,
-                          Color.GRAY
-                  ));
-
-                  content.addView(new ColorWheel(this));
-
-                  content.addView(text(
-                          "ANIMATION TEMPLATE",
-                          12,
-                          Color.GRAY
-                  ));
-
-                  String[] templates = {
-                          "RAINBOW",
-                          "WAVE",
-                          "CHASE",
-                          "COMET",
-                          "SCANNER",
-                          "MIRROR",
-                          "PULSE",
-                          "COLOR CYCLE",
-                          "STRIPE / BELANG",
-                          "FADE",
-                          "POLICE",
-                          "FIRE",
-                          "WATER",
-                          "RANDOM"
-                  };
-
-                  for (String t : templates) {
-                      Button b = button(t, 50);
-
-                      b.setOnClickListener(v -> {
-                          if ("STRIPE / BELANG".equals(t)) {
-                              sendCustomColor(
-                                      1,
-                                      4,
-                                      red,
-                                      green,
-                                      blue
-                              );
-
-                              sendCustomColor(
-                                      2,
-                                      4,
-                                      255,
-                                      255,
-                                      255
-                              );
-
-                              sendCustomColor(
-                                      3,
-                                      4,
-                                      red,
-                                      green,
-                                      blue
-                              );
-
-                              sendCustomColor(
-                                      4,
-                                      4,
-                                      255,
-                                      255,
-                                      255
-                              );
-
-                              sendCustomMode(1);
-                          } else if ("RAINBOW".equals(t)) {
-                              sendCustomMode(2);
-                          } else if ("WAVE".equals(t)) {
-                              sendCustomMode(3);
-                          } else if ("CHASE".equals(t)) {
-                              sendCustomMode(4);
-                          } else if ("PULSE".equals(t)) {
-                              sendCustomMode(5);
-                          } else if ("FADE".equals(t)) {
-                              sendCustomMode(6);
-                          } else if ("SCANNER".equals(t)) {
-                              sendCustomMode(7);
-                          } else {
-                              sendCustomMode(0);
-                          }
-
-                          toast(
-                                  t + " → PREVIEW / APPLY"
-                          );
-                      });
-
-                      content.addView(b);
-                  }
-
-                  addSlider(
-                          "SPEED",
-                          100,
-                          speed,
-                          value -> speed = value
-                  );
-
-                  addSlider(
-                          "BRIGHTNESS",
-                          100,
-                          brightness,
-                          value -> brightness = value
-                  );
-
-                  Button forward = button(
-                          "DIRECTION: FORWARD",
-                          52
-                  );
-
-                  forward.setOnClickListener(v ->
-                          sendDirection(false)
-                  );
-
-                  Button reverse = button(
-                          "DIRECTION: REVERSE",
-                          52
-                  );
-
-                  reverse.setOnClickListener(v ->
-                          sendDirection(true)
-                  );
-
-                  content.addView(forward);
-                  content.addView(reverse);
-
-                  Button apply = button(
-                          "APPLY CUSTOM TO MODULE",
-                          60
-                  );
-
-                  apply.setOnClickListener(v -> {
-                      sendCustomColor(
-                              1,
-                              3,
-                              red,
-                              green,
-                              blue
-                      );
-
-                      sendCustomColor(
-                              2,
-                              3,
-                              255,
-                              255,
-                              255
-                      );
-
-                      sendCustomColor(
-                              3,
-                              3,
-                              red,
-                              green,
-                              blue
-                      );
-
-                      sendCustomMode(0);
-
-                      toast("CUSTOM SENT");
-                  });
-
-                  content.addView(apply);
-              }
-
-              private void showSlots() {
-                  clearContent();
-
-                  content.addView(cardTitle(
-                          "MY MODES",
-                          "Local phone slots 171–210"
-                  ));
-
-                  content.addView(text(
-                          "Local storage is used until permanent module-memory "
-                                  + "commands are proven from the device.",
-                          12,
-                          Color.GRAY
-                  ));
-
-                  for (int i = 171; i <= 210; i++) {
-                      final int slot = i;
-
-                      LinearLayout r = row();
-
-                      String name =
-                              slot < Patterns.NAMES.length
-                                      ? Patterns.NAMES[slot]
-                                      : "Mode " + slot;
-
-                      TextView t = text(
-                              slot + "  " + name,
-                              12,
-                              Color.WHITE
-                      );
-
-                      r.addView(t, weight());
-
-                      Button save = button("SAVE", 44);
-                      Button load = button("LOAD", 44);
-
-                      save.setOnClickListener(v ->
-                              getPreferences(MODE_PRIVATE)
-                                      .edit()
-                                      .putInt(
-                                              "slot_" + slot,
-                                              selectedMode
-                                      )
-                                      .apply()
-                      );
-
-                      load.setOnClickListener(v -> {
-                          int m =
-                                  getPreferences(MODE_PRIVATE)
-                                          .getInt(
-                                                  "slot_" + slot,
-                                                  slot
-                                          );
-
-                          sendMode(
-                                  Math.max(
-                                          1,
-                                          Math.min(
-                                                  210,
-                                                  m
-                                          )
-                                  )
-                          );
-                      });
-
-                      r.addView(save);
-                      r.addView(load);
-
-                      content.addView(r);
-                  }
-              }
-
-              private void showAnalyzer() {
-                  clearContent();
-
-                  content.addView(cardTitle(
-                          "MODULE / MCU ANALYZER",
-                          "LIVE DEVICE DATA ONLY"
-                  ));
-
-                  content.addView(text(
-                          "SOURCE RULE:\n"
-                                  + "Everything marked DEVICE-SOURCE below is read "
-                                  + "from the connected module.\n\n"
-                                  + "If the module does not expose information, "
-                                  + "the app does NOT invent it.",
-                          12,
-                          Color.WHITE
-                  ));
-
-                  Button inspect = button(
-                          "READ / INSPECT GATT",
-                          54
-                  );
-
-                  inspect.setOnClickListener(v ->
-                          inspectGatt()
-                  );
-
-                  content.addView(inspect);
-
-                  Button clear = button(
-                          "CLEAR TERMINAL",
-                          48
-                  );
-
-                  clear.setOnClickListener(v -> {
-                      moduleTerminal.clear();
-                      showAnalyzer();
-                  });
-
-                  content.addView(clear);
-
-                  EditText raw = new EditText(this);
-                  raw.setText(
-                          lastRawTx.isEmpty()
-                                  ? "7B FF 04 01 FF FF FF FF BF"
-                                  : lastRawTx
-                  );
-                  raw.setTextColor(Color.WHITE);
-                  raw.setHintTextColor(Color.GRAY);
-                  raw.setHint("RAW HEX");
-                  raw.setSingleLine(false);
-                  raw.setBackgroundColor(Color.rgb(20, 25, 30));
-
-                  content.addView(
-                          raw,
-                          new LinearLayout.LayoutParams(
-                                  -1,
-                                  dp(100)
-                          )
-                  );
-
-                  Button send = button(
-                          "SEND RAW HEX",
-                          54
-                  );
-
-                  send.setOnClickListener(v -> {
-                      byte[] packet =
-                              parseHex(raw.getText().toString());
-
-                      if (packet == null ||
-                              packet.length == 0) {
-                          toast("HEX tidak valid");
-                          return;
-                      }
-
-                      send(packet);
-                  });
-
-                  content.addView(send);
-
-                  TextView terminal = text(
-                          terminalText(),
-                          11,
-                          Color.rgb(190, 220, 200)
-                  );
-
-                  terminal.setTypeface(
-                          android.graphics.Typeface.MONOSPACE
-                  );
-
-                  terminal.setPadding(
-                          dp(10),
-                          dp(10),
-                          dp(10),
-                          dp(10)
-                  );
-
-                  terminal.setBackgroundColor(
-                          Color.rgb(3, 5, 7)
-                  );
-
-                  content.addView(terminal);
-              }
-
-              private String terminalText() {
-                  if (moduleTerminal.isEmpty()) {
-                      return "DEVICE-SOURCE\n\n"
-                              + "NOT EXPOSED BY DEVICE\n\n"
-                              + "Connect module and inspect GATT.";
-                  }
-
-                  StringBuilder s = new StringBuilder();
-
-                  for (String line : moduleTerminal) {
-                      s.append(line).append("\n");
-                  }
-
-                  s.append("\n-------------------------\n");
-
-                  s.append("APP KNOWLEDGE IS KEPT SEPARATE\n");
-                  s.append("FFE0 / FFE1 LEDDMX command channel\n");
-                  s.append("OTA service detection only\n");
-
-                  return s.toString();
-              }
-
-              private void inspectGatt() {
-                  if (gatt == null) {
-                      toast("Belum CONNECT");
-                      return;
-                  }
-
-                  moduleTerminal.clear();
-
-                  for (BluetoothGattService service :
-                          gatt.getServices()) {
-
-                      moduleTerminal.add(
-                              "DEVICE-SOURCE SERVICE " +
-                              service.getUuid()
-                      );
-
-                      for (BluetoothGattCharacteristic c :
-                              service.getCharacteristics()) {
-
-                          moduleTerminal.add(
-                                  "DEVICE-SOURCE CHARACTERISTIC " +
-                                  c.getUuid()
-                                          + " PROPS=0x"
-                                          + Integer.toHexString(
-                                          c.getProperties()
-                                  )
-                          );
-
-                          try {
-                              if ((c.getProperties()
-                                      & BluetoothGattCharacteristic.PROPERTY_READ)
-                                      != 0) {
-                                  gatt.readCharacteristic(c);
-                              }
-                          } catch (SecurityException ignored) {
-                          }
-                      }
-                  }
-
-                  showAnalyzer();
-              }
-
-              private void showProtocol() {
-                  clearContent();
-
-                  content.addView(cardTitle(
-                          "PROTOCOL LAB",
-                          "Editable raw packet laboratory"
-                  ));
-
-                  EditText hex = new EditText(this);
-
-                  hex.setText(
-                          "7B FF 04 01 FF FF FF FF BF"
-                  );
-
-                  hex.setTextColor(Color.WHITE);
-                  hex.setHintTextColor(Color.GRAY);
-                  hex.setSingleLine(false);
-                  hex.setBackgroundColor(Color.rgb(18, 23, 28));
-
-                  content.addView(
-                          hex,
-                          new LinearLayout.LayoutParams(
-                                  -1,
-                                  dp(140)
-                          )
-                  );
-
-                  Button send = button(
-                          "SEND",
-                          58
-                  );
-
-                  send.setOnClickListener(v -> {
-                      byte[] packet =
-                              parseHex(hex.getText().toString());
-
-                      if (packet == null) {
-                          toast("RAW HEX INVALID");
-                          return;
-                      }
-
-                      send(packet);
-                  });
-
-                  content.addView(send);
-
-                  Button on = button(
-                          "KNOWN POWER ON",
-                          50
-                  );
-
-                  on.setOnClickListener(v ->
-                          hex.setText(
-                                  "7B FF 04 01 FF FF FF FF BF"
-                          )
-                  );
-
-                  content.addView(on);
-
-                  Button off = button(
-                          "KNOWN POWER OFF",
-                          50
-                  );
-
-                  off.setOnClickListener(v ->
-                          hex.setText(
-                                  "7B FF 04 00 FF FF FF FF BF"
-                          )
-                  );
-
-                  content.addView(off);
-
-                  content.addView(text(
-                          "Known LEDDMX-00 channel:\n"
-                                  + "Service  FFE0\n"
-                                  + "Write    FFE1\n\n"
-                                  + "No password bypass is sent here.\n"
-                                  + "No arbitrary firmware is flashed.\n\n"
-                                  + "LEFT / RIGHT routing remains experimental "
-                                  + "until the module itself proves a selector.",
-                          12,
-                          Color.LTGRAY
-                  ));
-              }
-
-              private void showSettings() {
-                  clearContent();
-
-                  content.addView(cardTitle(
-                          "SETTINGS",
-                          "Device / application settings"
-                  ));
-
-                  Button bt = button(
-                          "OPEN ANDROID BLUETOOTH SETTINGS",
-                          54
-                  );
-
-                  bt.setOnClickListener(v -> {
-                      try {
-                          startActivity(
-                                  new Intent(
-                                          Settings.ACTION_BLUETOOTH_SETTINGS
-                                  )
-                          );
-                      } catch (Exception ignored) {
-                      }
-                  });
-
-                  content.addView(bt);
-
-                  content.addView(text(
-                          "MODULE PASSWORD",
-                          12,
-                          Color.GRAY
-                  ));
-
-                  content.addView(text(
-                          "Password packet is NOT sent because a verified "
-                                  + "LEDDMX-00 password command has not been established.",
-                          12,
-                          Color.rgb(255, 190, 70)
-                  ));
-
-                  content.addView(text(
-                          "OTA / FIRMWARE",
-                          12,
-                          Color.GRAY
-                  ));
-
-                  content.addView(text(
-                          "OTA service detection is supported.\n"
-                                  + "Arbitrary firmware flashing is disabled until "
-                                  + "compatible firmware and bootloader behavior "
-                                  + "are verified from the device.",
-                          12,
-                          Color.LTGRAY
-                  ));
-
-                  Button disconnect = button(
-                          "DISCONNECT MODULE",
-                          54
-                  );
-
-                  disconnect.setOnClickListener(v -> {
-                      try {
-                          if (gatt != null) {
-                              gatt.disconnect();
-                              gatt.close();
-                          }
-                      } catch (Exception ignored) {
-                      }
-
-                      gatt = null;
-                      writeCharacteristic = null;
-                      status.setText("DISCONNECTED");
-                  });
-
-                  content.addView(disconnect);
-              }
-
-              private void addSlider(
-                      String title,
-                      int max,
-                      int current,
-                      final ValueCallback callback
-              ) {
-                  content.addView(
-                          text(
-                                  title + "  " + current,
-                                  12,
-                                  Color.LTGRAY
-                          )
-                  );
-
-                  android.widget.SeekBar seek =
-                          new android.widget.SeekBar(this);
-
-                  seek.setMax(max);
-                  seek.setProgress(current);
-
-                  seek.setOnSeekBarChangeListener(
-                          new android.widget.SeekBar.OnSeekBarChangeListener() {
-
-                              @Override
-                              public void onProgressChanged(
-                                      android.widget.SeekBar bar,
-                                      int value,
-                                      boolean fromUser
-                              ) {
-                                  if (fromUser) {
-                                      callback.onValue(value);
-                                  }
-                              }
-
-                              @Override
-                              public void onStartTrackingTouch(
-                                      android.widget.SeekBar bar
-                              ) {
-                              }
-
-                              @Override
-                              public void onStopTrackingTouch(
-                                      android.widget.SeekBar bar
-                              ) {
-                              }
-                          }
-                  );
-
-                  content.addView(seek);
-              }
-
-              private interface ValueCallback {
-                  void onValue(int value);
-              }
-
-              private class ColorWheel extends View {
-
-                  private final Paint paint = new Paint(
-                          Paint.ANTI_ALIAS_FLAG
-                  );
-
-                  private float hue = 350f;
-                  private float sat = 1f;
-                  private float val = 1f;
-
-                  ColorWheel(Context c) {
-                      super(c);
-                      setMinimumHeight(dp(250));
-                  }
-
-                  @Override
-                  protected void onDraw(Canvas c) {
-                      super.onDraw(c);
-
-                      float cx = getWidth() / 2f;
-                      float cy = getHeight() / 2f;
-                      float radius =
-                              Math.min(
-                                      getWidth(),
-                                      getHeight()
-                              ) * 0.38f;
-
-                      int segments = 360;
-
-                      for (int i = 0; i < segments; i++) {
-                          float h1 = i;
-                          float h2 = i + 1;
-
-                          paint.setColor(
-                                  Color.HSVToColor(
-                                          new float[]{
-                                                  h1,
-                                                  1f,
-                                                  1f
-                                          }
-                                  )
-                          );
-
-                          RectF oval = new RectF(
-                                  cx - radius,
-                                  cy - radius,
-                                  cx + radius,
-                                  cy + radius
-                          );
-
-                          c.drawArc(
-                                  oval,
-                                  h1,
-                                  h2 - h1 + 1,
-                                  true,
-                                  paint
-                          );
-                      }
-
-                      float a =
-                              (float) Math.toRadians(hue);
-
-                      float sx =
-                              cx + (float) Math.cos(a) *
-                                      radius * sat;
-
-                      float sy =
-                              cy + (float) Math.sin(a) *
-                                      radius * sat;
-
-                      paint.setStyle(Paint.Style.FILL);
-                      paint.setColor(Color.WHITE);
-
-                      c.drawCircle(
-                              sx,
-                              sy,
-                              dp(8),
-                              paint
-                      );
-
-                      paint.setStyle(Paint.Style.STROKE);
-                      paint.setStrokeWidth(dp(2));
-
-                      paint.setColor(Color.BLACK);
-
-                      c.drawCircle(
-                              sx,
-                              sy,
-                              dp(11),
-                              paint
-                      );
-
-                      paint.setStyle(Paint.Style.FILL);
-                  }
-
-                  @Override
-                  public boolean onTouchEvent(MotionEvent e) {
-                      if (e.getAction() != MotionEvent.ACTION_DOWN
-                              && e.getAction() != MotionEvent.ACTION_MOVE) {
-                          return true;
-                      }
-
-                      float cx = getWidth() / 2f;
-                      float cy = getHeight() / 2f;
-
-                      float dx = e.getX() - cx;
-                      float dy = e.getY() - cy;
-
-                      float dist =
-                              (float) Math.sqrt(
-                                      dx * dx + dy * dy
-                              );
-
-                      float max =
-                              Math.min(
-                                      getWidth(),
-                                      getHeight()
-                              ) * 0.38f;
-
-                      sat = Math.min(
-                              1f,
-                              Math.max(
-                                      0f,
-                                      dist / max
-                              )
-                      );
-
-                      hue =
-                              (float) Math.toDegrees(
-                                      Math.atan2(
-                                              dy,
-                                              dx
-                                      )
-                              );
-
-                      if (hue < 0) {
-                          hue += 360f;
-                      }
-
-                      float[] hsv =
-                              new float[]{
-                                      hue,
-                                      sat,
-                                      val
-                              };
-
-                      int color =
-                              Color.HSVToColor(hsv);
-
-                      red = Color.red(color);
-                      green = Color.green(color);
-                      blue = Color.blue(color);
-
-                      sendRgb(
-                              red,
-                              green,
-                              blue
-                      );
-
-                      invalidate();
-
-                      return true;
-                  }
-              }
-
-              private class ModePreviewView extends View {
-
-                  private final Paint p =
-                          new Paint(Paint.ANTI_ALIAS_FLAG);
-
-                  private int mode = 1;
-
-                  private long start =
-                          System.currentTimeMillis();
-
-                  ModePreviewView(Context c) {
-                      super(c);
-
-                      handler.postDelayed(
-                              new Runnable() {
-                                  @Override
-                                  public void run() {
-                                      invalidate();
-
-                                      handler.postDelayed(
-                                              this,
-                                              40
-                                      );
-                                  }
-                              },
-                              40
-                      );
-                  }
-
-                  @Override
-                  protected void onDraw(Canvas c) {
-                      super.onDraw(c);
-
-                      c.drawColor(
-                              Color.rgb(3, 5, 7)
-                      );
-
-                      int count = 32;
-
-                      float gap =
-                              getWidth() /
-                                      (float) count;
-
-                      long elapsed =
-                              System.currentTimeMillis()
-                                      - start;
-
-                      for (int i = 0; i < count; i++) {
-
-                          float phase =
-                                  (elapsed / 240f)
-                                          + i * 0.6f;
-
-                          float wave =
-                                  (float)
-                                          ((Math.sin(
-                                                  phase
-                                          ) + 1f) * 0.5f);
-
-                          float hue =
-                                  (mode * 7f
-                                          + i * 12f
-                                          + elapsed / 30f)
-                                          % 360f;
-
-                          float brightness =
-                                  0.15f
-                                          + 0.85f * wave;
-
-                          int color =
-                                  Color.HSVToColor(
-                                          new float[]{
-                                                  hue,
-                                                  1f,
-                                                  brightness
-                                          }
-                                  );
-
-                          p.setColor(color);
-
-                          float x =
-                                  i * gap
-                                          + gap / 2f;
-
-                          float y =
-                                  getHeight() / 2f;
-
-                          c.drawCircle(
-                                  x,
-                                  y,
-                                  dp(7),
-                                  p
-                          );
-                      }
-
-                      p.setColor(Color.WHITE);
-                      p.setTextSize(dp(12));
-
-                      c.drawText(
-                              "LIVE PREVIEW • MODE " + mode,
-                              dp(10),
-                              dp(20),
-                              p
-                      );
-                  }
-              }
-
-              private Button button(
-                      String label,
-                      int height
-              ) {
-                  Button b = new Button(this);
-
-                  b.setText(label);
-                  b.setTextColor(Color.WHITE);
-                  b.setTextSize(12);
-                  b.setAllCaps(false);
-                  b.setGravity(Gravity.CENTER);
-                  b.setBackgroundColor(
-                          Color.rgb(25, 31, 36)
-                  );
-
-                  b.setPadding(
-                          dp(8),
-                          0,
-                          dp(8),
-                          0
-                  );
-
-                  b.setLayoutParams(
-                          new LinearLayout.LayoutParams(
-                                  -1,
-                                  dp(height)
-                          )
-                  );
-
-                  return b;
-              }
-
-              private TextView cardTitle(
-                      String title,
-                      String subtitle
-              ) {
-                  LinearLayout box = new LinearLayout(this);
-                  box.setOrientation(
-                          LinearLayout.VERTICAL
-                  );
-
-                  box.setPadding(
-                          dp(4),
-                          dp(16),
-                          dp(4),
-                          dp(12)
-                  );
-
-                  TextView a =
-                          text(
-                                  title,
-                                  20,
-                                  Color.WHITE
-                          );
-
-                  a.setTypeface(null, 1);
-
-                  TextView b =
-                          text(
-                                  subtitle,
-                                  11,
-                                  Color.GRAY
-                          );
-
-                  box.addView(a);
-                  box.addView(b);
-
-                  return a;
-              }
-
-              private LinearLayout row() {
-                  LinearLayout r = new LinearLayout(this);
-
-                  r.setOrientation(
-                          LinearLayout.HORIZONTAL
-                  );
-
-                  r.setGravity(
-                          Gravity.CENTER_VERTICAL
-                  );
-
-                  r.setPadding(
-                          0,
-                          dp(4),
-                          0,
-                          dp(4)
-                  );
-
-                  return r;
-              }
-
-              private LinearLayout.LayoutParams weight() {
-                  return new LinearLayout.LayoutParams(
-                          0,
-                          dp(54),
-                          1
-                  );
-              }
-
-              private TextView text(
-                      String s,
-                      float size,
-                      int color
-                  ) {
-                  TextView t = new TextView(this);
-
-                  t.setText(s);
-                  t.setTextSize(size);
-                  t.setTextColor(color);
-
-                  return t;
-              }
-
-              private int dp(int v) {
-                  return Math.round(
-                          v * getResources()
-                                  .getDisplayMetrics()
-                                  .density
-                  );
-              }
-
-              private void toast(String s) {
-                  Toast.makeText(
-                          this,
-                          s,
-                          Toast.LENGTH_SHORT
-                  ).show();
-              }
-
-              private static byte[] hex(String s) {
-                  return parseHex(s);
-              }
-
-              private static byte[] parseHex(String input) {
-                  if (input == null) {
-                      return null;
-                  }
-
-                  String clean =
-                          input
-                                  .replace("0x", "")
-                                  .replace("0X", "")
-                                  .replace(",", " ")
-                                  .trim();
-
-                  String[] parts =
-                          clean.split("\\s+");
-
-                  if (parts.length == 1
-                          && parts[0].length() > 2) {
-
-                      String x = parts[0];
-
-                      if ((x.length() & 1) != 0) {
-                          return null;
-                      }
-
-                      parts = new String[x.length() / 2];
-
-                      for (int i = 0; i < x.length(); i += 2) {
-                          parts[i / 2] =
-                                  x.substring(
-                                          i,
-                                          i + 2
-                                  );
-                      }
-                  }
-
-                  byte[] out =
-                          new byte[parts.length];
-
-                  try {
-                      for (int i = 0; i < parts.length; i++) {
-                          out[i] =
-                                  (byte)
-                                          Integer.parseInt(
-                                                  parts[i],
-                                                  16
-                                          );
-                      }
-                  } catch (Exception e) {
-                      return null;
-                  }
-
-                  return out;
-              }
-
-              private static String bytesToHex(
-                      byte[] data
-              ) {
-                  if (data == null) {
-                      return "";
-                  }
-
-                  StringBuilder s =
-                          new StringBuilder();
-
-                  for (byte b : data) {
-                      s.append(
-                              String.format(
-                                      Locale.US,
-                                      "%02X ",
-                                      b & 0xFF
-                              )
-                      );
-                  }
-
-                  return s.toString().trim();
-              }
-
-              @Override
-              protected void onDestroy() {
-                  handler.removeCallbacks(stopScanTask);
-
-                  try {
-                      if (scanner != null && scanning) {
-                          scanner.stopScan(scanCallback);
-                      }
-                  } catch (Exception ignored) {
-                  }
-
-                  try {
-                      if (gatt != null) {
-                        gatt.disconnect();
-                        gatt.close();
-                      }
-                  } catch (Exception ignored) {
-                  }
-
-                  super.onDestroy();
-              }
-          }
-          EOF
-
-      - name: Verify project files
+          cat > app/src/main/java/com/leddmx/pro/MainActivity.java <<'EOF'
+package com.leddmx.pro;
+
+import android.Manifest;
+import android.app.Activity;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothGattCallback;
+import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattDescriptor;
+import android.bluetooth.BluetoothGattService;
+import android.bluetooth.le.BluetoothLeScanner;
+import android.bluetooth.le.ScanCallback;
+import android.bluetooth.le.ScanResult;
+import android.bluetooth.le.ScanSettings;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
+import android.content.pm.PackageManager;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.RectF;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.view.Gravity;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.HorizontalScrollView;
+import android.widget.LinearLayout;
+import android.widget.PopupWindow;
+import android.widget.ScrollView;
+import android.widget.SeekBar;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Queue;
+import java.util.UUID;
+
+public class MainActivity extends Activity {
+
+    private static final UUID FFE0 =
+            UUID.fromString("0000FFE0-0000-1000-8000-00805F9B34FB");
+
+    private static final UUID FFE1 =
+            UUID.fromString("0000FFE1-0000-1000-8000-00805F9B34FB");
+
+    private static final UUID OTA_SERVICE =
+            UUID.fromString("5833FF01-9B8B-5191-6142-22A4536EF123");
+
+    private static final UUID OTA_WRITE =
+            UUID.fromString("5833FF02-9B8B-5191-6142-22A4536EF123");
+
+    private static final UUID OTA_NOTIFY =
+            UUID.fromString("5833FF03-9B8B-5191-6142-22A4536EF123");
+
+    private final Handler main = new Handler(Looper.getMainLooper());
+
+    private BluetoothAdapter adapter;
+    private BluetoothLeScanner scanner;
+    private BluetoothGatt gatt;
+    private BluetoothGattCharacteristic writeChar;
+
+    private boolean scanning = false;
+    private boolean connected = false;
+
+    private final LinkedHashMap<String, ScanResult> devices =
+            new LinkedHashMap<>();
+
+    private final Queue<byte[]> txQueue = new ArrayDeque<>();
+    private boolean txBusy = false;
+
+    private final ArrayList<String> moduleLog = new ArrayList<>();
+
+    private LinearLayout root;
+    private LinearLayout content;
+    private TextView title;
+    private TextView connectionState;
+
+    private PopupWindow drawer;
+
+    private int currentPage = 0;
+
+    private int red = 255;
+    private int green = 0;
+    private int blue = 80;
+
+    private int brightness = 100;
+    private int speed = 50;
+    private int direction = 0;
+
+    private String selectedOutput = "WHOLE";
+
+    private final ArrayList<Integer> customColors = new ArrayList<>();
+
+    private final HashMap<Integer, String> slots =
+            new HashMap<>();
+
+    private EditText rawPacket;
+
+    private StripView stripView;
+
+    @Override
+    protected void onCreate(Bundle state) {
+        super.onCreate(state);
+
+        customColors.add(Color.RED);
+        customColors.add(Color.BLUE);
+
+        adapter = ((android.bluetooth.BluetoothManager)
+                getSystemService(BLUETOOTH_SERVICE)).getAdapter();
+
+        buildShell();
+        showHome();
+
+        requestBlePermissions();
+    }
+
+    private void buildShell() {
+        root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackgroundColor(Color.rgb(5, 7, 10));
+
+        LinearLayout top = new LinearLayout(this);
+        top.setGravity(Gravity.CENTER_VERTICAL);
+        top.setPadding(dp(12), dp(8), dp(12), dp(8));
+
+        Button menu = new Button(this);
+        menu.setText("☰");
+        menu.setTextSize(24);
+        menu.setTextColor(Color.WHITE);
+        menu.setBackgroundColor(Color.TRANSPARENT);
+        menu.setOnClickListener(v -> showDrawer());
+
+        top.addView(menu, new LinearLayout.LayoutParams(
+                dp(55), dp(55)));
+
+        LinearLayout head = new LinearLayout(this);
+        head.setOrientation(LinearLayout.VERTICAL);
+
+        title = text("LEDDMX PRO", 20, Color.WHITE);
+        connectionState = text("● OFFLINE", 12, Color.LTGRAY);
+
+        head.addView(title);
+        head.addView(connectionState);
+
+        LinearLayout.LayoutParams hp =
+                new LinearLayout.LayoutParams(0, -2, 1);
+        top.addView(head, hp);
+
+        Button scan = new Button(this);
+        scan.setText("SCAN");
+        scan.setTextColor(Color.WHITE);
+        scan.setOnClickListener(v -> scanBle());
+
+        top.addView(scan, new LinearLayout.LayoutParams(
+                dp(82), dp(48)));
+
+        root.addView(top);
+
+        content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+
+        ScrollView sv = new ScrollView(this);
+        sv.setFillViewport(true);
+        sv.addView(content);
+
+        root.addView(sv, new LinearLayout.LayoutParams(
+                -1, 0, 1));
+
+        setContentView(root);
+    }
+
+    private void clear() {
+        content.removeAllViews();
+    }
+
+    private void showHome() {
+        currentPage = 0;
+        clear();
+
+        title.setText("HOME");
+
+        addHeader("LEDDMX CONTROLLER",
+                "BLE controller • live connection");
+
+        TextView state = cardText(
+                connected ? "CONNECTED" : "NOT CONNECTED",
+                connected ? Color.rgb(37, 211, 102) : Color.LTGRAY);
+
+        content.addView(state);
+
+        Button power = button("POWER ON");
+        power.setOnClickListener(v -> sendPower(true));
+        content.addView(power);
+
+        Button off = button("POWER OFF");
+        off.setOnClickListener(v -> sendPower(false));
+        content.addView(off);
+
+        content.addView(label("RGB"));
+
+        ColorWheelView wheel = new ColorWheelView(this);
+        content.addView(wheel, new LinearLayout.LayoutParams(
+                -1, dp(300)));
+
+        Button applyColor = button("APPLY COLOR");
+        applyColor.setOnClickListener(v -> sendRgb());
+        content.addView(applyColor);
+
+        content.addView(label("BRIGHTNESS"));
+        SeekBar br = seek(brightness);
+        br.setOnSeekBarChangeListener(
+                new SeekBar.OnSeekBarChangeListener() {
+                    public void onProgressChanged(
+                            SeekBar b, int p, boolean f) {
+                        brightness = Math.max(1, p);
+                    }
+                    public void onStartTrackingTouch(SeekBar b) {}
+                    public void onStopTrackingTouch(SeekBar b) {
+                        sendBrightness();
+                    }
+                });
+        content.addView(br);
+
+        content.addView(label("SPEED"));
+        SeekBar sp = seek(speed);
+        sp.setOnSeekBarChangeListener(
+                new SeekBar.OnSeekBarChangeListener() {
+                    public void onProgressChanged(
+                            SeekBar b, int p, boolean f) {
+                        speed = Math.max(1, p);
+                    }
+                    public void onStartTrackingTouch(SeekBar b) {}
+                    public void onStopTrackingTouch(SeekBar b) {
+                        sendSpeed();
+                    }
+                });
+        content.addView(sp);
+
+        Button effects = button("OPEN 210 EFFECTS");
+        effects.setOnClickListener(v -> showEffects());
+        content.addView(effects);
+
+        Button custom = button("CUSTOM ANIMATION STUDIO");
+        custom.setOnClickListener(v -> showCustom());
+        content.addView(custom);
+    }
+
+    private void showEffects() {
+        currentPage = 1;
+        clear();
+        title.setText("210 EFFECTS");
+
+        addHeader("EFFECT LIBRARY",
+                "Exact LEDDMX pattern names when available");
+
+        for (int i = 1; i <= 210; i++) {
+            final int mode = i;
+
+            Button b = button(String.format(Locale.US,
+                    "%03d  %s",
+                    i,
+                    Patterns.NAMES[i]));
+
+            b.setTextSize(14);
+
+            b.setOnClickListener(v -> {
+                sendMode(mode);
+                stripView = new StripView(this);
+                Toast.makeText(this,
+                        "MODE " + mode,
+                        Toast.LENGTH_SHORT).show();
+            });
+
+            content.addView(b);
+        }
+    }
+
+    private void showCustom() {
+        currentPage = 2;
+        clear();
+        title.setText("CUSTOM STUDIO");
+
+        addHeader("CREATE ANIMATION",
+                "Preview → choose colors → output → save");
+
+        stripView = new StripView(this);
+        content.addView(stripView,
+                new LinearLayout.LayoutParams(-1, dp(150)));
+
+        content.addView(label("TEMPLATES"));
+
+        String[] templates = {
+                "RAINBOW",
+                "WAVE",
+                "CHASE",
+                "COMET",
+                "SCANNER",
+                "MIRROR",
+                "PULSE",
+                "COLOR CYCLE",
+                "STRIPE / BELANG",
+                "FADE",
+                "POLICE",
+                "FIRE",
+                "WATER",
+                "RANDOM"
+        };
+
+        for (String s : templates) {
+            Button b = button(s);
+            b.setOnClickListener(v -> {
+                animateTemplate(s);
+                Toast.makeText(this,
+                        "Preview: " + s,
+                        Toast.LENGTH_SHORT).show();
+            });
+            content.addView(b);
+        }
+
+        content.addView(label("COLOR PALETTE"));
+
+        LinearLayout chips = new LinearLayout(this);
+        chips.setPadding(dp(8), dp(8), dp(8), dp(8));
+
+        for (Integer c : customColors) {
+            TextView chip = new TextView(this);
+            chip.setText("   ");
+            chip.setBackgroundColor(c);
+            chips.addView(chip,
+                    new LinearLayout.LayoutParams(
+                            dp(55), dp(45)));
+        }
+
+        content.addView(chips);
+
+        Button add = button("ADD CURRENT COLOR");
+        add.setOnClickListener(v -> {
+            customColors.add(Color.rgb(red, green, blue));
+            Toast.makeText(this,
+                    "Color added",
+                    Toast.LENGTH_SHORT).show();
+            showCustom();
+        });
+        content.addView(add);
+
+        content.addView(label("OUTPUT"));
+
+        String[] outs = {
+                "WHOLE",
+                "LEFT",
+                "RIGHT",
+                "BOTH"
+        };
+
+        for (String out : outs) {
+            Button b = button(out +
+                    (selectedOutput.equals(out)
+                            ? "  ✓"
+                            : ""));
+
+            b.setOnClickListener(v -> {
+                selectedOutput = out;
+                showCustom();
+            });
+
+            content.addView(b);
+        }
+
+        content.addView(label(
+                "HARDWARE ROUTING: " +
+                "NOT PROVEN BY MODULE"));
+
+        content.addView(label("DIRECTION"));
+
+        Button dir = button(
+                direction == 0 ? "FORWARD" : "REVERSE");
+
+        dir.setOnClickListener(v -> {
+            direction = direction == 0 ? 1 : 0;
+            sendDirection();
+            showCustom();
+        });
+
+        content.addView(dir);
+
+        Button save = button("SAVE TO MY MODES");
+        save.setOnClickListener(v -> saveSlot());
+        content.addView(save);
+
+        Button apply = button("APPLY CUSTOM TO MODULE");
+        apply.setOnClickListener(v -> applyCustom());
+        content.addView(apply);
+    }
+
+    private void showSlots() {
+        currentPage = 3;
+        clear();
+        title.setText("MY MODES");
+
+        addHeader("CUSTOM SLOTS",
+                "Local phone storage • slots 171–210");
+
+        for (int i = 171; i <= 210; i++) {
+            final int slot = i;
+
+            Button b = button(
+                    "SLOT " + slot +
+                    (slots.containsKey(slot)
+                            ? "  • SAVED"
+                            : "  • EMPTY"));
+
+            b.setOnClickListener(v -> {
+                if (slots.containsKey(slot)) {
+                    sendMode(slot);
+                    Toast.makeText(this,
+                            "Applied slot " + slot,
+                            Toast.LENGTH_SHORT).show();
+                } else {
+                    saveSlotNumber(slot);
+                }
+            });
+
+            content.addView(b);
+        }
+    }
+
+    private void showAnalyzer() {
+        currentPage = 4;
+        clear();
+        title.setText("MODULE / MCU ANALYZER");
+
+        addHeader("LIVE MODULE TERMINAL",
+                "Only data actually read from the connected device");
+
+        TextView source = cardText(
+                "SOURCE: MODULE / DEVICE",
+                Color.rgb(37, 211, 102));
+
+        content.addView(source);
+
+        TextView log = new TextView(this);
+        log.setTextColor(Color.LTGRAY);
+        log.setTextSize(12);
+        log.setPadding(dp(12), dp(12), dp(12), dp(12));
+
+        StringBuilder sb = new StringBuilder();
+
+        if (moduleLog.isEmpty()) {
+            sb.append("NOT EXPOSED BY DEVICE\n");
+        } else {
+            for (String s : moduleLog) {
+                sb.append(s).append("\n");
+            }
+        }
+
+        log.setText(sb.toString());
+
+        ScrollView sv = new ScrollView(this);
+        sv.addView(log);
+
+        content.addView(sv,
+                new LinearLayout.LayoutParams(
+                        -1, dp(420)));
+
+        Button copy = button("COPY MODULE LOG");
+        copy.setOnClickListener(v -> copyText(
+                sb.toString()));
+
+        content.addView(copy);
+
+        Button gatt = button("READ GATT AGAIN");
+        gatt.setOnClickListener(v -> inspectGatt());
+
+        content.addView(gatt);
+
+        Button ota = button("CHECK OTA SERVICE");
+        ota.setOnClickListener(v -> inspectGatt());
+
+        content.addView(ota);
+    }
+
+    private void showProtocol() {
+        currentPage = 5;
+        clear();
+        title.setText("PROTOCOL LAB");
+
+        addHeader("RAW BLE PACKET LAB",
+                "Edit draft locally. SEND happens only when pressed.");
+
+        rawPacket = new EditText(this);
+        rawPacket.setText(
+                "7B FF 03 01 FF FF FF FF BF");
+        rawPacket.setTextColor(Color.WHITE);
+        rawPacket.setTextSize(14);
+        rawPacket.setHintTextColor(Color.GRAY);
+        rawPacket.setHint("7B FF ... BF");
+        rawPacket.setSingleLine(false);
+        rawPacket.setPadding(
+                dp(12), dp(12), dp(12), dp(12));
+
+        content.addView(rawPacket,
+                new LinearLayout.LayoutParams(
+                        -1, dp(130)));
+
+        Button send = button("SEND RAW HEX");
+        send.setOnClickListener(v -> {
+            byte[] packet =
+                    parseHex(rawPacket.getText().toString());
+
+            if (packet == null) {
+                toast("Invalid HEX");
+                return;
+            }
+
+            enqueue(packet);
+            toast("RAW packet queued");
+        });
+
+        content.addView(send);
+
+        Button copy = button("COPY CURRENT PACKET");
+        copy.setOnClickListener(v ->
+                copyText(rawPacket.getText().toString()));
+
+        content.addView(copy);
+
+        content.addView(label(
+                "IMPORTANT: packets shown here are drafts until sent."));
+
+        content.addView(label(
+                "LEFT/RIGHT hardware routing is NOT claimed unless module data proves it."));
+    }
+
+    private void showSettings() {
+        currentPage = 6;
+        clear();
+        title.setText("SETTINGS");
+
+        addHeader("SYSTEM",
+                "LEDDMX Pro configuration");
+
+        content.addView(label(
+                "BLE SERVICE: 0000FFE0"));
+
+        content.addView(label(
+                "BLE WRITE: 0000FFE1"));
+
+        content.addView(label(
+                "POWER BASELINE: 01 / 00"));
+
+        content.addView(label(
+                "CUSTOM PATTERN: 0x13"));
+
+        content.addView(label(
+                "CUSTOM COLOR: 0x0E"));
+
+        content.addView(label(
+                "OTA SERVICE: 5833FF01"));
+
+        content.addView(label(
+                "OTA UPDATE: DETECTION ONLY"));
+
+        content.addView(label(
+                "Firmware flashing is disabled until a compatible image/bootloader is proven."));
+
+        Button analyzer = button("MODULE / MCU ANALYZER");
+        analyzer.setOnClickListener(v -> showAnalyzer());
+        content.addView(analyzer);
+    }
+
+    private void showDrawer() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(18), dp(25), dp(18), dp(18));
+        box.setBackgroundColor(Color.rgb(12, 16, 21));
+
+        TextView h = text("LEDDMX PRO",
+                22, Color.WHITE);
+
+        box.addView(h);
+
+        addDrawerItem(box, "HOME", this::showHome);
+        addDrawerItem(box, "210 EFFECTS", this::showEffects);
+        addDrawerItem(box, "CUSTOM STUDIO", this::showCustom);
+        addDrawerItem(box, "MY MODES 171–210", this::showSlots);
+        addDrawerItem(box, "MODULE / MCU ANALYZER", this::showAnalyzer);
+        addDrawerItem(box, "PROTOCOL LAB", this::showProtocol);
+        addDrawerItem(box, "SETTINGS", this::showSettings);
+
+        drawer = new PopupWindow(
+                box,
+                dp(300),
+                -1,
+                true);
+
+        drawer.setBackgroundDrawable(
+                new android.graphics.drawable.ColorDrawable(
+                        Color.rgb(12, 16, 21)));
+
+        drawer.setElevation(dp(12));
+
+        drawer.showAtLocation(
+                root,
+                Gravity.LEFT | Gravity.TOP,
+                0,
+                0);
+    }
+
+    private void addDrawerItem(
+            LinearLayout box,
+            String name,
+            final Runnable action) {
+
+        Button b = button(name);
+
+        b.setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);
+        b.setOnClickListener(v -> {
+            if (drawer != null) drawer.dismiss();
+            action.run();
+        });
+
+        box.addView(b);
+    }
+
+    private void requestBlePermissions() {
+        ArrayList<String> list =
+                new ArrayList<>();
+
+        if (Build.VERSION.SDK_INT >= 31) {
+            if (checkSelfPermission(
+                    Manifest.permission.BLUETOOTH_SCAN)
+                    != PackageManager.PERMISSION_GRANTED) {
+                list.add(
+                        Manifest.permission.BLUETOOTH_SCAN);
+            }
+
+            if (checkSelfPermission(
+                    Manifest.permission.BLUETOOTH_CONNECT)
+                    != PackageManager.PERMISSION_GRANTED) {
+                list.add(
+                        Manifest.permission.BLUETOOTH_CONNECT);
+            }
+        } else if (Build.VERSION.SDK_INT >= 23) {
+            if (checkSelfPermission(
+                    Manifest.permission.ACCESS_FINE_LOCATION)
+                    != PackageManager.PERMISSION_GRANTED) {
+                list.add(
+                        Manifest.permission.ACCESS_FINE_LOCATION);
+            }
+        }
+
+        if (!list.isEmpty()) {
+            requestPermissions(
+                    list.toArray(
+                            new String[0]),
+                    1001);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(
+            int request,
+            String[] permissions,
+            int[] results) {
+
+        super.onRequestPermissionsResult(
+                request, permissions, results);
+
+        if (request == 1001) {
+            boolean ok = true;
+
+            for (int r : results) {
+                if (r != PackageManager.PERMISSION_GRANTED) {
+                    ok = false;
+                    break;
+                }
+            }
+
+            if (ok) {
+                toast("BLE permission ready");
+                main.postDelayed(
+                        this::scanBle,
+                        400);
+            } else {
+                toast("BLE permission required");
+            }
+        }
+    }
+
+    private void scanBle() {
+        if (adapter == null) {
+            toast("Bluetooth unavailable");
+            return;
+        }
+
+        if (!adapter.isEnabled()) {
+            toast("Turn Bluetooth ON first");
+            return;
+        }
+
+        if (Build.VERSION.SDK_INT >= 31 &&
+                checkSelfPermission(
+                        Manifest.permission.BLUETOOTH_SCAN)
+                        != PackageManager.PERMISSION_GRANTED) {
+            requestBlePermissions();
+            return;
+        }
+
+        if (Build.VERSION.SDK_INT < 31 &&
+                checkSelfPermission(
+                        Manifest.permission.ACCESS_FINE_LOCATION)
+                        != PackageManager.PERMISSION_GRANTED) {
+            requestBlePermissions();
+            return;
+        }
+
+        if (scanner == null) {
+            scanner = adapter.getBluetoothLeScanner();
+        }
+
+        if (scanner == null) {
+            toast("BLE scanner unavailable");
+            return;
+        }
+
+        if (scanning) {
+            stopScan();
+            return;
+        }
+
+        devices.clear();
+
+        showScanPage();
+
+        scanning = true;
+
+        ScanSettings settings =
+                new ScanSettings.Builder()
+                        .setScanMode(
+                                ScanSettings.SCAN_MODE_LOW_LATENCY)
+                        .setReportDelay(0)
+                        .build();
+
+        try {
+            scanner.startScan(
+                    null,
+                    settings,
+                    scanCallback);
+
+            toast("Scanning nearby BLE devices...");
+        } catch (Exception e) {
+            scanning = false;
+            toast("Scan error: " + e.getMessage());
+        }
+
+        main.postDelayed(() -> {
+            if (scanning) stopScan();
+        }, 12000);
+    }
+
+    private final ScanCallback scanCallback =
+            new ScanCallback() {
+
+        @Override
+        public void onScanResult(
+                int type,
+                ScanResult result) {
+
+            BluetoothDevice d =
+                    result.getDevice();
+
+            String key = d.getAddress();
+
+            devices.put(key, result);
+
+            main.post(() -> refreshDeviceList());
+        }
+
+        @Override
+        public void onBatchScanResults(
+                java.util.List<ScanResult> results) {
+
+            for (ScanResult r : results) {
+                BluetoothDevice d =
+                        r.getDevice();
+
+                devices.put(
+                        d.getAddress(),
+                        r);
+            }
+
+            main.post(() -> refreshDeviceList());
+        }
+
+        @Override
+        public void onScanFailed(int errorCode) {
+            scanning = false;
+
+            main.post(() ->
+                    toast("BLE scan failed: " +
+                            errorCode));
+        }
+    };
+
+    private void stopScan() {
+        if (!scanning) return;
+
+        try {
+            if (scanner != null)
+                scanner.stopScan(scanCallback);
+        } catch (Exception ignored) {}
+
+        scanning = false;
+
+        refreshDeviceList();
+    }
+
+    private void showScanPage() {
+        currentPage = 7;
+        clear();
+
+        title.setText("BLE DEVICES");
+
+        addHeader("NEARBY DEVICES",
+                "Live BLE scan • tap a device to connect");
+
+        Button refresh = button(
+                scanning ? "STOP SCAN" : "SCAN AGAIN");
+
+        refresh.setOnClickListener(v -> {
+            if (scanning) stopScan();
+            else scanBle();
+        });
+
+        content.addView(refresh);
+
+        refreshDeviceList();
+    }
+
+    private void refreshDeviceList() {
+        if (currentPage != 7) return;
+
+        int count = content.getChildCount();
+
+        while (count > 2) {
+            content.removeViewAt(2);
+            count--;
+        }
+
+        for (ScanResult r : devices.values()) {
+            BluetoothDevice d =
+                    r.getDevice();
+
+            String name = "UNKNOWN BLE";
+
+            try {
+                if (d.getName() != null &&
+                        !d.getName().trim().isEmpty()) {
+                    name = d.getName();
+                }
+            } catch (SecurityException ignored) {}
+
+            String address = d.getAddress();
+
+            int rssi = r.getRssi();
+
+            Button b = button(
+                    name +
+                    "\n" +
+                    address +
+                    "   RSSI " +
+                    rssi +
+                    " dBm");
+
+            b.setGravity(
+                    Gravity.LEFT |
+                    Gravity.CENTER_VERTICAL);
+
+            final BluetoothDevice device = d;
+
+            b.setOnClickListener(v ->
+                    connectDevice(device));
+
+            content.addView(b);
+        }
+
+        if (devices.isEmpty()) {
+            content.addView(label(
+                    scanning
+                            ? "SEARCHING FOR BLE DEVICES..."
+                            : "NO DEVICE FOUND"));
+        }
+    }
+
+    private void connectDevice(
+            BluetoothDevice device) {
+
+        stopScan();
+
+        try {
+            if (gatt != null) {
+                gatt.disconnect();
+                gatt.close();
+                gatt = null;
+            }
+
+            connected = false;
+            writeChar = null;
+
+            connectionState.setText(
+                    "● CONNECTING...");
+
+            gatt = device.connectGatt(
+                    this,
+                    false,
+                    gattCallback);
+
+        } catch (Exception e) {
+            toast("Connect error: " +
+                    e.getMessage());
+        }
+    }
+
+    private final BluetoothGattCallback
+            gattCallback =
+            new BluetoothGattCallback() {
+
+        @Override
+        public void onConnectionStateChange(
+                BluetoothGatt g,
+                int status,
+                int newState) {
+
+            main.post(() -> {
+
+                if (newState ==
+                        BluetoothGatt.STATE_CONNECTED) {
+
+                    connected = true;
+
+                    connectionState.setText(
+                            "● CONNECTED");
+
+                    addModuleLog(
+                            "MODULE: GATT CONNECTED");
+
+                    try {
+                        g.discoverServices();
+                    } catch (Exception e) {
+                        addModuleLog(
+                                "MODULE: discover error " +
+                                e.getMessage());
+                    }
+
+                } else if (
+                        newState ==
+                        BluetoothGatt.STATE_DISCONNECTED) {
+
+                    connected = false;
+                    writeChar = null;
+
+                    connectionState.setText(
+                            "● DISCONNECTED");
+
+                    addModuleLog(
+                            "MODULE: GATT DISCONNECTED");
+                }
+            });
+        }
+
+        @Override
+        public void onServicesDiscovered(
+                BluetoothGatt g,
+                int status) {
+
+            main.post(() ->
+                    inspectGatt());
+        }
+
+        @Override
+        public void onCharacteristicChanged(
+                BluetoothGatt g,
+                BluetoothGattCharacteristic c,
+                byte[] value) {
+
+            addModuleLog(
+                    "MODULE RX  " +
+                    hex(value));
+        }
+
+        @Override
+        public void onCharacteristicRead(
+                BluetoothGatt g,
+                BluetoothGattCharacteristic c,
+                byte[] value,
+                int status) {
+
+            addModuleLog(
+                    "MODULE READ " +
+                    c.getUuid().toString() +
+                    " = " +
+                    hex(value));
+        }
+
+        @Override
+        public void onCharacteristicWrite(
+                BluetoothGatt g,
+                BluetoothGattCharacteristic c,
+                int status) {
+
+            txBusy = false;
+
+            main.postDelayed(
+                    () -> sendNext(),
+                    70);
+        }
+    };
+
+    private void inspectGatt() {
+        if (gatt == null) {
+            toast("Not connected");
+            return;
+        }
+
+        addModuleLog(
+                "MODULE: ===== GATT INSPECTION =====");
+
+        boolean foundWrite = false;
+        boolean foundOta = false;
+
+        for (BluetoothGattService s :
+                gatt.getServices()) {
+
+            String su = s.getUuid().toString();
+
+            addModuleLog(
+                    "MODULE SERVICE: " + su);
+
+            if (OTA_SERVICE.equals(s.getUuid())) {
+                foundOta = true;
+            }
+
+            for (BluetoothGattCharacteristic c :
+                    s.getCharacteristics()) {
+
+                int p = c.getProperties();
+
+                addModuleLog(
+                        "MODULE CHAR: " +
+                        c.getUuid() +
+                        " PROP=0x" +
+                        Integer.toHexString(p));
+
+                if (FFE1.equals(c.getUuid())) {
+                    writeChar = c;
+                    foundWrite = true;
+
+                    enableNotify(c);
+                }
+
+                if (OTA_WRITE.equals(c.getUuid())) {
+                    addModuleLog(
+                            "MODULE OTA WRITE DETECTED");
+                }
+
+                if (OTA_NOTIFY.equals(c.getUuid())) {
+                    addModuleLog(
+                            "MODULE OTA NOTIFY DETECTED");
+                }
+
+                if ((p &
+                        BluetoothGattCharacteristic
+                                .PROPERTY_READ) != 0) {
+
+                    try {
+                        gatt.readCharacteristic(c);
+                    } catch (Exception ignored) {}
+                }
+            }
+        }
+
+        addModuleLog(
+                "MODULE FFE1 WRITE = " +
+                (foundWrite ? "EXPOSED" :
+                        "NOT EXPOSED BY DEVICE"));
+
+        addModuleLog(
+                "MODULE OTA SERVICE = " +
+                (foundOta ? "DETECTED" :
+                        "NOT EXPOSED BY DEVICE"));
+
+        addModuleLog(
+                "MODULE ROUTING LEFT/RIGHT = " +
+                "NOT EXPOSED BY DEVICE");
+    }
+
+    private void enableNotify(
+            BluetoothGattCharacteristic c) {
+
+        if (gatt == null) return;
+
+        try {
+            gatt.setCharacteristicNotification(
+                    c,
+                    true);
+
+            BluetoothGattDescriptor d =
+                    c.getDescriptor(UUID.fromString(
+                            "00002902-0000-1000-8000-00805F9B34FB"));
+
+            if (d != null) {
+                d.setValue(
+                        BluetoothGattDescriptor
+                                .ENABLE_NOTIFICATION_VALUE);
+
+                gatt.writeDescriptor(d);
+            }
+
+            addModuleLog(
+                    "MODULE: FFE1 notification enabled");
+
+        } catch (Exception e) {
+            addModuleLog(
+                    "MODULE: notify error " +
+                    e.getMessage());
+        }
+    }
+
+    private void sendPower(boolean on) {
+        /*
+         * User-proven LEDDMX-00 baseline:
+         * ON  = 7B FF 04 01 FF FF FF FF BF
+         * OFF = 7B FF 04 00 FF FF FF FF BF
+         */
+        enqueue(new byte[] {
+                0x7B, (byte)0xFF, 0x04,
+                (byte)(on ? 0x01 : 0x00),
+                (byte)0xFF,
+                (byte)0xFF,
+                (byte)0xFF,
+                (byte)0xFF,
+                (byte)0xBF
+        });
+    }
+
+    private void sendMode(int mode) {
+        if (mode < 1) mode = 1;
+        if (mode > 210) mode = 210;
+
+        enqueue(new byte[] {
+                0x7B,
+                (byte)0xFF,
+                0x03,
+                (byte)mode,
+                (byte)0xFF,
+                (byte)0xFF,
+                (byte)0xFF,
+                (byte)0xFF,
+                (byte)0xBF
+        });
+    }
+
+    private void sendRgb() {
+        enqueue(new byte[] {
+                0x7B,
+                (byte)0xFF,
+                0x07,
+                (byte)red,
+                (byte)green,
+                (byte)blue,
+                0x00,
+                (byte)0xFF,
+                (byte)0xBF
+        });
+    }
+
+    private void sendBrightness() {
+        int v = brightness * 32 / 100;
+
+        enqueue(new byte[] {
+                0x7B,
+                (byte)0xFF,
+                0x01,
+                (byte)v,
+                (byte)brightness,
+                0x00,
+                (byte)0xFF,
+                (byte)0xFF,
+                (byte)0xBF
+        });
+    }
+
+    private void sendSpeed() {
+        enqueue(new byte[] {
+                0x7B,
+                (byte)0xFF,
+                0x02,
+                (byte)speed,
+                0x00,
+                (byte)0xFF,
+                (byte)0xFF,
+                (byte)0xFF,
+                (byte)0xBF
+        });
+    }
+
+    private void sendDirection() {
+        enqueue(new byte[] {
+                0x7B,
+                (byte)0xFF,
+                0x0D,
+                (byte)direction,
+                (byte)0xFF,
+                (byte)0xFF,
+                (byte)0xFF,
+                (byte)0xFF,
+                (byte)0xBF
+        });
+    }
+
+    private void applyCustom() {
+        /*
+         * Proven custom protocol:
+         * 7B position 0E FD R G B total BF
+         *
+         * Then:
+         * 7B FF 13 modeOrdinal FF FF FF FF BF
+         *
+         * Custom enum:
+         * 0 GD
+         * 1 FD
+         * 2 FW
+         * 3 FS
+         * 4 AC
+         * 5 PU
+         * 6 FL
+         * 7 HO
+         */
+
+        int total = customColors.size();
+
+        if (total == 0) {
+            toast("Add at least one color");
+            return;
+        }
+
+        for (int i = 0; i < total; i++) {
+            int c = customColors.get(i);
+
+            int rr = Color.red(c);
+            int gg = Color.green(c);
+            int bb = Color.blue(c);
+
+            enqueue(new byte[] {
+                    0x7B,
+                    (byte)(i + 1),
+                    0x0E,
+                    (byte)0xFD,
+                    (byte)rr,
+                    (byte)gg,
+                    (byte)bb,
+                    (byte)total,
+                    (byte)0xBF
+            });
+        }
+
+        /*
+         * FW = flowing/wave style.
+         * Direction is sent separately.
+         */
+        enqueue(new byte[] {
+                0x7B,
+                (byte)0xFF,
+                0x13,
+                0x02,
+                (byte)0xFF,
+                (byte)0xFF,
+                (byte)0xFF,
+                (byte)0xFF,
+                (byte)0xBF
+        });
+
+        sendDirection();
+
+        toast("Custom pattern sent");
+    }
+
+    private void saveSlot() {
+        saveSlotNumber(171);
+    }
+
+    private void saveSlotNumber(int slot) {
+        slots.put(slot,
+                "CUSTOM " +
+                customColors.size() +
+                " COLORS");
+
+        toast("Saved locally to slot " + slot);
+
+        if (currentPage == 3)
+            showSlots();
+    }
+
+    private void animateTemplate(
+            String template) {
+
+        if (stripView != null) {
+            stripView.setTemplate(template);
+        }
+    }
+
+    private void enqueue(byte[] packet) {
+        if (!connected ||
+                gatt == null ||
+                writeChar == null) {
+            toast("Connect LEDDMX first");
+            return;
+        }
+
+        txQueue.add(packet);
+        sendNext();
+    }
+
+    private void sendNext() {
+        if (txBusy) return;
+        if (txQueue.isEmpty()) return;
+
+        if (gatt == null ||
+                writeChar == null) {
+            txQueue.clear();
+            return;
+        }
+
+        byte[] p = txQueue.poll();
+
+        try {
+            writeChar.setValue(p);
+
+            if ((writeChar.getProperties() &
+                    BluetoothGattCharacteristic
+                            .PROPERTY_WRITE_NO_RESPONSE) != 0) {
+
+                writeChar.setWriteType(
+                        BluetoothGattCharacteristic
+                                .WRITE_TYPE_NO_RESPONSE);
+            } else {
+                writeChar.setWriteType(
+                        BluetoothGattCharacteristic
+                                .WRITE_TYPE_DEFAULT);
+            }
+
+            txBusy = true;
+
+            addModuleLog(
+                    "MODULE TX " + hex(p));
+
+            boolean ok =
+                    gatt.writeCharacteristic(
+                            writeChar);
+
+            if (!ok) {
+                txBusy = false;
+                main.postDelayed(
+                        () -> sendNext(),
+                        100);
+            }
+
+        } catch (Exception e) {
+            txBusy = false;
+
+            addModuleLog(
+                    "MODULE TX ERROR " +
+                    e.getMessage());
+
+            main.postDelayed(
+                    () -> sendNext(),
+                    100);
+        }
+    }
+
+    private void addModuleLog(
+            String s) {
+
+        synchronized (moduleLog) {
+            moduleLog.add(
+                    String.format(
+                            Locale.US,
+                            "[%tT] %s",
+                            new java.util.Date(),
+                            s));
+
+            while (moduleLog.size() > 500) {
+                moduleLog.remove(0);
+            }
+        }
+
+        main.post(() -> {
+            if (currentPage == 4)
+                showAnalyzer();
+        });
+    }
+
+    private byte[] parseHex(String input) {
+        try {
+            String s = input
+                    .replace("0x", "")
+                    .replace("0X", "")
+                    .replace(",", " ")
+                    .trim();
+
+            if (s.isEmpty()) return null;
+
+            String[] parts =
+                    s.split("\\s+");
+
+            if (parts.length == 1 &&
+                    parts[0].length() % 2 == 0) {
+
+                String one = parts[0];
+
+                parts = new String[
+                        one.length() / 2];
+
+                for (int i = 0;
+                     i < one.length();
+                     i += 2) {
+
+                    parts[i / 2] =
+                            one.substring(i, i + 2);
+                }
+            }
+
+            byte[] out =
+                    new byte[parts.length];
+
+            for (int i = 0;
+                 i < parts.length;
+                 i++) {
+
+                out[i] = (byte)
+                        Integer.parseInt(
+                                parts[i],
+                                16);
+            }
+
+            return out;
+
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private String hex(byte[] data) {
+        if (data == null) return "";
+
+        StringBuilder s =
+                new StringBuilder();
+
+        for (byte b : data) {
+            s.append(String.format(
+                    Locale.US,
+                    "%02X ",
+                    b & 0xFF));
+        }
+
+        return s.toString().trim();
+    }
+
+    private void copyText(String s) {
+        ClipboardManager cm =
+                (ClipboardManager)
+                        getSystemService(
+                                CLIPBOARD_SERVICE);
+
+        cm.setPrimaryClip(
+                ClipData.newPlainText(
+                        "LEDDMX",
+                        s));
+
+        toast("Copied");
+    }
+
+    private Button button(String s) {
+        Button b = new Button(this);
+
+        b.setText(s);
+        b.setTextColor(Color.WHITE);
+        b.setTextSize(14);
+        b.setAllCaps(false);
+        b.setPadding(
+                dp(12),
+                dp(4),
+                dp(12),
+                dp(4));
+
+        LinearLayout.LayoutParams p =
+                new LinearLayout.LayoutParams(
+                        -1,
+                        dp(58));
+
+        p.setMargins(
+                dp(8),
+                dp(5),
+                dp(8),
+                dp(5));
+
+        b.setLayoutParams(p);
+
+        return b;
+    }
+
+    private TextView text(
+            String s,
+            float size,
+            int color) {
+
+        TextView t = new TextView(this);
+
+        t.setText(s);
+        t.setTextSize(size);
+        t.setTextColor(color);
+        t.setPadding(
+                dp(4),
+                dp(3),
+                dp(4),
+                dp(3));
+
+        return t;
+    }
+
+    private TextView label(String s) {
+        TextView t =
+                text(s, 13, Color.LTGRAY);
+
+        t.setPadding(
+                dp(15),
+                dp(12),
+                dp(15),
+                dp(5));
+
+        return t;
+    }
+
+    private TextView cardText(
+            String s,
+            int color) {
+
+        TextView t =
+                text(s, 17, color);
+
+        t.setGravity(Gravity.CENTER);
+        t.setPadding(
+                dp(10),
+                dp(18),
+                dp(10),
+                dp(18));
+
+        return t;
+    }
+
+    private void addHeader(
+            String a,
+            String b) {
+
+        TextView h =
+                text(a, 24, Color.WHITE);
+
+        h.setPadding(
+                dp(15),
+                dp(15),
+                dp(15),
+                dp(3));
+
+        content.addView(h);
+
+        TextView sub =
+                text(b, 13, Color.GRAY);
+
+        sub.setPadding(
+                dp(15),
+                0,
+                dp(15),
+                dp(12));
+
+        content.addView(sub);
+    }
+
+    private SeekBar seek(int value) {
+        SeekBar s = new SeekBar(this);
+        s.setMax(100);
+        s.setProgress(value);
+        s.setPadding(
+                dp(12),
+                dp(4),
+                dp(12),
+                dp(4));
+        return s;
+    }
+
+    private void toast(String s) {
+        Toast.makeText(
+                this,
+                s,
+                Toast.LENGTH_SHORT).show();
+    }
+
+    private int dp(int v) {
+        return (int)(
+                v *
+                getResources()
+                        .getDisplayMetrics()
+                        .density +
+                0.5f);
+    }
+
+    @Override
+    protected void onDestroy() {
+        stopScan();
+
+        try {
+            if (gatt != null) {
+                gatt.disconnect();
+                gatt.close();
+            }
+        } catch (Exception ignored) {}
+
+        super.onDestroy();
+    }
+
+    /*
+     * Circular HSV color wheel.
+     * Small white selector follows the touch point.
+     */
+    private class ColorWheelView
+            extends View {
+
+        private final Paint paint =
+                new Paint(Paint.ANTI_ALIAS_FLAG);
+
+        private float cx;
+        private float cy;
+        private float radius;
+
+        ColorWheelView(Context c) {
+            super(c);
+            setLayerType(
+                    View.LAYER_TYPE_SOFTWARE,
+                    null);
+        }
+
+        @Override
+        protected void onDraw(Canvas c) {
+            super.onDraw(c);
+
+            cx = getWidth() / 2f;
+            cy = getHeight() / 2f;
+            radius =
+                    Math.min(
+                            getWidth(),
+                            getHeight()) *
+                    0.38f;
+
+            int steps = 360;
+
+            for (int i = 0;
+                 i < steps;
+                 i++) {
+
+                float a1 =
+                        (float)
+                        Math.toRadians(i);
+
+                float a2 =
+                        (float)
+                        Math.toRadians(i + 2);
+
+                float x1 =
+                        cx +
+                        radius *
+                        (float)Math.cos(a1);
+
+                float y1 =
+                        cy +
+                        radius *
+                        (float)Math.sin(a1);
+
+                float x2 =
+                        cx +
+                        radius *
+                        (float)Math.cos(a2);
+
+                float y2 =
+                        cy +
+                        radius *
+                        (float)Math.sin(a2);
+
+                paint.setStyle(
+                        Paint.Style.STROKE);
+
+                paint.setStrokeWidth(
+                        dp(18));
+
+                paint.setColor(
+                        Color.HSVToColor(
+                                new float[] {
+                                        i,
+                                        1f,
+                                        1f
+                                }));
+
+                c.drawLine(
+                        x1,
+                        y1,
+                        x2,
+                        y2,
+                        paint);
+            }
+
+            paint.setStyle(
+                    Paint.Style.FILL);
+
+            paint.setColor(Color.DKGRAY);
+
+            c.drawCircle(
+                    cx,
+                    cy,
+                    radius * .45f,
+                    paint);
+
+            paint.setColor(
+                    Color.rgb(
+                            red,
+                            green,
+                            blue));
+
+            c.drawCircle(
+                    cx,
+                    cy,
+                    radius * .40f,
+                    paint);
+
+            paint.setStyle(
+                    Paint.Style.STROKE);
+
+            paint.setStrokeWidth(dp(4));
+            paint.setColor(Color.WHITE);
+
+            float[] hsv = new float[3];
+
+            Color.RGBToHSV(
+                    red,
+                    green,
+                    blue,
+                    hsv);
+
+            double a =
+                    Math.toRadians(
+                            hsv[0]);
+
+            float sx =
+                    cx +
+                    radius *
+                    (float)Math.cos(a);
+
+            float sy =
+                    cy +
+                    radius *
+                    (float)Math.sin(a);
+
+            c.drawCircle(
+                    sx,
+                    sy,
+                    dp(9),
+                    paint);
+        }
+
+        @Override
+        public boolean onTouchEvent(
+                MotionEvent e) {
+
+            if (e.getAction() !=
+                    MotionEvent.ACTION_DOWN &&
+                e.getAction() !=
+                    MotionEvent.ACTION_MOVE &&
+                e.getAction() !=
+                    MotionEvent.ACTION_UP) {
+                return true;
+            }
+
+            float dx =
+                    e.getX() - cx;
+
+            float dy =
+                    e.getY() - cy;
+
+            float distance =
+                    (float)Math.sqrt(
+                            dx * dx +
+                            dy * dy);
+
+            if (distance <=
+                    radius * 1.25f) {
+
+                float hue =
+                        (float)
+                        Math.toDegrees(
+                                Math.atan2(
+                                        dy,
+                                        dx));
+
+                if (hue < 0)
+                    hue += 360;
+
+                int color =
+                        Color.HSVToColor(
+                                new float[] {
+                                        hue,
+                                        1f,
+                                        1f
+                                });
+
+                red = Color.red(color);
+                green = Color.green(color);
+                blue = Color.blue(color);
+
+                invalidate();
+            }
+
+            return true;
+        }
+    }
+
+    /*
+     * Live LED strip preview.
+     * This is visual only and does not pretend to be
+     * hardware routing data.
+     */
+    private class StripView
+            extends View {
+
+        private final Paint p =
+                new Paint(Paint.ANTI_ALIAS_FLAG);
+
+        private String template =
+                "RAINBOW";
+
+        private long started =
+                System.currentTimeMillis();
+
+        StripView(Context c) {
+            super(c);
+
+            main.post(new Runnable() {
+                @Override
+                public void run() {
+                    invalidate();
+                    main.postDelayed(
+                            this,
+                            45);
+                }
+            });
+        }
+
+        void setTemplate(String s) {
+            template = s;
+            started =
+                    System.currentTimeMillis();
+            invalidate();
+        }
+
+        @Override
+        protected void onDraw(Canvas c) {
+            super.onDraw(c);
+
+            int count = 42;
+
+            float w =
+                    getWidth() /
+                    (float)count;
+
+            long elapsed =
+                    System.currentTimeMillis()
+                    - started;
+
+            float phase =
+                    (elapsed / 100f);
+
+            for (int i = 0;
+                 i < count;
+                 i++) {
+
+                float x =
+                        i * w +
+                        w * .5f;
+
+                int color;
+
+                if (template.equals(
+                        "RAINBOW")) {
+
+                    float hue =
+                            (i * 360f /
+                            count +
+                            phase * 2) %
+                            360;
+
+                    color =
+                            Color.HSVToColor(
+                                    new float[] {
+                                            hue,
+                                            1,
+                                            .95f
+                                    });
+
+                } else if (
+                        template.equals(
+                                "POLICE")) {
+
+                    int side =
+                            (int)
+                            ((i +
+                            (int)phase / 4)
+                            % 2);
+
+                    color =
+                            side == 0
+                                    ? Color.RED
+                                    : Color.BLUE;
+
+                } else if (
+                        template.equals(
+                                "STRIPE / BELANG")) {
+
+                    int q =
+                            (int)
+                            ((i +
+                            (int)phase / 3)
+                            % 6);
+
+                    color =
+                            q < 3
+                                    ? Color.rgb(
+                                            red,
+                                            green,
+                                            blue)
+                                    : Color.BLACK;
+
+                } else if (
+                        template.equals(
+                                "SCANNER")) {
+
+                    int pos =
+                            (int)
+                            (phase % count);
+
+                    int d =
+                            Math.abs(i - pos);
+
+                    int v =
+                            Math.max(
+                                    0,
+                                    255 -
+                                    d * 70);
+
+                    color =
+                            Color.rgb(
+                                    v,
+                                    0,
+                                    v);
+
+                } else if (
+                        template.equals(
+                                "PULSE")) {
+
+                    double pulse =
+                            (Math.sin(
+                                    phase / 4.0)
+                                    + 1) /
+                                    2.0;
+
+                    int v =
+                            (int)
+                            (40 +
+                            pulse * 215);
+
+                    color =
+                            Color.rgb(
+                                    red * v / 255,
+                                    green * v / 255,
+                                    blue * v / 255);
+
+                } else {
+
+                    float hue =
+                            (i * 13 +
+                            phase * 3) % 360;
+
+                    color =
+                            Color.HSVToColor(
+                                    new float[] {
+                                            hue,
+                                            .9f,
+                                            .9f
+                                    });
+                }
+
+                p.setStyle(
+                        Paint.Style.FILL);
+
+                p.setColor(color);
+
+                RectF r =
+                        new RectF(
+                                i * w + 2,
+                                getHeight() / 2f -
+                                        dp(13),
+                                (i + 1) * w - 2,
+                                getHeight() / 2f +
+                                        dp(13));
+
+                c.drawRoundRect(
+                        r,
+                        dp(7),
+                        dp(7),
+                        p);
+            }
+
+            p.setColor(Color.WHITE);
+            p.setTextSize(dp(12));
+            p.setTextAlign(
+                    Paint.Align.CENTER);
+
+            c.drawText(
+                    template,
+                    getWidth() / 2f,
+                    dp(25),
+                    p);
+        }
+    }
+}
+EOF
+
+      - name: Verify generated project
         shell: bash
         run: |
-          set -eux
+          set -e
           cd LEDDMX-Android
 
           test -f settings.gradle
@@ -2431,30 +2305,49 @@ jobs:
           test -f app/src/main/java/com/leddmx/pro/MainActivity.java
           test -f app/src/main/java/com/leddmx/pro/Patterns.java
 
-          echo "PROJECT FILES OK"
+          echo "===== JAVA ====="
+          java -version
 
-      - name: Build APK with Gradle 7.6.1
+          echo "===== GRADLE ====="
+          gradle --version
+
+          echo "===== PROJECT ====="
+          find . -maxdepth 5 -type f | sort | head -200
+
+      - name: Build APK
         shell: bash
         run: |
-          set -eux
+          set -e
           cd LEDDMX-Android
 
-          gradle --version
-          gradle --no-daemon --stacktrace clean assembleDebug
+          gradle \
+            --no-daemon \
+            --stacktrace \
+            --warning-mode all \
+            clean \
+            assembleDebug
 
       - name: Verify APK
         shell: bash
         run: |
-          set -eux
-          APK="LEDDMX-Android/app/build/outputs/apk/debug/app-debug.apk"
-          test -f "$APK"
-          test -s "$APK"
+          set -e
+          cd LEDDMX-Android
+
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+
+          if [ ! -f "$APK" ]; then
+            echo "ERROR: APK NOT FOUND"
+            find app/build -type f -maxdepth 8 -print || true
+            exit 1
+          fi
+
+          echo "APK READY:"
           ls -lh "$APK"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: LEDDMX-AI-Pro-FINAL
+          name: LEDDMX-Pro-FINAL
           path: LEDDMX-Android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 14
