@@ -41,7 +41,7 @@ jobs:
                      "platforms;android-${ANDROID_COMPILE_SDK}" \
                      "build-tools;${ANDROID_BUILD_TOOLS}"
 
-      - name: Create project structure & wrapper
+      - name: Create project structure
         shell: bash
         run: |
           set -e
@@ -112,8 +112,8 @@ jobs:
                   applicationId 'com.leddmx.pro'
                   minSdk 21
                   targetSdk 33
-                  versionCode 202
-                  versionName '2.0.2-AI-FINAL'
+                  versionCode 203
+                  versionName '2.0.3-AI-FINAL'
               }
 
               buildTypes {
@@ -1294,13 +1294,6 @@ jobs:
           }
           EOF
 
-      - name: Generate Gradle Wrapper
-        shell: bash
-        run: |
-          set -e
-          cd LEDDMX-Android
-          gradle wrapper --gradle-version 7.6.1
-
       - name: Verify project files
         shell: bash
         run: |
@@ -1312,16 +1305,15 @@ jobs:
           test -f app/src/main/AndroidManifest.xml
           test -f app/src/main/java/com/leddmx/pro/MainActivity.java
           test -f app/src/main/java/com/leddmx/pro/Patterns.java
-          test -f gradlew
-          echo "PROJECT FILES & WRAPPER OK"
+          echo "PROJECT FILES OK"
 
-      - name: Build APK with Gradle Wrapper
+      - name: Build APK with Global Gradle
         shell: bash
         run: |
           set -eux
           cd LEDDMX-Android
-          chmod +x gradlew
-          ./gradlew --no-daemon --stacktrace clean assembleDebug
+          gradle --version
+          gradle --no-daemon --stacktrace clean assembleDebug
 
       - name: Verify APK
         shell: bash
