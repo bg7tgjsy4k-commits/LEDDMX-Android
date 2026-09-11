@@ -41,7 +41,7 @@ jobs:
                      "platforms;android-${ANDROID_COMPILE_SDK}" \
                      "build-tools;${ANDROID_BUILD_TOOLS}"
 
-      - name: Create project structure
+      - name: Create project structure & Gradle Wrapper 8.5
         shell: bash
         run: |
           set -e
@@ -81,7 +81,7 @@ jobs:
               }
 
               dependencies {
-                  classpath "com.android.tools.build:gradle:8.2.0"
+                  classpath "com.android.tools.build:gradle:8.3.0"
               }
           }
 
@@ -112,8 +112,8 @@ jobs:
                   applicationId 'com.leddmx.pro'
                   minSdk 21
                   targetSdk 34
-                  versionCode 302
-                  versionName '3.0.2-AI-FINAL'
+                  versionCode 303
+                  versionName '3.0.3-AI-FINAL'
               }
 
               buildTypes {
@@ -1282,13 +1282,14 @@ jobs:
           }
           EOF
 
-      - name: Build APK with Global Gradle 9.7.1
+      - name: Generate Gradle Wrapper 8.5 & Build APK
         shell: bash
         run: |
           set -eux
           cd LEDDMX-Android
-          gradle --version
-          gradle --no-daemon --stacktrace clean assembleDebug
+          gradle wrapper --gradle-version 8.5
+          chmod +x gradlew
+          ./gradlew --no-daemon --stacktrace clean assembleDebug
 
       - name: Verify APK
         shell: bash
