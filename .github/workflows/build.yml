@@ -118,8 +118,8 @@ jobs:
                   applicationId 'com.leddmx.pro'
                   minSdk 21
                   targetSdk 33
-                  versionCode 102
-                  versionName '1.0.2-FINAL'
+                  versionCode 103
+                  versionName '1.0.3-FINAL'
               }
 
               buildTypes {
@@ -306,6 +306,7 @@ jobs:
 
               private LinearLayout root;
               private LinearLayout content;
+              private ScrollView contentScroll;
               private LinearLayout drawer;
               private TextView status;
               private TextView deviceCount;
@@ -420,12 +421,12 @@ jobs:
                   content.setOrientation(LinearLayout.VERTICAL);
                   content.setPadding(dp(14), dp(10), dp(14), dp(20));
 
-                  ScrollView scroll = new ScrollView(this);
-                  scroll.setFillViewport(true);
-                  scroll.addView(content);
+                  contentScroll = new ScrollView(this);
+                  contentScroll.setFillViewport(true);
+                  contentScroll.addView(content);
 
                   root.addView(
-                          scroll,
+                          contentScroll,
                           new LinearLayout.LayoutParams(
                                   -1,
                                   0,
@@ -443,9 +444,9 @@ jobs:
               }
 
               private void toggleDrawer() {
-                  if (drawer.getVisibility() == View.VISIBLE) {
-                      drawer.setVisibility(View.GONE);
+                  if (drawer.getParent() != null) {
                       root.removeView(drawer);
+                      drawer.setVisibility(View.GONE);
                       return;
                   }
 
@@ -477,6 +478,7 @@ jobs:
                           Color.GRAY
                   ));
 
+                  drawer.setVisibility(View.VISIBLE);
                   root.addView(
                           drawer,
                           1,
@@ -491,14 +493,20 @@ jobs:
                   Button b = button(name, 58);
                   b.setGravity(Gravity.CENTER_VERTICAL);
                   b.setOnClickListener(v -> {
+                      if (drawer.getParent() != null) {
+                          root.removeView(drawer);
+                      }
                       drawer.setVisibility(View.GONE);
-                      root.removeView(drawer);
                       action.run();
                   });
                   drawer.addView(b);
               }
 
               private void clearContent() {
+                  if (drawer.getParent() != null) {
+                      root.removeView(drawer);
+                  }
+                  drawer.setVisibility(View.GONE);
                   content.removeAllViews();
               }
 
@@ -603,12 +611,15 @@ jobs:
                   list.removeAllViews();
 
                   for (BluetoothDevice device : foundDevices.values()) {
-                      String name;
+                      String name = null;
 
                       try {
                           name = device.getName();
-                      } catch (SecurityException e) {
-                          name = null;
+                      } catch (SecurityException ignored) {
+                      }
+
+                      if (name == null || name.trim().isEmpty()) {
+                          name = device.getAlias();
                       }
 
                       if (name == null || name.trim().isEmpty()) {
@@ -850,8 +861,14 @@ jobs:
 
                   writeCharacteristic = null;
 
+                  String devName = "DEVICE";
                   try {
-                      status.setText("CONNECTING " + device.getName());
+                      devName = device.getName();
+                  } catch (SecurityException ignored) {
+                  }
+
+                  try {
+                      status.setText("CONNECTING " + devName);
 
                       gatt = device.connectGatt(
                               this,
@@ -2376,7 +2393,7 @@ jobs:
                           gatt.close();
                       }
                   } catch (Exception ignored) {
-                  }
+                      }
 
                   super.onDestroy();
               }
