@@ -53,742 +53,437 @@ jobs:
           mkdir -p app/src/main/res/values
           mkdir -p app/src/main/res/drawable
 
-          cat > settings.gradle <<'EOF'
-pluginManagement {
-    repositories {
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-    }
-}
-
-dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
-
-rootProject.name = "LEDDMX-Pro"
-include(":app")
-EOF
-
-          cat > build.gradle <<'EOF'
-plugins {
-    id 'com.android.application' version '7.4.2' apply false
-}
-EOF
-
-          cat > gradle.properties <<'EOF'
-org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
-org.gradle.daemon=false
-android.useAndroidX=false
-android.enableJetifier=false
-EOF
-
-          cat > app/build.gradle <<'EOF'
-plugins {
-    id 'com.android.application'
-}
-
-android {
-    namespace 'com.leddmx.pro'
-    compileSdk 33
-
-    defaultConfig {
-        applicationId 'com.leddmx.pro'
-        minSdk 21
-        targetSdk 33
-        versionCode 100
-        versionName '1.0.0'
-    }
-
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
-    }
-
-    buildTypes {
-        debug {
-            minifyEnabled false
-        }
-        release {
-            minifyEnabled false
-        }
-    }
-}
-EOF
-
-          cat > app/src/main/res/values/colors.xml <<'EOF'
-<resources>
-    <color name="black">#080A0D</color>
-    <color name="white">#FFFFFF</color>
-</resources>
-EOF
-
-          cat > app/src/main/res/values/strings.xml <<'EOF'
-<resources>
-    <string name="app_name">LEDDMX Pro</string>
-</resources>
-EOF
-
-          cat > app/src/main/res/values/themes.xml <<'EOF'
-<resources>
-    <style name="AppTheme" parent="@android:style/Theme.Material.NoActionBar">
-        <item name="android:fontFamily">sans</item>
-        <item name="android:windowLightStatusBar">false</item>
-        <item name="android:statusBarColor">#080A0D</item>
-        <item name="android:navigationBarColor">#080A0D</item>
-        <item name="android:colorAccent">#29D65A</item>
-    </style>
-</resources>
-EOF
-
-          cat > app/src/main/AndroidManifest.xml <<'EOF'
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
-    <uses-feature
-        android:name="android.hardware.bluetooth_le"
-        android:required="false" />
-
-    <uses-permission android:name="android.permission.BLUETOOTH" />
-    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
-    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
-    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-
-    <application
-        android:theme="@style/AppTheme"
-        android:label="LEDDMX Pro"
-        android:allowBackup="false"
-        android:supportsRtl="true">
-
-        <activity
-            android:name=".MainActivity"
-            android:screenOrientation="portrait"
-            android:exported="true">
-
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-
-            </intent-filter>
-
-        </activity>
-
-    </application>
-
-</manifest>
-EOF
-
-          cat > app/src/main/java/com/leddmx/pro/MainActivity.java <<'EOF'
-package com.leddmx.pro;
-
-import android.Manifest;
-import android.app.Activity;
-import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothGatt;
-import android.bluetooth.BluetoothGattCallback;
-import android.bluetooth.BluetoothGattCharacteristic;
-import android.bluetooth.BluetoothGattService;
-import android.bluetooth.BluetoothManager;
-import android.bluetooth.le.BluetoothLeScanner;
-import android.bluetooth.le.ScanCallback;
-import android.bluetooth.le.ScanResult;
-import android.bluetooth.le.ScanSettings;
-import android.content.Context;
-import android.content.pm.PackageManager;
-import android.graphics.Color;
-import android.os.Build;
-import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
-import android.view.Gravity;
-import android.view.View;
-import android.widget.Button;
-import android.widget.LinearLayout;
-import android.widget.ScrollView;
-import android.widget.TextView;
-import android.widget.Toast;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
-import java.util.UUID;
-
-public class MainActivity extends Activity {
-
-    private static final UUID SERVICE_FFE0 =
-            UUID.fromString("0000FFE0-0000-1000-8000-00805F9B34FB");
-
-    private static final UUID CHAR_FFE1 =
-            UUID.fromString("0000FFE1-0000-1000-8000-00805F9B34FB");
-
-    private static final UUID OTA_SERVICE =
-            UUID.fromString("5833FF01-9B8B-5191-6142-22A4536EF123");
-
-    private BluetoothAdapter adapter;
-    private BluetoothLeScanner scanner;
-    private BluetoothGatt gatt;
-    private BluetoothGattCharacteristic writeChar;
-
-    private final Handler handler = new Handler(Looper.getMainLooper());
-
-    private LinearLayout root;
-    private LinearLayout deviceList;
-    private TextView status;
-    private TextView terminal;
-
-    private boolean scanning = false;
-
-    private final Map<String, BluetoothDevice> devices = new HashMap<>();
-
-    private final ScanCallback scanCallback = new ScanCallback() {
-
-        @Override
-        public void onScanResult(int callbackType, ScanResult result) {
-            BluetoothDevice d = result.getDevice();
-
-            String name = null;
-
-            try {
-                name = d.getName();
-            } catch (SecurityException ignored) {
-            }
-
-            if (name == null || name.trim().isEmpty()) {
-                if (result.getScanRecord() != null) {
-                    name = result.getScanRecord().getDeviceName();
-                }
-            }
-
-            if (name == null || name.trim().isEmpty()) {
-                name = "UNKNOWN BLE DEVICE";
-            }
-
-            final String finalName = name;
-            final int rssi = result.getRssi();
-
-            runOnUiThread(() ->
-                    addDevice(d, finalName, rssi));
-        }
-
-        @Override
-        public void onScanFailed(int errorCode) {
-            scanning = false;
-
-            runOnUiThread(() -> {
-                status.setText(
-                        "SCAN ERROR " + errorCode +
-                        "\nPastikan Bluetooth & GPS Aktif!"
-                );
-            });
-        }
-    };
-
-    private final BluetoothGattCallback gattCallback =
-            new BluetoothGattCallback() {
-
-        @Override
-        public void onConnectionStateChange(
-                BluetoothGatt g,
-                int statusCode,
-                int newState) {
-
-            runOnUiThread(() -> {
-
-                if (newState ==
-                        android.bluetooth.BluetoothProfile.STATE_CONNECTED) {
-
-                    status.setText("CONNECTED\nDiscovering GATT...");
-                    appendTerminal("DEVICE-SOURCE: GATT connected");
-
-                    if (Build.VERSION.SDK_INT >= 31 &&
-                            checkSelfPermission(
-                                    Manifest.permission.BLUETOOTH_CONNECT)
-                                    != PackageManager.PERMISSION_GRANTED) {
-                        return;
-                    }
-
-                    g.discoverServices();
-
-                } else {
-                    writeChar = null;
-
-                    status.setText(
-                            "DISCONNECTED\nstatus=" + statusCode);
-
-                    appendTerminal(
-                            "DEVICE-SOURCE: disconnected status="
-                                    + statusCode);
-                }
-            });
-        }
-
-        @Override
-        public void onServicesDiscovered(
-                BluetoothGatt g,
-                int statusCode) {
-
-            runOnUiThread(() -> {
-
-                writeChar = null;
-
-                boolean foundFFE0 = false;
-                boolean foundOTA = false;
-
-                for (BluetoothGattService s :
-                        g.getServices()) {
-
-                    UUID sid = s.getUuid();
-
-                    appendTerminal(
-                            "DEVICE-SOURCE: SERVICE " +
-                                    sid.toString());
-
-                    if (sid.equals(SERVICE_FFE0)) {
-                        foundFFE0 = true;
-
-                        for (BluetoothGattCharacteristic c :
-                                s.getCharacteristics()) {
-
-                            appendTerminal(
-                                    "DEVICE-SOURCE: CHARACTERISTIC " +
-                                            c.getUuid().toString());
-
-                            if (c.getUuid().equals(CHAR_FFE1)) {
-                                writeChar = c;
-                            }
-                        }
-                    }
-
-                    if (sid.equals(OTA_SERVICE)) {
-                        foundOTA = true;
-                    }
-                }
-
-                if (writeChar != null) {
-
-                    status.setText(
-                            "READY\nLEDDMX FFE1 FOUND");
-
-                    appendTerminal(
-                            "DEVICE-SOURCE: FFE1 WRITE CHARACTERISTIC FOUND");
-
-                } else {
-
-                    status.setText(
-                            "CONNECTED\nFFE1 NOT FOUND");
-
-                    appendTerminal(
-                            "DEVICE-SOURCE: FFE1 NOT EXPOSED BY DEVICE");
-                }
-
-                if (foundOTA) {
-                    appendTerminal(
-                            "DEVICE-SOURCE: OTA SERVICE DETECTED " +
-                                    OTA_SERVICE);
-                } else {
-                    appendTerminal(
-                            "DEVICE-SOURCE: OTA SERVICE NOT EXPOSED");
-                }
-            });
-        }
-    };
-
-    @Override
-    protected void onCreate(Bundle state) {
-        super.onCreate(state);
-
-        BluetoothManager bm =
-                (BluetoothManager)
-                        getSystemService(Context.BLUETOOTH_SERVICE);
-
-        adapter = bm.getAdapter();
-
-        buildUI();
-
-        requestBlePermissions();
-    }
-
-    private void buildUI() {
-
-        root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(22, 20, 22, 20);
-        root.setBackgroundColor(Color.rgb(8, 10, 13));
-
-        TextView title = new TextView(this);
-        title.setText("LEDDMX PRO");
-        title.setTextColor(Color.WHITE);
-        title.setTextSize(28);
-        title.setGravity(Gravity.CENTER_VERTICAL);
-
-        root.addView(title,
-                new LinearLayout.LayoutParams(
-                        -1, 70));
-
-        status = new TextView(this);
-        status.setText("BLUETOOTH INITIALIZING...");
-        status.setTextColor(Color.LTGRAY);
-        status.setTextSize(15);
-        status.setPadding(0, 10, 0, 10);
-
-        root.addView(status);
-
-        LinearLayout buttons = new LinearLayout(this);
-        buttons.setOrientation(LinearLayout.HORIZONTAL);
-
-        Button scan = new Button(this);
-        scan.setText("SCAN");
-
-        Button stop = new Button(this);
-        stop.setText("STOP");
-
-        buttons.addView(scan,
-                new LinearLayout.LayoutParams(
-                        0, 60, 1));
-
-        buttons.addView(stop,
-                new LinearLayout.LayoutParams(
-                        0, 60, 1));
-
-        root.addView(buttons);
-
-        scan.setOnClickListener(v -> startBleScan());
-        stop.setOnClickListener(v -> stopBleScan());
-
-        TextView devicesTitle = new TextView(this);
-        devicesTitle.setText("AVAILABLE DEVICES");
-        devicesTitle.setTextColor(Color.WHITE);
-        devicesTitle.setTextSize(19);
-        devicesTitle.setPadding(0, 20, 0, 10);
-
-        root.addView(devicesTitle);
-
-        ScrollView deviceScroll = new ScrollView(this);
-
-        deviceList = new LinearLayout(this);
-        deviceList.setOrientation(LinearLayout.VERTICAL);
-
-        deviceScroll.addView(deviceList);
-
-        root.addView(deviceScroll,
-                new LinearLayout.LayoutParams(
-                        -1, 0, 1));
-
-        TextView terminalTitle = new TextView(this);
-        terminalTitle.setText("MODULE / MCU ANALYZER");
-        terminalTitle.setTextColor(Color.WHITE);
-        terminalTitle.setTextSize(18);
-        terminalTitle.setPadding(0, 12, 0, 8);
-
-        root.addView(terminalTitle);
-
-        terminal = new TextView(this);
-        terminal.setTextColor(Color.rgb(80, 220, 110));
-        terminal.setTextSize(11);
-        terminal.setText(
-                "DEVICE-SOURCE TERMINAL\n" +
-                "Waiting for module...\n");
-
-        ScrollView terminalScroll =
-                new ScrollView(this);
-
-        terminalScroll.addView(terminal);
-
-        root.addView(terminalScroll,
-                new LinearLayout.LayoutParams(
-                        -1, 220));
-
-        setContentView(root);
-    }
-
-    private void requestBlePermissions() {
-        ArrayList<String> p = new ArrayList<>();
-
-        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            p.add(Manifest.permission.ACCESS_FINE_LOCATION);
-        }
-
-        if (Build.VERSION.SDK_INT >= 31) {
-            if (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
-                p.add(Manifest.permission.BLUETOOTH_SCAN);
-            }
-            if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                p.add(Manifest.permission.BLUETOOTH_CONNECT);
-            }
-        }
-
-        if (!p.isEmpty()) {
-            requestPermissions(p.toArray(new String[0]), 1001);
-        }
-    }
-
-    private boolean canScan() {
-        if (adapter == null) {
-            toast("Bluetooth tidak tersedia");
-            return false;
-        }
-
-        if (!adapter.isEnabled()) {
-            toast("Nyalakan Bluetooth dulu");
-            return false;
-        }
-
-        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            return false;
-        }
-
-        if (Build.VERSION.SDK_INT >= 31) {
-            return checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED;
-        }
-
-        return true;
-    }
-
-    private void startBleScan() {
-        if (scanning) {
-            return;
-        }
-
-        if (!canScan()) {
-            requestBlePermissions();
-            return;
-        }
-
-        scanner = adapter.getBluetoothLeScanner();
-
-        if (scanner == null) {
-            toast("BLE scanner tidak tersedia");
-            return;
-        }
-
-        devices.clear();
-        deviceList.removeAllViews();
-
-        scanning = true;
-
-        status.setText(
-                "SCANNING BLE...\n" +
-                "Mencari perangkat sekitar...");
-
-        appendTerminal(
-                "DEVICE-SOURCE: scan started");
-
-        ScanSettings settings =
-                new ScanSettings.Builder()
-                        .setScanMode(
-                                ScanSettings.SCAN_MODE_LOW_LATENCY)
-                        .build();
-
-        try {
-            scanner.startScan(
-                    null,
-                    settings,
-                    scanCallback);
-
-        } catch (SecurityException e) {
-            scanning = false;
-            status.setText("SCAN PERMISSION ERROR");
-            appendTerminal("DEVICE-SOURCE: scan permission denied");
-        }
-
-        handler.postDelayed(
-                () -> {
-                    if (scanning) {
-                        stopBleScan();
-                    }
-                },
-                12000);
-    }
-
-    private void stopBleScan() {
-        if (!scanning) {
-            return;
-        }
-
-        scanning = false;
-
-        if (scanner != null) {
-            try {
-                scanner.stopScan(scanCallback);
-            } catch (SecurityException ignored) {
-            }
-        }
-
-        status.setText(
-                "SCAN STOPPED\n" +
-                devices.size() +
-                " device(s) found");
-
-        appendTerminal(
-                "DEVICE-SOURCE: scan stopped");
-    }
-
-    private void addDevice(
-            BluetoothDevice d,
-            String name,
-            int rssi) {
-
-        String address;
-
-        try {
-            address = d.getAddress();
-        } catch (SecurityException e) {
-            address = "permission";
-        }
-
-        if (devices.containsKey(address)) {
-            return;
-        }
-
-        devices.put(address, d);
-
-        LinearLayout card =
-                new LinearLayout(this);
-
-        card.setOrientation(
-                LinearLayout.VERTICAL);
-
-        card.setPadding(
-                16, 12, 16, 12);
-
-        card.setBackgroundColor(
-                Color.rgb(22, 26, 31));
-
-        TextView info =
-                new TextView(this);
-
-        info.setText(
-                name +
-                "\n" +
-                address +
-                "\nRSSI " +
-                rssi);
-
-        info.setTextColor(Color.WHITE);
-        info.setTextSize(14);
-
-        card.addView(info);
-
-        Button connect =
-                new Button(this);
-
-        connect.setText("CONNECT");
-
-        connect.setOnClickListener(
-                v -> connectDevice(d, name));
-
-        card.addView(connect);
-
-        deviceList.addView(
-                card,
-                new LinearLayout.LayoutParams(
-                        -1, -2));
-
-        appendTerminal(
-                "DEVICE-SOURCE: FOUND " +
-                        name +
-                        " / " +
-                        address);
-    }
-
-    private void connectDevice(
-            BluetoothDevice d,
-            String name) {
-
-        stopBleScan();
-
-        status.setText(
-                "CONNECTING...\n" + name);
-
-        appendTerminal(
-                "DEVICE-SOURCE: connecting " +
-                        name);
-
-        try {
-            if (Build.VERSION.SDK_INT >= 31 &&
-                    checkSelfPermission(
-                            Manifest.permission.BLUETOOTH_CONNECT)
-                            != PackageManager.PERMISSION_GRANTED) {
-
-                requestBlePermissions();
-                return;
-            }
-
-            if (gatt != null) {
-                gatt.close();
-                gatt = null;
-            }
-
-            gatt = d.connectGatt(
-                    this,
-                    false,
-                    gattCallback,
-                    BluetoothDevice.TRANSPORT_LE);
-
-        } catch (Exception e) {
-            status.setText(
-                    "CONNECT ERROR\n" +
-                            e.getMessage());
-
-            appendTerminal(
-                    "DEVICE-SOURCE: connect error " +
-                            e.getMessage());
-        }
-    }
-
-    private void appendTerminal(
-            String text) {
-
-        if (terminal == null) return;
-
-        terminal.append(
-                "\n" + text);
-    }
-
-    private void toast(String text) {
-        Toast.makeText(
-                this,
-                text,
-                Toast.LENGTH_SHORT)
-                .show();
-    }
-
-    @Override
-    protected void onDestroy() {
-        stopBleScan();
-
-        if (gatt != null) {
-            try {
-                gatt.close();
-            } catch (Exception ignored) {
-            }
-            gatt = null;
-        }
-
-        super.onDestroy();
-    }
-}
-EOF
+          cat > settings.gradle << 'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "LEDDMX-Pro"
+          include(":app")
+          EOF
+
+          cat > build.gradle << 'EOF'
+          plugins {
+              id 'com.android.application' version '7.4.2' apply false
+          }
+          EOF
+
+          cat > gradle.properties << 'EOF'
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          org.gradle.daemon=false
+          android.useAndroidX=false
+          android.enableJetifier=false
+          EOF
+
+          cat > app/build.gradle << 'EOF'
+          plugins {
+              id 'com.android.application'
+          }
+          android {
+              namespace 'com.leddmx.pro'
+              compileSdk 33
+              defaultConfig {
+                  applicationId 'com.leddmx.pro'
+                  minSdk 21
+                  targetSdk 33
+                  versionCode 100
+                  versionName '1.0.0'
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+              buildTypes {
+                  debug { minifyEnabled false }
+                  release { minifyEnabled false }
+              }
+          }
+          EOF
+
+          cat > app/src/main/res/values/colors.xml << 'EOF'
+          <resources>
+              <color name="black">#080A0D</color>
+              <color name="white">#FFFFFF</color>
+          </resources>
+          EOF
+
+          cat > app/src/main/res/values/strings.xml << 'EOF'
+          <resources>
+              <string name="app_name">LEDDMX Pro</string>
+          </resources>
+          EOF
+
+          cat > app/src/main/res/values/themes.xml << 'EOF'
+          <resources>
+              <style name="AppTheme" parent="@android:style/Theme.Material.NoActionBar">
+                  <item name="android:fontFamily">sans</item>
+                  <item name="android:windowLightStatusBar">false</item>
+                  <item name="android:statusBarColor">#080A0D</item>
+                  <item name="android:navigationBarColor">#080A0D</item>
+                  <item name="android:colorAccent">#29D65A</item>
+              </style>
+          </resources>
+          EOF
+
+          cat > app/src/main/AndroidManifest.xml << 'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
+              <uses-permission android:name="android.permission.BLUETOOTH" />
+              <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+              <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+              <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+              <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+              <application
+                  android:theme="@style/AppTheme"
+                  android:label="LEDDMX Pro"
+                  android:allowBackup="false"
+                  android:supportsRtl="true">
+                  <activity
+                      android:name=".MainActivity"
+                      android:screenOrientation="portrait"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          cat > app/src/main/java/com/leddmx/pro/MainActivity.java << 'EOF'
+          package com.leddmx.pro;
+
+          import android.Manifest;
+          import android.app.Activity;
+          import android.bluetooth.BluetoothAdapter;
+          import android.bluetooth.BluetoothDevice;
+          import android.bluetooth.BluetoothGatt;
+          import android.bluetooth.BluetoothGattCallback;
+          import android.bluetooth.BluetoothGattCharacteristic;
+          import android.bluetooth.BluetoothGattService;
+          import android.bluetooth.BluetoothManager;
+          import android.bluetooth.le.BluetoothLeScanner;
+          import android.bluetooth.le.ScanCallback;
+          import android.bluetooth.le.ScanResult;
+          import android.bluetooth.le.ScanSettings;
+          import android.content.Context;
+          import android.content.pm.PackageManager;
+          import android.graphics.Color;
+          import android.os.Build;
+          import android.os.Bundle;
+          import android.os.Handler;
+          import android.os.Looper;
+          import android.view.Gravity;
+          import android.view.View;
+          import android.widget.Button;
+          import android.widget.LinearLayout;
+          import android.widget.ScrollView;
+          import android.widget.TextView;
+          import android.widget.Toast;
+
+          import java.util.ArrayList;
+          import java.util.HashMap;
+          import java.util.Locale;
+          import java.util.Map;
+          import java.util.UUID;
+
+          public class MainActivity extends Activity {
+              private static final UUID SERVICE_FFE0 = UUID.fromString("0000FFE0-0000-1000-8000-00805F9B34FB");
+              private static final UUID CHAR_FFE1 = UUID.fromString("0000FFE1-0000-1000-8000-00805F9B34FB");
+              private static final UUID OTA_SERVICE = UUID.fromString("5833FF01-9B8B-5191-6142-22A4536EF123");
+
+              private BluetoothAdapter adapter;
+              private BluetoothLeScanner scanner;
+              private BluetoothGatt gatt;
+              private BluetoothGattCharacteristic writeChar;
+              private final Handler handler = new Handler(Looper.getMainLooper());
+              private LinearLayout root, deviceList;
+              private TextView status, terminal;
+              private boolean scanning = false;
+              private final Map<String, BluetoothDevice> devices = new HashMap<>();
+
+              private final ScanCallback scanCallback = new ScanCallback() {
+                  @Override
+                  public void onScanResult(int callbackType, ScanResult result) {
+                      BluetoothDevice d = result.getDevice();
+                      String name = null;
+                      try { name = d.getName(); } catch (SecurityException ignored) {}
+                      if (name == null || name.trim().isEmpty()) {
+                          if (result.getScanRecord() != null) name = result.getScanRecord().getDeviceName();
+                      }
+                      if (name == null || name.trim().isEmpty()) name = "UNKNOWN BLE DEVICE";
+                      final String finalName = name;
+                      final int rssi = result.getRssi();
+                      runOnUiThread(() -> addDevice(d, finalName, rssi));
+                  }
+                  @Override
+                  public void onScanFailed(int errorCode) {
+                      scanning = false;
+                      runOnUiThread(() -> status.setText("SCAN ERROR " + errorCode + "\nPastikan Bluetooth & GPS Aktif!"));
+                  }
+              };
+
+              private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
+                  @Override
+                  public void onConnectionStateChange(BluetoothGatt g, int statusCode, int newState) {
+                      runOnUiThread(() -> {
+                          if (newState == android.bluetooth.BluetoothProfile.STATE_CONNECTED) {
+                              status.setText("CONNECTED\nDiscovering GATT...");
+                              appendTerminal("DEVICE-SOURCE: GATT connected");
+                              if (Build.VERSION.SDK_INT >= 31 && checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) return;
+                              g.discoverServices();
+                          } else {
+                              writeChar = null;
+                              status.setText("DISCONNECTED\nstatus=" + statusCode);
+                              appendTerminal("DEVICE-SOURCE: disconnected status=" + statusCode);
+                          }
+                      });
+                  }
+                  @Override
+                  public void onServicesDiscovered(BluetoothGatt g, int statusCode) {
+                      runOnUiThread(() -> {
+                          writeChar = null;
+                          boolean foundFFE0 = false, foundOTA = false;
+                          for (BluetoothGattService s : g.getServices()) {
+                              UUID sid = s.getUuid();
+                              appendTerminal("DEVICE-SOURCE: SERVICE " + sid.toString());
+                              if (sid.equals(SERVICE_FFE0)) {
+                                  foundFFE0 = true;
+                                  for (BluetoothGattCharacteristic c : s.getCharacteristics()) {
+                                      appendTerminal("DEVICE-SOURCE: CHARACTERISTIC " + c.getUuid().toString());
+                                      if (c.getUuid().equals(CHAR_FFE1)) writeChar = c;
+                                  }
+                              }
+                              if (sid.equals(OTA_SERVICE)) foundOTA = true;
+                          }
+                          if (writeChar != null) {
+                              status.setText("READY\nLEDDMX FFE1 FOUND");
+                              appendTerminal("DEVICE-SOURCE: FFE1 WRITE CHARACTERISTIC FOUND");
+                          } else {
+                              status.setText("CONNECTED\nFFE1 NOT FOUND");
+                              appendTerminal("DEVICE-SOURCE: FFE1 NOT EXPOSED BY DEVICE");
+                          }
+                      });
+                  }
+              };
+
+              @Override
+              protected void onCreate(Bundle state) {
+                  super.onCreate(state);
+                  BluetoothManager bm = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+                  adapter = bm.getAdapter();
+                  buildUI();
+                  requestBlePermissions();
+              }
+
+              private void buildUI() {
+                  root = new LinearLayout(this);
+                  root.setOrientation(LinearLayout.VERTICAL);
+                  root.setPadding(22, 20, 22, 20);
+                  root.setBackgroundColor(Color.rgb(8, 10, 13));
+
+                  TextView title = new TextView(this);
+                  title.setText("LEDDMX PRO");
+                  title.setTextColor(Color.WHITE);
+                  title.setTextSize(28);
+                  title.setGravity(Gravity.CENTER_VERTICAL);
+                  root.addView(title, new LinearLayout.LayoutParams(-1, 70));
+
+                  status = new TextView(this);
+                  status.setText("BLUETOOTH INITIALIZING...");
+                  status.setTextColor(Color.LTGRAY);
+                  status.setTextSize(15);
+                  status.setPadding(0, 10, 0, 10);
+                  root.addView(status);
+
+                  LinearLayout buttons = new LinearLayout(this);
+                  buttons.setOrientation(LinearLayout.HORIZONTAL);
+                  Button scan = new Button(this);
+                  scan.setText("SCAN");
+                  Button stop = new Button(this);
+                  stop.setText("STOP");
+                  buttons.addView(scan, new LinearLayout.LayoutParams(0, 60, 1));
+                  buttons.addView(stop, new LinearLayout.LayoutParams(0, 60, 1));
+                  root.addView(buttons);
+
+                  scan.setOnClickListener(v -> startBleScan());
+                  stop.setOnClickListener(v -> stopBleScan());
+
+                  TextView devicesTitle = new TextView(this);
+                  devicesTitle.setText("AVAILABLE DEVICES");
+                  devicesTitle.setTextColor(Color.WHITE);
+                  devicesTitle.setTextSize(19);
+                  devicesTitle.setPadding(0, 20, 0, 10);
+                  root.addView(devicesTitle);
+
+                  ScrollView deviceScroll = new ScrollView(this);
+                  deviceList = new LinearLayout(this);
+                  deviceList.setOrientation(LinearLayout.VERTICAL);
+                  deviceScroll.addView(deviceList);
+                  root.addView(deviceScroll, new LinearLayout.LayoutParams(-1, 0, 1));
+
+                  TextView terminalTitle = new TextView(this);
+                  terminalTitle.setText("MODULE / MCU ANALYZER");
+                  terminalTitle.setTextColor(Color.WHITE);
+                  terminalTitle.setTextSize(18);
+                  terminalTitle.setPadding(0, 12, 0, 8);
+                  root.addView(terminalTitle);
+
+                  terminal = new TextView(this);
+                  terminal.setTextColor(Color.rgb(80, 220, 110));
+                  terminal.setTextSize(11);
+                  terminal.setText("DEVICE-SOURCE TERMINAL\nWaiting for module...\n");
+
+                  ScrollView terminalScroll = new ScrollView(this);
+                  terminalScroll.addView(terminal);
+                  root.addView(terminalScroll, new LinearLayout.LayoutParams(-1, 220));
+
+                  setContentView(root);
+              }
+
+              private void requestBlePermissions() {
+                  ArrayList<String> p = new ArrayList<>();
+                  if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                      p.add(Manifest.permission.ACCESS_FINE_LOCATION);
+                  }
+                  if (Build.VERSION.SDK_INT >= 31) {
+                      if (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+                          p.add(Manifest.permission.BLUETOOTH_SCAN);
+                      }
+                      if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                          p.add(Manifest.permission.BLUETOOTH_CONNECT);
+                      }
+                  }
+                  if (!p.isEmpty()) {
+                      requestPermissions(p.toArray(new String[0]), 1001);
+                  }
+              }
+
+              private boolean canScan() {
+                  if (adapter == null || !adapter.isEnabled()) return false;
+                  if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) return false;
+                  if (Build.VERSION.SDK_INT >= 31) {
+                      return checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED;
+                  }
+                  return true;
+              }
+
+              private void startBleScan() {
+                  if (scanning) return;
+                  if (!canScan()) {
+                      requestBlePermissions();
+                      return;
+                  }
+                  scanner = adapter.getBluetoothLeScanner();
+                  if (scanner == null) return;
+                  devices.clear();
+                  deviceList.removeAllViews();
+                  scanning = true;
+                  status.setText("SCANNING BLE...\nMencari perangkat sekitar...");
+                  appendTerminal("DEVICE-SOURCE: scan started");
+                  ScanSettings settings = new ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build();
+                  try {
+                      scanner.startScan(null, settings, scanCallback);
+                  } catch (SecurityException e) {
+                      scanning = false;
+                      status.setText("SCAN PERMISSION ERROR");
+                  }
+                  handler.postDelayed(() -> { if (scanning) stopBleScan(); }, 12000);
+              }
+
+              private void stopBleScan() {
+                  if (!scanning) return;
+                  scanning = false;
+                  if (scanner != null) {
+                      try { scanner.stopScan(scanCallback); } catch (SecurityException ignored) {}
+                  }
+                  status.setText("SCAN STOPPED\n" + devices.size() + " device(s) found");
+                  appendTerminal("DEVICE-SOURCE: scan stopped");
+              }
+
+              private void addDevice(BluetoothDevice d, String name, int rssi) {
+                  String address;
+                  try { address = d.getAddress(); } catch (SecurityException e) { address = "permission"; }
+                  if (devices.containsKey(address)) return;
+                  devices.put(address, d);
+
+                  LinearLayout card = new LinearLayout(this);
+                  card.setOrientation(LinearLayout.VERTICAL);
+                  card.setPadding(16, 12, 16, 12);
+                  card.setBackgroundColor(Color.rgb(22, 26, 31));
+
+                  TextView info = new TextView(this);
+                  info.setText(name + "\n" + address + "\nRSSI " + rssi);
+                  info.setTextColor(Color.WHITE);
+                  info.setTextSize(14);
+                  card.addView(info);
+
+                  Button connect = new Button(this);
+                  connect.setText("CONNECT");
+                  connect.setOnClickListener(v -> connectDevice(d, name));
+                  card.addView(connect);
+
+                  deviceList.addView(card, new LinearLayout.LayoutParams(-1, -2));
+                  appendTerminal("DEVICE-SOURCE: FOUND " + name + " / " + address);
+              }
+
+              private void connectDevice(BluetoothDevice d, String name) {
+                  stopBleScan();
+                  status.setText("CONNECTING...\n" + name);
+                  appendTerminal("DEVICE-SOURCE: connecting " + name);
+                  try {
+                      if (Build.VERSION.SDK_INT >= 31 && checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                          requestBlePermissions();
+                          return;
+                      }
+                      if (gatt != null) {
+                          gatt.close();
+                          gatt = null;
+                      }
+                      gatt = d.connectGatt(this, false, gattCallback, BluetoothDevice.TRANSPORT_LE);
+                  } catch (Exception e) {
+                      status.setText("CONNECT ERROR\n" + e.getMessage());
+                  }
+              }
+
+              private void appendTerminal(String text) {
+                  if (terminal != null) terminal.append("\n" + text);
+              }
+
+              @Override
+              protected void onDestroy() {
+                  stopBleScan();
+                  if (gatt != null) {
+                      try { gatt.close(); } catch (Exception ignored) {}
+                      gatt = null;
+                  }
+                  super.onDestroy();
+              }
+          }
+          EOF
 
       - name: Verify project
         shell: bash
         run: |
           set -e
           cd LEDDMX-Android
-
           test -f settings.gradle
           test -f build.gradle
           test -f app/build.gradle
           test -f app/src/main/AndroidManifest.xml
           test -f app/src/main/java/com/leddmx/pro/MainActivity.java
-
           echo "PROJECT FILES OK"
 
       - name: Build APK
@@ -796,25 +491,15 @@ EOF
         run: |
           set -e
           cd LEDDMX-Android
-
           gradle --version
-
-          gradle \
-            --no-daemon \
-            --stacktrace \
-            --offline \
-            clean \
-            assembleDebug
+          gradle --no-daemon --stacktrace --offline clean assembleDebug
 
       - name: Verify APK
         shell: bash
         run: |
           set -e
-
           APK="LEDDMX-Android/app/build/outputs/apk/debug/app-debug.apk"
-
           test -f "$APK"
-
           echo "APK FOUND:"
           ls -lh "$APK"
 
