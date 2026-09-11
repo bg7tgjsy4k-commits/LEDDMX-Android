@@ -242,7 +242,6 @@ try:
     data = urllib.request.urlopen(url, timeout=20).read().decode("utf-8")
     strings = re.findall(r'"((?:\\.|[^"\\])*)"', data)
 
-    # Keep only the PatternList string entries.
     strings = [s.replace('\\"', '"').replace("\\n", " ") for s in strings]
 
     if len(strings) < 211:
