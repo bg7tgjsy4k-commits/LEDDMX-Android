@@ -46,12 +46,12 @@ jobs:
         run: |
           set -e
 
-          rm -rf LEDDMX-Android
-          mkdir -p LEDDMX-Android/app/src/main/java/com/leddmx/pro
-          mkdir -p LEDDMX-Android/app/src/main/res/values
-          mkdir -p LEDDMX-Android/app/src/main/res/drawable
+          # Bersihkan total workspace root
+          rm -rf app settings.gradle build.gradle gradle.properties gradle LEDDMX-Android
 
-          cd LEDDMX-Android
+          mkdir -p app/src/main/java/com/leddmx/pro
+          mkdir -p app/src/main/res/values
+          mkdir -p app/src/main/res/drawable
 
           cat << 'EOF' > settings.gradle
           pluginManagement {
@@ -112,8 +112,8 @@ jobs:
                   applicationId 'com.leddmx.pro'
                   minSdk 21
                   targetSdk 34
-                  versionCode 305
-                  versionName '3.0.5-AI-FINAL'
+                  versionCode 306
+                  versionName '3.0.6-AI-FINAL'
               }
 
               buildTypes {
@@ -1282,18 +1282,18 @@ jobs:
           }
           EOF
 
-      - name: Download and Run Gradle 8.5 Directly
+      - name: Download and Run Gradle 8.5 Directly (Root Level)
         shell: bash
         run: |
           set -eux
-          cd LEDDMX-Android
           
-          # Download Gradle 8.5 binary zip directly from official services
+          # Download Gradle 8.5 directly di root workspace
           wget -q https://services.gradle.org/distributions/gradle-8.5-bin.zip
           unzip -q gradle-8.5-bin.zip
           
-          # Use the extracted gradle 8.5 binary directly to build!
+          # Set PATH ke gradle 8.5 root workspace secara mutlak
           export PATH="$(pwd)/gradle-8.5/bin:$PATH"
+          
           gradle --version
           gradle --no-daemon --stacktrace clean assembleDebug
 
@@ -1301,7 +1301,7 @@ jobs:
         shell: bash
         run: |
           set -eux
-          APK="LEDDMX-Android/app/build/outputs/apk/debug/app-debug.apk"
+          APK="app/build/outputs/apk/debug/app-debug.apk"
           test -f "$APK"
           test -s "$APK"
           ls -lh "$APK"
@@ -1310,6 +1310,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: LEDDMX-AI-Pro-FINAL
-          path: LEDDMX-Android/app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
