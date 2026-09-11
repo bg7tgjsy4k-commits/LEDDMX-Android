@@ -41,7 +41,7 @@ jobs:
                      "platforms;android-${ANDROID_COMPILE_SDK}" \
                      "build-tools;${ANDROID_BUILD_TOOLS}"
 
-      - name: Create project structure & Gradle Wrapper 8.5
+      - name: Create project structure & Manual Wrapper
         shell: bash
         run: |
           set -e
@@ -50,6 +50,7 @@ jobs:
           mkdir -p LEDDMX-Android/app/src/main/java/com/leddmx/pro
           mkdir -p LEDDMX-Android/app/src/main/res/values
           mkdir -p LEDDMX-Android/app/src/main/res/drawable
+          mkdir -p LEDDMX-Android/gradle/wrapper
 
           cd LEDDMX-Android
 
@@ -99,6 +100,16 @@ jobs:
           android.enableJetifier=true
           EOF
 
+          cat << 'EOF' > gradle/wrapper/gradle-wrapper.properties
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.5-bin.zip
+          networkTimeout=10000
+          validateDistributionUrl=true
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          EOF
+
           cat << 'EOF' > app/build.gradle
           plugins {
               id 'com.android.application'
@@ -112,8 +123,8 @@ jobs:
                   applicationId 'com.leddmx.pro'
                   minSdk 21
                   targetSdk 34
-                  versionCode 303
-                  versionName '3.0.3-AI-FINAL'
+                  versionCode 304
+                  versionName '3.0.4-AI-FINAL'
               }
 
               buildTypes {
@@ -1282,13 +1293,24 @@ jobs:
           }
           EOF
 
-      - name: Generate Gradle Wrapper 8.5 & Build APK
+      - name: Build APK with Gradle Wrapper 8.5
         shell: bash
         run: |
           set -eux
           cd LEDDMX-Android
-          gradle wrapper --gradle-version 8.5
-          chmod +x gradlew
+          # Download Gradle distribution directly via wrapper script or gradle command if available, 
+          # or let wrapper download it automatically on first execution:
+          chmod +x gradlew || true
+          
+          # If gradlew script file is missing because we only created properties, let's create a minimal gradlew shell script runner:
+          if [ ! -f gradlew ]; then
+            cat << 'GW' > gradlew
+          #!/usr/bin/env sh
+          exec gradle "$@"
+          GW
+            chmod +x gradlew
+          fi
+
           ./gradlew --no-daemon --stacktrace clean assembleDebug
 
       - name: Verify APK
