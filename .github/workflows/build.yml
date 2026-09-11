@@ -41,13 +41,11 @@ jobs:
                      "platforms;android-${ANDROID_COMPILE_SDK}" \
                      "build-tools;${ANDROID_BUILD_TOOLS}"
 
-      - name: Create project structure & Direct Gradle 8.5 Download
+      - name: Create project files directly at workspace root
         shell: bash
         run: |
           set -e
-
-          # Bersihkan total workspace root
-          rm -rf app settings.gradle build.gradle gradle.properties gradle LEDDMX-Android
+          cd $GITHUB_WORKSPACE
 
           mkdir -p app/src/main/java/com/leddmx/pro
           mkdir -p app/src/main/res/values
@@ -112,8 +110,8 @@ jobs:
                   applicationId 'com.leddmx.pro'
                   minSdk 21
                   targetSdk 34
-                  versionCode 306
-                  versionName '3.0.6-AI-FINAL'
+                  versionCode 307
+                  versionName '3.0.7-AI-FINAL'
               }
 
               buildTypes {
@@ -1282,17 +1280,18 @@ jobs:
           }
           EOF
 
-      - name: Download and Run Gradle 8.5 Directly (Root Level)
+      - name: Download and Run Gradle 8.5 at Workspace Root
         shell: bash
         run: |
           set -eux
+          cd $GITHUB_WORKSPACE
           
-          # Download Gradle 8.5 directly di root workspace
+          # Download Gradle 8.5 di root workspace yang benar
           wget -q https://services.gradle.org/distributions/gradle-8.5-bin.zip
           unzip -q gradle-8.5-bin.zip
           
-          # Set PATH ke gradle 8.5 root workspace secara mutlak
-          export PATH="$(pwd)/gradle-8.5/bin:$PATH"
+          # Masukkan bin Gradle 8.5 ke PATH secara presisi
+          export PATH="$GITHUB_WORKSPACE/gradle-8.5/bin:$PATH"
           
           gradle --version
           gradle --no-daemon --stacktrace clean assembleDebug
@@ -1301,6 +1300,7 @@ jobs:
         shell: bash
         run: |
           set -eux
+          cd $GITHUB_WORKSPACE
           APK="app/build/outputs/apk/debug/app-debug.apk"
           test -f "$APK"
           test -s "$APK"
