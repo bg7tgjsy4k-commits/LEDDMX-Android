@@ -1,4 +1,4 @@
-name: Build LEDDMX Pro
+Name: Build LEDDMX Pro
 
 on:
   workflow_dispatch:
@@ -100,8 +100,8 @@ android {
         applicationId 'com.leddmx.pro'
         minSdk 21
         targetSdk 33
-        versionCode 100
-        versionName '1.0.0'
+        versionCode 101
+        versionName '1.0.1'
     }
 
     compileOptions {
@@ -155,15 +155,12 @@ EOF
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
 
-    <uses-permission
-        android:name="android.permission.BLUETOOTH_SCAN"
-        android:usesPermissionFlags="neverForLocation" />
+    <!-- Diperbaiki: Hapus flags neverForLocation agar Android mengizinkan scan BLE menggunakan lokasi -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
-    <uses-permission
-        android:name="android.permission.BLUETOOTH_CONNECT" />
-
-    <uses-permission
-        android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <application
         android:theme="@style/AppTheme"
@@ -217,7 +214,6 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
-import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -274,7 +270,7 @@ public class MainActivity extends Activity {
             }
 
             if (name == null || name.trim().isEmpty()) {
-                name = "UNKNOWN BLE";
+                name = "UNKNOWN BLE DEVICE";
             }
 
             final String finalName = name;
@@ -291,7 +287,7 @@ public class MainActivity extends Activity {
             runOnUiThread(() -> {
                 status.setText(
                         "SCAN ERROR " + errorCode +
-                        "\nCheck Bluetooth + permission + location services."
+                        "\nPastikan Bluetooth & GPS/Lokasi HP Aktif!"
                 );
             });
         }
@@ -516,46 +512,28 @@ public class MainActivity extends Activity {
     }
 
     private void requestBlePermissions() {
+        ArrayList<String> p = new ArrayList<>();
 
-        ArrayList<String> p =
-                new ArrayList<>();
+        // Diperbaiki: Selalu wajibkan ACCESS_FINE_LOCATION di semua versi Android agar scan BLE hardware tidak diblokir sistem
+        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            p.add(Manifest.permission.ACCESS_FINE_LOCATION);
+        }
 
         if (Build.VERSION.SDK_INT >= 31) {
-
-            if (checkSelfPermission(
-                    Manifest.permission.BLUETOOTH_SCAN)
-                    != PackageManager.PERMISSION_GRANTED) {
-
+            if (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
                 p.add(Manifest.permission.BLUETOOTH_SCAN);
             }
-
-            if (checkSelfPermission(
-                    Manifest.permission.BLUETOOTH_CONNECT)
-                    != PackageManager.PERMISSION_GRANTED) {
-
+            if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
                 p.add(Manifest.permission.BLUETOOTH_CONNECT);
-            }
-
-        } else {
-
-            if (checkSelfPermission(
-                    Manifest.permission.ACCESS_FINE_LOCATION)
-                    != PackageManager.PERMISSION_GRANTED) {
-
-                p.add(Manifest.permission.ACCESS_FINE_LOCATION);
             }
         }
 
         if (!p.isEmpty()) {
-
-            requestPermissions(
-                    p.toArray(new String[0]),
-                    1001);
+            requestPermissions(p.toArray(new String[0]), 1001);
         }
     }
 
     private boolean canScan() {
-
         if (adapter == null) {
             toast("Bluetooth tidak tersedia");
             return false;
@@ -566,22 +544,20 @@ public class MainActivity extends Activity {
             return false;
         }
 
-        if (Build.VERSION.SDK_INT >= 31) {
-
-            return checkSelfPermission(
-                    Manifest.permission.BLUETOOTH_SCAN)
-                    == PackageManager.PERMISSION_GRANTED;
-
-        } else {
-
-            return checkSelfPermission(
-                    Manifest.permission.ACCESS_FINE_LOCATION)
-                    == PackageManager.PERMISSION_GRANTED;
+        // Pastikan izin lokasi terverifikasi
+        boolean locGranted = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        if (!locGranted) {
+            return false;
         }
+
+        if (Build.VERSION.SDK_INT >= 31) {
+            return checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED;
+        }
+
+        return true;
     }
 
     private void startBleScan() {
-
         if (scanning) {
             return;
         }
@@ -605,7 +581,7 @@ public class MainActivity extends Activity {
 
         status.setText(
                 "SCANNING BLE...\n" +
-                "Mencari LEDDMX / LED LAMP modules");
+                "Mencari perangkat sekitar...");
 
         appendTerminal(
                 "DEVICE-SOURCE: scan started");
@@ -617,21 +593,16 @@ public class MainActivity extends Activity {
                         .build();
 
         try {
-
+            // Tanpa filter service UUID agar semua perangkat BLE di sekitar (termasuk modul LEDDMX) pasti tertangkap
             scanner.startScan(
                     null,
                     settings,
                     scanCallback);
 
         } catch (SecurityException e) {
-
             scanning = false;
-
-            status.setText(
-                    "SCAN PERMISSION ERROR");
-
-            appendTerminal(
-                    "DEVICE-SOURCE: scan permission denied");
+            status.setText("SCAN PERMISSION ERROR");
+            appendTerminal("DEVICE-SOURCE: scan permission denied");
         }
 
         handler.postDelayed(
@@ -644,7 +615,6 @@ public class MainActivity extends Activity {
     }
 
     private void stopBleScan() {
-
         if (!scanning) {
             return;
         }
@@ -652,7 +622,6 @@ public class MainActivity extends Activity {
         scanning = false;
 
         if (scanner != null) {
-
             try {
                 scanner.stopScan(scanCallback);
             } catch (SecurityException ignored) {
@@ -729,16 +698,11 @@ public class MainActivity extends Activity {
                 new LinearLayout.LayoutParams(
                         -1, -2));
 
-        if (name.toUpperCase(
-                Locale.US)
-                .contains("LEDDMX")) {
-
-            appendTerminal(
-                    "DEVICE-SOURCE: FOUND " +
-                            name +
-                            " / " +
-                            address);
-        }
+        appendTerminal(
+                "DEVICE-SOURCE: FOUND " +
+                        name +
+                        " / " +
+                        address);
     }
 
     private void connectDevice(
@@ -755,7 +719,6 @@ public class MainActivity extends Activity {
                         name);
 
         try {
-
             if (Build.VERSION.SDK_INT >= 31 &&
                     checkSelfPermission(
                             Manifest.permission.BLUETOOTH_CONNECT)
@@ -777,7 +740,6 @@ public class MainActivity extends Activity {
                     BluetoothDevice.TRANSPORT_LE);
 
         } catch (Exception e) {
-
             status.setText(
                     "CONNECT ERROR\n" +
                             e.getMessage());
@@ -789,7 +751,6 @@ public class MainActivity extends Activity {
     }
 
     private void send(byte[] packet) {
-
         if (gatt == null ||
                 writeChar == null) {
 
@@ -811,12 +772,9 @@ public class MainActivity extends Activity {
         boolean ok;
 
         try {
-
             ok = gatt.writeCharacteristic(
                     writeChar);
-
         } catch (Exception e) {
-
             ok = false;
         }
 
@@ -831,104 +789,6 @@ public class MainActivity extends Activity {
                 60);
     }
 
-    private void power(boolean on) {
-
-        send(new byte[] {
-                0x7B,
-                (byte)0xFF,
-                0x04,
-                (byte)(on ? 0x01 : 0x00),
-                (byte)0xFF,
-                (byte)0xFF,
-                (byte)0xFF,
-                (byte)0xFF,
-                (byte)0xBF
-        });
-    }
-
-    private void mode(int mode) {
-
-        if (mode < 1) mode = 1;
-        if (mode > 210) mode = 210;
-
-        send(new byte[] {
-                0x7B,
-                (byte)0xFF,
-                0x03,
-                (byte)mode,
-                (byte)0xFF,
-                (byte)0xFF,
-                (byte)0xFF,
-                (byte)0xFF,
-                (byte)0xBF
-        });
-    }
-
-    private void rgb(
-            int r,
-            int g,
-            int b) {
-
-        send(new byte[] {
-                0x7B,
-                (byte)0xFF,
-                0x07,
-                (byte)r,
-                (byte)g,
-                (byte)b,
-                0x00,
-                (byte)0xFF,
-                (byte)0xBF
-        });
-    }
-
-    private void brightness(int percent) {
-
-        int value =
-                Math.max(
-                        0,
-                        Math.min(
-                                100,
-                                percent));
-
-        int scaled =
-                value * 32 / 100;
-
-        send(new byte[] {
-                0x7B,
-                (byte)0xFF,
-                0x01,
-                (byte)scaled,
-                (byte)value,
-                0x00,
-                (byte)0xFF,
-                (byte)0xFF,
-                (byte)0xBF
-        });
-    }
-
-    private void speed(int value) {
-
-        value =
-                Math.max(
-                        0,
-                        Math.min(
-                                255,
-                                value));
-
-        send(new byte[] {
-                0x7B,
-                (byte)0xFF,
-                0x02,
-                (byte)value,
-                0x00,
-                (byte)0xFF,
-                (byte)0xFF,
-                (byte)0xFF,
-                (byte)0xBF
-        });
-    }
-
     private void appendTerminal(
             String text) {
 
@@ -939,12 +799,10 @@ public class MainActivity extends Activity {
     }
 
     private String hex(byte[] data) {
-
         StringBuilder s =
                 new StringBuilder();
 
         for (byte b : data) {
-
             s.append(
                     String.format(
                             Locale.US,
@@ -956,7 +814,6 @@ public class MainActivity extends Activity {
     }
 
     private void toast(String text) {
-
         Toast.makeText(
                 this,
                 text,
@@ -966,16 +823,13 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
-
         stopBleScan();
 
         if (gatt != null) {
-
             try {
                 gatt.close();
             } catch (Exception ignored) {
             }
-
             gatt = null;
         }
 
